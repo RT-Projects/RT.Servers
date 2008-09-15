@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.IO;
+using System.Globalization;
+using System.IO.Compression;
 
 namespace Servers
 {
@@ -70,8 +72,9 @@ namespace Servers
             {
                 if (i >= 0)
                 {
-                    SoFar += Path.DirectorySeparatorChar + URLPieces[i];
-                    SoFarURL += "/" + URLPieces[i];
+                    string Piece = URLUnescape(URLPieces[i]);
+                    SoFar += Path.DirectorySeparatorChar + Piece;
+                    SoFarURL += "/" + Piece;
                 }
                 if (File.Exists(p + SoFar))
                 {
@@ -90,26 +93,70 @@ namespace Servers
             }
             // If this point is reached, it's a directory
             if (!Req.URL.EndsWith("/"))
-                return new HTTPResponse() { Headers = new HTTPResponseHeaders() { Location = Req.URL + "/" }, Status = HTTPStatusCode._301_MovedPermanently };
+                return GenericRedirect(Req.URL + "/");
 
-            return new HTTPResponse()
+            if (Opt.DirectoryListingStyle == DirectoryListingStyle.XMLplusXSL)
             {
-                Headers = new HTTPResponseHeaders() { ContentType = "text/html" },
-                Status = HTTPStatusCode._200_OK,
-                Content = new DynamicContentStream(DynamicDirectoryHandler(p + SoFar, BaseURL + SoFarURL))
-            };
+                return new HTTPResponse()
+                {
+                    Headers = new HTTPResponseHeaders() { ContentType = "application/xml; charset=utf-8" },
+                    Status = HTTPStatusCode._200_OK,
+                    Content = new DynamicContentStream(DirectoryHandlerXMLplusXSL(p + SoFar, BaseURL + SoFarURL))
+                };
+            }
+            /*
+            else if (Opt.DirectoryListingStyle == DirectoryListingStyle.HTML)
+            {
+                return new HTTPResponse()
+                {
+                    Headers = new HTTPResponseHeaders() { ContentType = "text/html" },
+                    Status = HTTPStatusCode._200_OK,
+                    Content = new DynamicContentStream(DirectoryHandlerHTML(p + SoFar, BaseURL + SoFarURL))
+                };
+            }
+            */
+            else
+                return GenericError(HTTPStatusCode._500_InternalServerError);
         }
 
-        public static IEnumerable<string> DynamicDirectoryHandler(string LocalPath, string URL)
+        public static IEnumerable<string> DirectoryHandlerXMLplusXSL(string LocalPath, string URL)
         {
-            yield return "<html>";
-            yield return "  <head>";
-            yield return "    <title>" + URL + " - Directory Listing</title>";
-            yield return "  </head>";
-            yield return "  <body>";
-            yield return "  </body>";
-            yield return "</html>";
-            yield break;
+            if (!Directory.Exists(LocalPath))
+                throw new FileNotFoundException("Directory does not exist.", LocalPath);
+
+            List<DirectoryInfo> Dirs = new List<DirectoryInfo>();
+            List<FileInfo> Files = new List<FileInfo>();
+            DirectoryInfo Inf = new DirectoryInfo(LocalPath);
+            foreach (var d in Inf.GetDirectories())
+                Dirs.Add(d);
+            foreach (var f in Inf.GetFiles())
+                Files.Add(f);
+            Dirs.Sort((DirectoryInfo a, DirectoryInfo b) => { return a.Name.CompareTo(b.Name); });
+            Files.Sort((FileInfo a, FileInfo b) => { return a.Name.CompareTo(b.Name); });
+
+            yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
+            yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>";
+            yield return "<directory url=\"" + URLEscape(URL) + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">";
+
+            foreach (var d in Dirs)
+                yield return "<dir link=\"" + URLEscape(d.Name) + "/\" img=\"/$/directory-listing/icons/folder\">" + HTMLEscape(d.Name) + "</dir>";
+            foreach (var f in Files)
+            {
+                string Ext = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
+                yield return "<file link=\"" + URLEscape(f.Name) + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
+                yield return "\" img=\"/$/directory-listing/icons/" + HTTPInternalObjects.GetDirectoryListingIconStr(Ext) + "\">" + HTMLEscape(f.Name) + "</file>";
+            }
+
+            yield return "</directory>";
+        }
+
+        public static HTTPResponse GenericRedirect(string NewURL)
+        {
+            return new HTTPResponse()
+            {
+                Headers = new HTTPResponseHeaders() { Location = NewURL },
+                Status = HTTPStatusCode._301_MovedPermanently
+            };
         }
 
         private void ListeningThreadFunction()
@@ -130,7 +177,9 @@ namespace Servers
             {
                 byte[] Buffer = new byte[65536];
                 SocketError ErrorCode;
-                int BytesReceived = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode);
+                int BytesReceived;
+                try { BytesReceived = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode); }
+                catch (SocketException) { Socket.Close(); return; }
 
                 if (ErrorCode != SocketError.Success)
                 {
@@ -158,16 +207,17 @@ namespace Servers
                     HTTPResponse Response = HandleRequestAfterHeaders(Socket, Headers, Buffer, i + 4, BytesReceived - i - 4);
                     try
                     {
+                        bool ConnectionKeepAlive = false;
                         try
                         {
-                            OutputResponse(Socket, Response);
+                            ConnectionKeepAlive = OutputResponse(Socket, Response);
                         }
                         finally
                         {
                             if (Response.Content != null)
                                 Response.Content.Close();
                         }
-                        if (Response.Headers.Connection == HTTPConnection.KeepAlive && Socket.Connected)
+                        if (ConnectionKeepAlive && Socket.Connected)
                         {
                             HeadersSoFar = "";
                             continue;
@@ -182,26 +232,66 @@ namespace Servers
             }
         }
 
-        private void OutputResponse(Socket Socket, HTTPResponse Response)
+        private bool OutputResponse(Socket Socket, HTTPResponse Response)
         {
+            bool ConnectionKeepAlive = false;
+
+            // If no status is given, by default assume 200 OK
+            if (Response.Status == HTTPStatusCode.None)
+                Response.Status = HTTPStatusCode._200_OK;
+
+            // If no Content-Type is given, use default
+            if (Response.Headers.ContentType == null)
+                Response.Headers.ContentType = Opt.DefaultContentType;
+
+            // If the client requested Connection keep-alive, allow the connection to be kept
+            if (Response.OriginalRequest.Headers.Connection == HTTPConnection.KeepAlive)
+            {
+                Response.Headers.Connection = HTTPConnection.KeepAlive;
+                ConnectionKeepAlive = true;
+            }
+
+            // If the response has no content, set Content-Length to 0 so that it won't use chunked encoding
             if (Response.Content == null)
                 Response.Headers.ContentLength = 0;
-            else if (Response.Headers.ContentLength == null)
+            else
             {
-                // If we can deduce the length from the stream, supply it
-                try { Response.Headers.ContentLength = Response.Content.Length; }
-                catch (NotSupportedException) { Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked; }
+                // If the request has content and we're allowed to gzip it, do so
+                /*
+                bool Gzip = false;
+                foreach (HTTPContentEncoding hce in Response.OriginalRequest.Headers.AcceptEncoding)
+                    Gzip = Gzip || (hce == HTTPContentEncoding.Gzip);
+                if (Gzip)
+                {
+                    GZipStream gz = new GZipStream(Response.Content, CompressionMode.Compress);
+                    Response.Content = gz;
+                }
+                else */
+                if (Response.Headers.ContentLength == null)
+                {
+                    // If we can deduce the length from the stream, supply it
+                    try { Response.Headers.ContentLength = Response.Content.Length; }
+                    catch (NotSupportedException) { }
+                }
             }
+
+            // If the stream cannot predict the length of the content, use chunked encoding, unless
+            // we're not using keep-alive connection, in which case we don't have to
+            if (Response.Headers.ContentLength == null && Response.Headers.Connection == HTTPConnection.KeepAlive)
+                Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
+
+            // Send the headers
             string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + GetStatusCodeName(Response.Status) + "\r\n" +
                 Response.Headers.ToString() + "\r\n";
             Console.WriteLine(HeadersStr);
             Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
 
             if (Response.Headers.ContentLength != null && Response.Headers.ContentLength.Value == 0)
-                return;
+                return ConnectionKeepAlive;
 
-            byte[] Buffer = new byte[65536];
-            int BytesRead = Response.Content.Read(Buffer, 0, 65536);
+            int BufferSize = 65536;
+            byte[] Buffer = new byte[BufferSize];
+            int BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
             while (BytesRead > 0)
             {
                 if (Response.Headers.TransferEncoding == HTTPTransferEncoding.Chunked)
@@ -209,10 +299,11 @@ namespace Servers
                 Socket.Send(Buffer, BytesRead, SocketFlags.None);
                 if (Response.Headers.TransferEncoding == HTTPTransferEncoding.Chunked)
                     Socket.Send(new byte[] { 13, 10 }); // "\r\n"
-                BytesRead = Response.Content.Read(Buffer, 0, 65536);
+                BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
             }
             if (Response.Headers.TransferEncoding == HTTPTransferEncoding.Chunked)
                 Socket.Send(new byte[] { (byte) '0', 13, 10, 13, 10 }); // "0\r\n\r\n"
+            return ConnectionKeepAlive;
         }
 
         private HTTPResponse HandleRequestAfterHeaders(Socket Socket, string Headers, byte[] BufferWithContentSoFar, int ContentOffset, int ContentLengthSoFar)
@@ -329,7 +420,9 @@ namespace Servers
                 Req.Content = File.Open(Filename, FileMode.Open, FileAccess.Read, FileShare.Read);
             }
 
-            return Req.Handler(Req);
+            HTTPResponse Resp = Req.Handler(Req);
+            Resp.OriginalRequest = Req;
+            return Resp;
         }
 
         // Expects HeaderName in lower-case
@@ -375,29 +468,70 @@ namespace Servers
             }
             else if (HeaderName == "cookie")
             {
-                Cookie Cookie = new Cookie();
-                string[] Params = Regex.Split(HeaderValue, @"\s*;\s*");
-                for (int i = 0; i < Params.Length; i++)
+                Cookie PrevCookie = new Cookie() { Name = null };
+                while (HeaderValue.Length > 0)
                 {
-                    DateTime Output;
-                    string[] KeyValue = Regex.Split(Params[i], @"\s*=\s*");
-                    if (i == 0 && KeyValue.Length > 1)
+                    string Key, Value;
+                    Match m = Regex.Match(HeaderValue, @"^\s*(\$?\w+)=([^;]*)(;\s*|$)");
+                    if (m.Success)
                     {
-                        Cookie.Name = KeyValue[0];
-                        Cookie.Value = KeyValue[1];
+                        Key = m.Groups[1].Value;
+                        Value = m.Groups[2].Value;
                     }
-                    else if (KeyValue[0].ToLowerInvariant() == "path" && KeyValue.Length > 1)
-                        Cookie.Path = KeyValue[1];
-                    else if (KeyValue[0].ToLowerInvariant() == "domain" && KeyValue.Length > 1)
-                        Cookie.Domain = KeyValue[1].ToLowerInvariant();
-                    else if (KeyValue[0].ToLowerInvariant() == "expires" && KeyValue.Length > 1 && DateTime.TryParse(KeyValue[1], out Output))
-                        Cookie.Expires = Output;
-                    else if (Params[i].ToLowerInvariant() == "httponly")
-                        Cookie.HttpOnly = true;
+                    else
+                    {
+                        m = Regex.Match(HeaderValue, @"^\s*(\$?\w+)=""([^""]*)""(;\s*|$)");
+                        if (m.Success)
+                        {
+                            Key = m.Groups[1].Value;
+                            Value = m.Groups[2].Value;
+                        }
+                        else
+                        {
+                            if (HeaderValue.Contains(';'))
+                            {
+                                // Invalid syntax; try to continue parsing at the next ";"
+                                HeaderValue = HeaderValue.Substring(HeaderValue.IndexOf(';') + 1);
+                                continue;
+                            }
+                            else
+                                // Completely invalid syntax; ignore the rest of this header
+                                return;
+                        }
+                    }
+                    HeaderValue = HeaderValue.Substring(m.Groups[0].Length);
+
+                    if (Key == "$Version")
+                        continue;   // ignore that.
+
+                    if (Req.Headers.Cookie == null)
+                        Req.Headers.Cookie = new Dictionary<string, Cookie>();
+
+                    if (Key == "$Path" && PrevCookie.Name != null)
+                    {
+                        PrevCookie.Path = Value;
+                        Req.Headers.Cookie[PrevCookie.Name] = PrevCookie;
+                    }
+                    else if (Key == "$Domain" && PrevCookie.Name != null)
+                    {
+                        PrevCookie.Domain = Value;
+                        Req.Headers.Cookie[PrevCookie.Name] = PrevCookie;
+                    }
+                    else if (Key == "$Expires" && PrevCookie.Name != null)
+                    {
+                        try
+                        {
+                            PrevCookie.Expires = DateTime.Parse(Value);
+                            Req.Headers.Cookie[PrevCookie.Name] = PrevCookie;
+                        }
+                        catch { }   // just ignore invalid Expires specs
+                    }
+                    else
+                    {
+                        PrevCookie = new Cookie() { Name = Key, Value = Value };
+                        Req.Headers.Cookie[Key] = PrevCookie;
+                    }
                 }
-                if (Req.Headers.Cookie == null)
-                    Req.Headers.Cookie = new List<Cookie>();
-                Req.Headers.Cookie.Add(Cookie);
             }
             else if (HeaderName == "host")
             {
@@ -407,36 +541,40 @@ namespace Servers
 
                 // For performance reasons, we check if we have a handler for this domain/URL as soon as possible.
                 // If we find out that we don't, stop processing here and immediately output an error
-                string Host = HeaderValue.ToLowerInvariant();
-                if (Host[Host.Length - 1] == '.')
-                    Host = Host.Remove(Host.Length - 1);
-                string URL = Req.URL.Contains('?') ? Req.URL.Remove(Req.URL.IndexOf('?')) : Req.URL;
-                while (Req.Handler == null)
+                if (Req.URL.StartsWith("/$/"))
+                    Req.Handler = InternalHandler;
+                else
                 {
-                    if (RequestHandlers.ContainsKey(Host + URL))
+                    string Host = HeaderValue.ToLowerInvariant();
+                    if (Host[Host.Length - 1] == '.')
+                        Host = Host.Remove(Host.Length - 1);
+                    string URL = Req.URL.Contains('?') ? Req.URL.Remove(Req.URL.IndexOf('?')) : Req.URL;
+                    while (Req.Handler == null)
                     {
-                        Req.RestURL = Req.URL.Substring(URL.Length);
-                        Req.Handler = RequestHandlers[Host + URL];
-                        break;
+                        if (RequestHandlers.ContainsKey(Host + URL))
+                        {
+                            Req.RestURL = Req.URL.Substring(URL.Length);
+                            Req.Handler = RequestHandlers[Host + URL];
+                            break;
+                        }
+                        if (!URL.Contains('/'))
+                            break;
+                        URL = URL.Remove(URL.LastIndexOf('/'));
                     }
-                    if (!URL.Contains('/'))
-                        break;
-                    URL = URL.Remove(URL.LastIndexOf('/'));
-                }
-                while (Req.Handler == null)
-                {
-                    if (RequestHandlers.ContainsKey(Host))
+                    while (Req.Handler == null)
                     {
-                        Req.Handler = RequestHandlers[Host];
-                        break;
+                        if (RequestHandlers.ContainsKey(Host))
+                        {
+                            Req.Handler = RequestHandlers[Host];
+                            break;
+                        }
+                        if (!Host.Contains('.'))
+                            break;
+                        Host = Host.Substring(Host.IndexOf('.') + 1);
                     }
-                    if (!Host.Contains('.'))
-                        break;
-                    Host = Host.Substring(Host.IndexOf('.') + 1);
+                    if (Req.Handler == null)
+                        throw new InvalidRequestException(GenericError(HTTPStatusCode._404_NotFound));
                 }
-                if (Req.Handler == null)
-                    throw new InvalidRequestException(GenericError(HTTPStatusCode._404_NotFound));
-
                 Req.Headers.Host = ValueLower;
             }
             else if (HeaderName == "if-modified-since")
@@ -455,6 +593,29 @@ namespace Servers
                     Req.Headers.UnrecognisedHeaders = new Dictionary<string, string>();
                 Req.Headers.UnrecognisedHeaders.Add(HeaderName, HeaderValue);
             }
+        }
+
+        private HTTPResponse InternalHandler(HTTPRequest Req)
+        {
+            if (Req.URL == "/$/directory-listing/xsl")
+            {
+                return new HTTPResponse()
+                {
+                    Headers = new HTTPResponseHeaders() { ContentType = "application/xml; charset=utf-8" },
+                    Content = new MemoryStream(HTTPInternalObjects.DirectoryListingXSL)
+                };
+            }
+            else if (Req.URL.StartsWith("/$/directory-listing/icons/"))
+            {
+                string Rest = Req.URL.Substring(27);
+                return new HTTPResponse()
+                {
+                    Headers = new HTTPResponseHeaders() { ContentType = "image/png" },
+                    Content = new MemoryStream(HTTPInternalObjects.GetDirectoryListingIcon(Rest))
+                };
+            }
+
+            return GenericError(HTTPStatusCode._404_NotFound);
         }
 
         private string[] SplitAndSortByQ(string Value)
@@ -495,9 +656,10 @@ namespace Servers
         }
         public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
         {
-            string StatusCodeName = "" + ((int) StatusCode) + " " + GetStatusCodeName(StatusCode);
+            string StatusCodeName = HTMLEscape("" + ((int) StatusCode) + " " + GetStatusCodeName(StatusCode));
             Headers.ContentType = "text/html; charset=utf-8";
-            string ContentStr = "<html><head><title>HTTP " + StatusCodeName + "</title></head><body><h1>" + StatusCodeName + "</h1>" + (Message != null ? "<p>" + Message + "</p>" : "") + "</body></html>";
+            string ContentStr = "<html><head><title>HTTP " + StatusCodeName + "</title></head><body><h1>" + StatusCodeName + "</h1>" +
+                (Message != null ? "<p>" + HTMLEscape(Message) + "</p>" : "") + "</body></html>";
             byte[] ContentBuffer = Encoding.UTF8.GetBytes(ContentStr);
             return new HTTPResponse()
             {
@@ -505,6 +667,59 @@ namespace Servers
                 Headers = Headers,
                 Content = new MemoryStream(ContentBuffer)
             };
+        }
+
+        public static string HTMLEscape(string Message)
+        {
+            return Message.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("'", "&#39;").Replace("\"", "&quot;");
+        }
+
+        public static string URLEscape(string URL)
+        {
+            byte[] UTF8 = Encoding.UTF8.GetBytes(URL);
+            StringBuilder sb = new StringBuilder();
+            foreach (byte b in UTF8)
+                sb.Append((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+                    || (b == '-') || (b == '/') || (b == '_') || (b == '~') || (b == '.')
+                    ? ((char) b).ToString() : string.Format("%{0:X2}", b));
+            return sb.ToString();
+        }
+
+        public static string URLUnescape(string URL)
+        {
+            if (URL.Length < 3)
+                return URL;
+            int BufferSize = 0;
+            int i = 0;
+            while (i < URL.Length)
+            {
+                BufferSize++;
+                if (URL[i] == '%') { i += 2; }
+                i++;
+            }
+            byte[] Buffer = new byte[BufferSize];
+            BufferSize = 0;
+            i = 0;
+            while (i < URL.Length)
+            {
+                if (URL[i] == '%' && i < URL.Length - 2)
+                {
+                    try
+                    {
+                        Buffer[BufferSize] = byte.Parse("" + URL[i + 1] + URL[i + 2], NumberStyles.HexNumber);
+                        BufferSize++;
+                    }
+                    catch (Exception) { }
+                    i += 3;
+                }
+                else
+                {
+                    Buffer[BufferSize] = (byte) URL[i];
+                    BufferSize++;
+                    i++;
+                }
+            }
+            return Encoding.UTF8.GetString(Buffer, 0, BufferSize);
         }
 
         private static string GetStatusCodeName(HTTPStatusCode StatusCode)
@@ -551,6 +766,17 @@ namespace Servers
             if (StatusCode == HTTPStatusCode._504_GatewayTimeout) return "Gateway Timeout";
             if (StatusCode == HTTPStatusCode._505_HTTPVersionNotSupported) return "HTTP Version Not Supported";
             return "Unknown Error";
+        }
+
+        public static string PrettySize(long Size)
+        {
+            if (Size >= (1L << 40))
+                return string.Format("{0:0.00} TB", (double) Size / (1L << 40));
+            if (Size >= (1L << 30))
+                return string.Format("{0:0.00} GB", (double) Size / (1L << 30));
+            if (Size >= (1L << 20))
+                return string.Format("{0:0.00} MB", (double) Size / (1L << 20));
+            return string.Format("{0:0.00} KB", (double) Size / (1L << 10));
         }
     }
 }

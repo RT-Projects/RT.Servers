@@ -67,4 +67,10 @@ namespace Servers
         None,
         Chunked
     }
+
+    public enum DirectoryListingStyle
+    {
+        HTML,
+        XMLplusXSL
+    }
 }

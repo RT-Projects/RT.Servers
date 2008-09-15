@@ -7,6 +7,8 @@ namespace Servers
 {
     public enum HTTPStatusCode
     {
+        None = 0,
+
         // Informational 1xx
         _100_Continue = 100,
         _101_SwitchingProtocols = 101,

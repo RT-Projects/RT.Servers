@@ -39,21 +39,37 @@ namespace Servers
         /// </summary>
         public Dictionary<string, string> MIMETypes = new Dictionary<string, string>();
 
+        /// <summary>
+        /// Content-Type to return when handler provides none. Default is "text/html; charset=utf-8".
+        /// </summary>
+        public string DefaultContentType = "text/html; charset=utf-8";
+
+        /// <summary>
+        /// Enum specifying which way directory listings should be generated.
+        /// </summary>
+        public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XMLplusXSL;
+
         public HTTPServerOptions()
         {
             // Plain text
-            MIMETypes["txt"] = "text/plain";
+            MIMETypes["txt"] = "text/plain; charset=utf-8";
+            MIMETypes["csv"] = "text/csv; charset=utf-8";
 
             // HTML and dependancies
-            MIMETypes["htm"] = "text/html";
-            MIMETypes["html"] = "text/html";
-            MIMETypes["xhtml"] = "application/xhtml+xml";
-            MIMETypes["css"] = "text/css";
-            MIMETypes["js"] = "text/javascript";
-            
+            MIMETypes["htm"] = "text/html; charset=utf-8";
+            MIMETypes["html"] = "text/html; charset=utf-8";
+            MIMETypes["css"] = "text/css; charset=utf-8";
+            MIMETypes["js"] = "text/javascript; charset=utf-8";
+
+            // XML and stuff
+            MIMETypes["xhtml"] = "application/xhtml+xml; charset=utf-8";
+            MIMETypes["xml"] = "application/xml; charset=utf-8";
+            MIMETypes["xsl"] = "application/xml; charset=utf-8";
+
             // Images
-            MIMETypes["gif"] = "image/gif"; 
+            MIMETypes["gif"] = "image/gif";
             MIMETypes["png"] = "image/png";
+            MIMETypes["jp2"] = "image/jp2";
             MIMETypes["jpg"] = "image/jpeg";
             MIMETypes["jpeg"] = "image/jpeg";
             MIMETypes["bmp"] = "image/bmp";

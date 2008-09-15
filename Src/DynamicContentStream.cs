@@ -9,11 +9,21 @@ namespace Servers
     public class DynamicContentStream : Stream
     {
         private long BytesGenerated = 0;
-        private IEnumerator<string> Enumerator;
-        private byte[] LastUnprocessedBytes;
-        private int LastUnprocessedBytesIndex;
+        private IEnumerator<string> Enumerator = null;
+        private byte[] LastUnprocessedBytes = null;
+        private int LastUnprocessedBytesIndex = 0;
+        private bool Buffered = true;
 
-        public DynamicContentStream(IEnumerable<string> Enumerable) { this.Enumerator = Enumerable.GetEnumerator(); }
+        public DynamicContentStream(IEnumerable<string> Enumerable)
+        {
+            this.Enumerator = Enumerable.GetEnumerator();
+        }
+        public DynamicContentStream(IEnumerable<string> Enumerable, bool Buffered)
+        {
+            this.Enumerator = Enumerable.GetEnumerator();
+            this.Buffered = Buffered;
+        }
+
         public override bool CanRead { get { return true; } }
         public override bool CanSeek { get { return false; } }
         public override bool CanWrite { get { return false; } }
@@ -51,29 +61,52 @@ namespace Servers
                 }
             }
 
-            StringBuilder b = new StringBuilder();
-            while (b.Length < count)
+            if (Buffered)
             {
-                if (!Enumerator.MoveNext())
-                    break;
-                b.Append(Enumerator.Current);
-            }
-            if (b.Length == 0)
-                return 0;
+                StringBuilder b = new StringBuilder();
+                long BytesSoFar = 0;
+                while (BytesSoFar < count)
+                {
+                    if (!Enumerator.MoveNext())
+                        break;
+                    b.Append(Enumerator.Current);
+                    BytesSoFar += Encoding.UTF8.GetByteCount(Enumerator.Current);
+                }
+                if (b.Length == 0)
+                    return 0;
 
-            byte[] BigBuffer = Encoding.UTF8.GetBytes(b.ToString());
-            if (BigBuffer.Length > count)
-            {
-                Array.Copy(BigBuffer, 0, buffer, offset, count);
-                LastUnprocessedBytes = BigBuffer;
-                LastUnprocessedBytesIndex = count;
-                return count;
+                byte[] BigBuffer = Encoding.UTF8.GetBytes(b.ToString());
+                if (BigBuffer.Length > count)
+                {
+                    Array.Copy(BigBuffer, 0, buffer, offset, count);
+                    LastUnprocessedBytes = BigBuffer;
+                    LastUnprocessedBytesIndex = count;
+                    return count;
+                }
+                else
+                {
+                    Array.Copy(BigBuffer, 0, buffer, offset, BigBuffer.Length);
+                    LastUnprocessedBytes = null;
+                    return BigBuffer.Length;
+                }
             }
             else
             {
-                Array.Copy(BigBuffer, 0, buffer, offset, BigBuffer.Length);
-                LastUnprocessedBytes = null;
-                return BigBuffer.Length;
+                if (!Enumerator.MoveNext())
+                    return 0;
+                byte[] Encoded = Encoding.UTF8.GetBytes(Enumerator.Current);
+                if (Encoded.Length > count)
+                {
+                    Array.Copy(Encoded, 0, buffer, 0, count);
+                    LastUnprocessedBytes = Encoded;
+                    LastUnprocessedBytesIndex = count;
+                    return count;
+                }
+                else
+                {
+                    Array.Copy(Encoded, 0, buffer, 0, Encoded.Length);
+                    return Encoded.Length;
+                }
             }
         }
 

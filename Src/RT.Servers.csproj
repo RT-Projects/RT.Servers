@@ -47,16 +47,48 @@
   <ItemGroup>
     <Compile Include="DynamicContentStream.cs" />
     <Compile Include="HTTPEnums.cs" />
+    <Compile Include="HTTPInternalObjects.cs" />
     <Compile Include="HTTPStructs.cs" />
     <Compile Include="HTTPResponse.cs" />
     <Compile Include="HTTPServerOptions.cs" />
     <Compile Include="HTTPStatusCode.cs" />
     <Compile Include="HTTPRequest.cs" />
     <Compile Include="HTTPServer.cs" />
+    <Compile Include="Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="TCPEvents.cs" />
     <Compile Include="TCPServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TCPSocket.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="icons\bmp-16.blob" />
+    <None Include="icons\csv-16.blob" />
+    <None Include="icons\doc-16.blob" />
+    <None Include="icons\exe-16.blob" />
+    <None Include="icons\faq-16.blob" />
+    <None Include="icons\folder-16.blob" />
+    <None Include="icons\folder-48.blob" />
+    <None Include="icons\gz-16.blob" />
+    <None Include="icons\jpg-16.blob" />
+    <None Include="icons\pdf-16.blob" />
+    <None Include="icons\pic-16.blob" />
+    <None Include="icons\png-16.blob" />
+    <None Include="icons\pps-16.blob" />
+    <None Include="icons\ppt-16.blob" />
+    <None Include="icons\txt-16.blob" />
+    <None Include="icons\xls-16.blob" />
+    <None Include="icons\zip-16.blob" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

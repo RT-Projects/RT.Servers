@@ -19,7 +19,7 @@ namespace Servers
         public HTTPConnection Connection;
         public int? ContentLength;      // required only for POST
         public string ContentType;      // required only for POST
-        public List<Cookie> Cookie;
+        public Dictionary<string, Cookie> Cookie;
         public string Host;
         public DateTime? IfModifiedSince;
         public string IfNoneMatch;
@@ -34,7 +34,7 @@ namespace Servers
         public string RestURL;  // after subtracting the part of the path where the handler is hooked
         public HTTPRequestHeaders Headers;
         public Stream Content;
-        public HTTPRequestHandler Handler;  // used only internally
+        internal HTTPRequestHandler Handler;  // used only internally
     }
 
     public class InvalidRequestException : Exception
