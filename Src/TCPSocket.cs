@@ -1,8 +1,8 @@
-﻿using System.Net.Sockets;
+﻿using System;
+using System.Collections.Generic;
+using System.Net.Sockets;
 using System.Threading;
 using Servers.TCPEvents;
-using System;
-using System.Collections.Generic;
 
 namespace Servers
 {

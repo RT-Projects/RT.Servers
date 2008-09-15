@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.IO;
 
 namespace Servers
@@ -24,9 +21,14 @@ namespace Servers
         public long MaxSizePostContent = 1024 * 1024 * 1024;
 
         /// <summary>
-        /// The minimum size of a POST request at which the server will store the content of the request in a file instead of in memory. Default is 1 MB.
+        /// The minimum size (in bytes) of a POST request at which the server will store the content of the request in a file instead of in memory. Default is 1 MB.
         /// </summary>
         public long UseFileUploadAtSize = 1024 * 1024;
+
+        /// <summary>
+        /// The maximum size (in bytes) of a response at which the server will gzip the entire content in-memory. Default is 1 MB. Content larger than this size will be gzipped in chunks.
+        /// </summary>
+        public long GzipInMemoryUpToSize = 1024 * 1024;
 
         /// <summary>
         /// The temporary directory to use for POST requests and file uploads. Default is Path.GetTempPath().

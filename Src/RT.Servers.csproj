@@ -59,6 +59,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="StreamOnSocket.cs" />
     <Compile Include="TCPEvents.cs" />
     <Compile Include="TCPServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

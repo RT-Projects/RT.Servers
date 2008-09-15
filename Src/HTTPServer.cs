@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.IO;
-using System.Globalization;
-using System.IO.Compression;
 
 namespace Servers
 {
@@ -232,10 +232,16 @@ namespace Servers
             }
         }
 
+        private void SendHeaders(Socket Socket, HTTPResponse Response)
+        {
+            string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + GetStatusCodeName(Response.Status) + "\r\n" +
+                Response.Headers.ToString() + "\r\n";
+            Console.WriteLine(HeadersStr);
+            Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
+        }
+
         private bool OutputResponse(Socket Socket, HTTPResponse Response)
         {
-            bool ConnectionKeepAlive = false;
-
             // If no status is given, by default assume 200 OK
             if (Response.Status == HTTPStatusCode.None)
                 Response.Status = HTTPStatusCode._200_OK;
@@ -244,66 +250,129 @@ namespace Servers
             if (Response.Headers.ContentType == null)
                 Response.Headers.ContentType = Opt.DefaultContentType;
 
-            // If the client requested Connection keep-alive, allow the connection to be kept
-            if (Response.OriginalRequest.Headers.Connection == HTTPConnection.KeepAlive)
-            {
-                Response.Headers.Connection = HTTPConnection.KeepAlive;
-                ConnectionKeepAlive = true;
-            }
+            bool KeepAliveRequested = Response.OriginalRequest.Headers.Connection == HTTPConnection.KeepAlive;
+            bool GzipRequested = false;
+            if (Response.OriginalRequest.Headers.AcceptEncoding != null)
+                foreach (HTTPContentEncoding hce in Response.OriginalRequest.Headers.AcceptEncoding)
+                    GzipRequested = GzipRequested || (hce == HTTPContentEncoding.Gzip);
+            bool ContentLengthKnown = false;
+            long ContentLength = 0;
 
-            // If the response has no content, set Content-Length to 0 so that it won't use chunked encoding
+            // Find out if we know the content length
             if (Response.Content == null)
-                Response.Headers.ContentLength = 0;
+            {
+                ContentLength = 0;
+                ContentLengthKnown = true;
+            }
+            else if (Response.Headers.ContentLength != null)
+            {
+                ContentLength = Response.Headers.ContentLength.Value;
+                ContentLengthKnown = true;
+            }
             else
             {
-                // If the request has content and we're allowed to gzip it, do so
-                /*
-                bool Gzip = false;
-                foreach (HTTPContentEncoding hce in Response.OriginalRequest.Headers.AcceptEncoding)
-                    Gzip = Gzip || (hce == HTTPContentEncoding.Gzip);
-                if (Gzip)
+                // See if we can deduce the content length from the stream
+                try
                 {
-                    GZipStream gz = new GZipStream(Response.Content, CompressionMode.Compress);
-                    Response.Content = gz;
+                    ContentLength = Response.Content.Length;
+                    ContentLengthKnown = true;
                 }
-                else */
-                if (Response.Headers.ContentLength == null)
-                {
-                    // If we can deduce the length from the stream, supply it
-                    try { Response.Headers.ContentLength = Response.Content.Length; }
-                    catch (NotSupportedException) { }
-                }
+                catch (NotSupportedException) { }
             }
 
-            // If the stream cannot predict the length of the content, use chunked encoding, unless
-            // we're not using keep-alive connection, in which case we don't have to
-            if (Response.Headers.ContentLength == null && Response.Headers.Connection == HTTPConnection.KeepAlive)
+            bool UseGzip = GzipRequested && !(ContentLengthKnown && ContentLength <= 256);
+            bool UseKeepAlive = KeepAliveRequested;
+
+            // Set the appropriate headers
+            if (UseGzip)
+                Response.Headers.ContentEncoding = HTTPContentEncoding.Gzip;
+            if (UseKeepAlive)
+                Response.Headers.Connection = HTTPConnection.KeepAlive;
+
+            Stream Output;
+
+            // If we know the content length and it is smaller than the in-memory gzip threshold, do all the gzipping now
+            if (UseGzip && ContentLengthKnown && ContentLength < Opt.GzipInMemoryUpToSize)
+            {
+                // In this case, do all the gzipping before sending the headers.
+                // After all we want to include the new (compressed) Content-Length.
+                MemoryStream ms = new MemoryStream();
+                GZipStream gz = new GZipStream(ms, CompressionMode.Compress);
+                byte[] ContentReadBuffer = new byte[65536];
+                int Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
+                while (Bytes > 0)
+                {
+                    gz.Write(ContentReadBuffer, 0, Bytes);
+                    Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
+                }
+                gz.Close();
+                byte[] ResultBuffer = ms.ToArray();
+                Response.Content = new MemoryStream(ResultBuffer);
+                Response.Headers.ContentLength = ResultBuffer.Length;
+                SendHeaders(Socket, Response);
+                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                    return UseKeepAlive;
+                Output = new StreamOnSocket(Socket);
+            }
+            else if (UseGzip && !UseKeepAlive)
+            {
+                // In this case, send the headers first, then instantiate the GZipStream.
+                // Otherwise we run the risk that the GzipStream might write to the socket before the headers are sent.
+                // Also note that we are not sending a Content-Length header; even if we know the content length
+                // of the uncompressed file, we cannot predict the length of the compressed output yet
+                SendHeaders(Socket, Response);
+                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                    return UseKeepAlive;
+                StreamOnSocket str = new StreamOnSocket(Socket);
+                Output = new GZipStream(str, CompressionMode.Compress);
+            }
+            else if (UseGzip)
+            {
+                // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Type header
                 Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
+                SendHeaders(Socket, Response);
+                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                    return UseKeepAlive;
+                StreamOnSocket str = new StreamOnSocketChunked(Socket);
+                Output = new GZipStream(str, CompressionMode.Compress);
+            }
+            else if (UseKeepAlive && !ContentLengthKnown)
+            {
+                // Use chunked encoding without Gzip
+                Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
+                SendHeaders(Socket, Response);
+                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                    return UseKeepAlive;
+                Output = new StreamOnSocketChunked(Socket);
+            }
+            else
+            {
+                // No Gzip, no chunked, but if we know the content length, supply it
+                // (if we don't, then we're not using keep-alive here)
+                if (ContentLengthKnown)
+                    Response.Headers.ContentLength = ContentLength;
 
-            // Send the headers
-            string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + GetStatusCodeName(Response.Status) + "\r\n" +
-                Response.Headers.ToString() + "\r\n";
-            Console.WriteLine(HeadersStr);
-            Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
+                SendHeaders(Socket, Response);
 
-            if (Response.Headers.ContentLength != null && Response.Headers.ContentLength.Value == 0)
-                return ConnectionKeepAlive;
+                // If the content length is zero, we can exit as quickly as possible
+                // (no need to instantiate an output stream)
+                if ((ContentLengthKnown && ContentLength == 0) || Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                    return UseKeepAlive;
 
+                Output = new StreamOnSocket(Socket);
+            }
+
+            // Finally output the actual content
             int BufferSize = 65536;
             byte[] Buffer = new byte[BufferSize];
             int BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
             while (BytesRead > 0)
             {
-                if (Response.Headers.TransferEncoding == HTTPTransferEncoding.Chunked)
-                    Socket.Send(Encoding.ASCII.GetBytes(BytesRead.ToString("X") + "\r\n"));
-                Socket.Send(Buffer, BytesRead, SocketFlags.None);
-                if (Response.Headers.TransferEncoding == HTTPTransferEncoding.Chunked)
-                    Socket.Send(new byte[] { 13, 10 }); // "\r\n"
+                Output.Write(Buffer, 0, BytesRead);
                 BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
             }
-            if (Response.Headers.TransferEncoding == HTTPTransferEncoding.Chunked)
-                Socket.Send(new byte[] { (byte) '0', 13, 10, 13, 10 }); // "0\r\n\r\n"
-            return ConnectionKeepAlive;
+            Output.Close();
+            return UseKeepAlive;
         }
 
         private HTTPResponse HandleRequestAfterHeaders(Socket Socket, string Headers, byte[] BufferWithContentSoFar, int ContentOffset, int ContentLengthSoFar)
@@ -349,75 +418,82 @@ namespace Servers
             {
                 return e.Response;
             }
-            if (Req.Method == HTTPMethod.POST && Req.Headers.ContentLength == null)
-                return GenericError(HTTPStatusCode._411_LengthRequired);
-            if (Req.Method == HTTPMethod.POST && Req.Headers.ContentLength.Value > Opt.MaxSizePostContent)
-                return GenericError(HTTPStatusCode._413_RequestEntityTooLarge);
+
             if (Req.Handler == null)
                 return GenericError(HTTPStatusCode._404_NotFound);
 
-            if (Req.Method == HTTPMethod.POST && Req.Headers.ContentLength.Value < Opt.UseFileUploadAtSize)
+            if (Req.Method == HTTPMethod.POST)
             {
-                if (ContentLengthSoFar >= Req.Headers.ContentLength.Value)
-                    Req.Content = new MemoryStream(BufferWithContentSoFar, ContentOffset, Req.Headers.ContentLength.Value, false);
+                // Some validity checks
+                if (Req.Headers.ContentLength == null)
+                    return GenericError(HTTPStatusCode._411_LengthRequired);
+                if (Req.Headers.ContentLength.Value > Opt.MaxSizePostContent)
+                    return GenericError(HTTPStatusCode._413_RequestEntityTooLarge);
+
+                // Read the contents of the POST request
+                if (Req.Headers.ContentLength.Value < Opt.UseFileUploadAtSize)
+                {
+                    if (ContentLengthSoFar >= Req.Headers.ContentLength.Value)
+                        Req.Content = new MemoryStream(BufferWithContentSoFar, ContentOffset, Req.Headers.ContentLength.Value, false);
+                    else
+                    {
+                        // Receive the POST request content into an in-memory buffer
+                        byte[] Buffer = new byte[Req.Headers.ContentLength.Value];
+                        if (ContentLengthSoFar > 0)
+                            Array.Copy(BufferWithContentSoFar, ContentOffset, Buffer, 0, ContentLengthSoFar);
+                        while (ContentLengthSoFar < Req.Headers.ContentLength)
+                        {
+                            SocketError ErrorCode;
+                            int BytesReceived = Socket.Receive(Buffer, ContentLengthSoFar, Req.Headers.ContentLength.Value - ContentLengthSoFar, SocketFlags.None, out ErrorCode);
+                            if (ErrorCode != SocketError.Success)
+                                throw new SocketException();
+                            ContentLengthSoFar += BytesReceived;
+                        }
+                        Req.Content = new MemoryStream(Buffer, 0, Req.Headers.ContentLength.Value);
+                    }
+                }
                 else
                 {
-                    // Receive the POST request content into an in-memory buffer
-                    byte[] Buffer = new byte[Req.Headers.ContentLength.Value];
+                    // Store the POST request content in a temporary file
+                    Random r = new Random();
+                    int Counter = r.Next(1000);
+                    string Dir = Opt.TempDir + (Opt.TempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
+                    FileStream f;
+                    string Filename;
+                    // This seemingly bizarre construct tries to prevent race conditions between several threads trying to create the same file.
+                    while (true)
+                    {
+                        if (Counter > 100000)
+                            return GenericError(HTTPStatusCode._500_InternalServerError);
+                        try
+                        {
+                            Filename = Opt.TempDir + "http_upload_" + Counter;
+                            f = File.Open(Filename, FileMode.CreateNew, FileAccess.Write);
+                            break;
+                        }
+                        catch (IOException)
+                        {
+                            Counter += r.Next(1000);
+                        }
+                    }
                     if (ContentLengthSoFar > 0)
-                        Array.Copy(BufferWithContentSoFar, ContentOffset, Buffer, 0, ContentLengthSoFar);
+                        f.Write(BufferWithContentSoFar, ContentOffset, ContentLengthSoFar);
+                    byte[] Buffer = new byte[65536];
                     while (ContentLengthSoFar < Req.Headers.ContentLength)
                     {
                         SocketError ErrorCode;
-                        int BytesReceived = Socket.Receive(Buffer, ContentLengthSoFar, Req.Headers.ContentLength.Value - ContentLengthSoFar, SocketFlags.None, out ErrorCode);
+                        int BytesReceived = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode);
                         if (ErrorCode != SocketError.Success)
                             throw new SocketException();
-                        ContentLengthSoFar += BytesReceived;
+                        if (BytesReceived > 0)
+                        {
+                            f.Write(Buffer, 0, BytesReceived);
+                            ContentLengthSoFar += BytesReceived;
+                        }
                     }
-                    Req.Content = new MemoryStream(Buffer, 0, Req.Headers.ContentLength.Value);
+                    f.Close();
+                    Req.Content = File.Open(Filename, FileMode.Open, FileAccess.Read, FileShare.Read);
                 }
-            }
-            else if (Req.Method == HTTPMethod.POST)
-            {
-                // Store the POST request content in a temporary file
-                Random r = new Random();
-                int Counter = r.Next(1000);
-                string Dir = Opt.TempDir + (Opt.TempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
-                FileStream f;
-                string Filename;
-                // This seemingly bizarre construct tries to prevent race conditions between several threads trying to create the same file.
-                while (true)
-                {
-                    if (Counter > 100000)
-                        return GenericError(HTTPStatusCode._500_InternalServerError);
-                    try
-                    {
-                        Filename = Opt.TempDir + "http_upload_" + Counter;
-                        f = File.Open(Filename, FileMode.CreateNew, FileAccess.Write);
-                        break;
-                    }
-                    catch (IOException)
-                    {
-                        Counter += r.Next(1000);
-                    }
-                }
-                if (ContentLengthSoFar > 0)
-                    f.Write(BufferWithContentSoFar, ContentOffset, ContentLengthSoFar);
-                byte[] Buffer = new byte[65536];
-                while (ContentLengthSoFar < Req.Headers.ContentLength)
-                {
-                    SocketError ErrorCode;
-                    int BytesReceived = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode);
-                    if (ErrorCode != SocketError.Success)
-                        throw new SocketException();
-                    if (BytesReceived > 0)
-                    {
-                        f.Write(Buffer, 0, BytesReceived);
-                        ContentLengthSoFar += BytesReceived;
-                    }
-                }
-                f.Close();
-                Req.Content = File.Open(Filename, FileMode.Open, FileAccess.Read, FileShare.Read);
             }
 
             HTTPResponse Resp = Req.Handler(Req);
@@ -462,7 +538,7 @@ namespace Servers
                 Req.Headers.ContentLength = IntOutput;
             else if (HeaderName == "content-type")
             {
-                if (Req.Method == HTTPMethod.POST || ValueLower != "application/x-www-form-urlencoded")
+                if (Req.Method == HTTPMethod.POST && ValueLower != "application/x-www-form-urlencoded" && ValueLower != "multipart/form-data")
                     throw new InvalidRequestException(GenericError(HTTPStatusCode._501_NotImplemented));
                 Req.Headers.ContentType = ValueLower;
             }
@@ -602,7 +678,7 @@ namespace Servers
                 return new HTTPResponse()
                 {
                     Headers = new HTTPResponseHeaders() { ContentType = "application/xml; charset=utf-8" },
-                    Content = new MemoryStream(HTTPInternalObjects.DirectoryListingXSL)
+                    Content = new MemoryStream(HTTPInternalObjects.DirectoryListingXSL())
                 };
             }
             else if (Req.URL.StartsWith("/$/directory-listing/icons/"))
