@@ -1,6 +1,8 @@
 ﻿using System.IO;
 using System.Text;
 using System.Xml;
+using System.Globalization;
+using System;
 
 namespace Servers
 {
@@ -154,6 +156,69 @@ namespace Servers
             if (Ext == "rar") return Ext;
 
             return "txt";
+        }
+
+        public static string HTMLEscape(this string Message)
+        {
+            return Message.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("'", "&#39;").Replace("\"", "&quot;");
+        }
+
+        public static string URLEscape(this string URL)
+        {
+            byte[] UTF8 = URL.ToUTF8();
+            StringBuilder sb = new StringBuilder();
+            foreach (byte b in UTF8)
+                sb.Append((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+                    || (b == '-') || (b == '/') || (b == '_') || (b == '~') || (b == '.')
+                    ? ((char) b).ToString() : string.Format("%{0:X2}", b));
+            return sb.ToString();
+        }
+
+        public static string URLUnescape(this string URL)
+        {
+            if (URL.Length < 3)
+                return URL;
+            int BufferSize = 0;
+            int i = 0;
+            while (i < URL.Length)
+            {
+                BufferSize++;
+                if (URL[i] == '%') { i += 2; }
+                i++;
+            }
+            byte[] Buffer = new byte[BufferSize];
+            BufferSize = 0;
+            i = 0;
+            while (i < URL.Length)
+            {
+                if (URL[i] == '%' && i < URL.Length - 2)
+                {
+                    try
+                    {
+                        Buffer[BufferSize] = byte.Parse("" + URL[i + 1] + URL[i + 2], NumberStyles.HexNumber);
+                        BufferSize++;
+                    }
+                    catch (Exception) { }
+                    i += 3;
+                }
+                else
+                {
+                    Buffer[BufferSize] = (byte) URL[i];
+                    BufferSize++;
+                    i++;
+                }
+            }
+            return Encoding.UTF8.GetString(Buffer, 0, BufferSize);
+        }
+
+        public static byte[] ToUTF8(this string Str)
+        {
+            return Encoding.UTF8.GetBytes(Str);
+        }
+
+        public static int UTF8Length(this string Str)
+        {
+            return Encoding.UTF8.GetByteCount(Str);
         }
     }
 }

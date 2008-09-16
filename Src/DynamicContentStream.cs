@@ -70,12 +70,12 @@ namespace Servers
                     if (!Enumerator.MoveNext())
                         break;
                     b.Append(Enumerator.Current);
-                    BytesSoFar += Encoding.UTF8.GetByteCount(Enumerator.Current);
+                    BytesSoFar += Enumerator.Current.UTF8Length();
                 }
                 if (b.Length == 0)
                     return 0;
 
-                byte[] BigBuffer = Encoding.UTF8.GetBytes(b.ToString());
+                byte[] BigBuffer = b.ToString().ToUTF8();
                 if (BigBuffer.Length > count)
                 {
                     Array.Copy(BigBuffer, 0, buffer, offset, count);
@@ -94,7 +94,7 @@ namespace Servers
             {
                 if (!Enumerator.MoveNext())
                     return 0;
-                byte[] Encoded = Encoding.UTF8.GetBytes(Enumerator.Current);
+                byte[] Encoded = Enumerator.Current.ToUTF8();
                 if (Encoded.Length > count)
                 {
                     Array.Copy(Encoded, 0, buffer, 0, count);

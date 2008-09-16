@@ -72,7 +72,7 @@ namespace Servers
             {
                 if (i >= 0)
                 {
-                    string Piece = URLUnescape(URLPieces[i]);
+                    string Piece = URLPieces[i].URLUnescape();
                     SoFar += Path.DirectorySeparatorChar + Piece;
                     SoFarURL += "/" + Piece;
                 }
@@ -136,15 +136,15 @@ namespace Servers
 
             yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
             yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>";
-            yield return "<directory url=\"" + URLEscape(URL) + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">";
+            yield return "<directory url=\"" + URL.URLEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">";
 
             foreach (var d in Dirs)
-                yield return "<dir link=\"" + URLEscape(d.Name) + "/\" img=\"/$/directory-listing/icons/folder\">" + HTMLEscape(d.Name) + "</dir>";
+                yield return "<dir link=\"" + d.Name.URLEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HTMLEscape() + "</dir>";
             foreach (var f in Files)
             {
                 string Ext = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
-                yield return "<file link=\"" + URLEscape(f.Name) + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
-                yield return "\" img=\"/$/directory-listing/icons/" + HTTPInternalObjects.GetDirectoryListingIconStr(Ext) + "\">" + HTMLEscape(f.Name) + "</file>";
+                yield return "<file link=\"" + f.Name.URLEscape() + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
+                yield return "\" img=\"/$/directory-listing/icons/" + HTTPInternalObjects.GetDirectoryListingIconStr(Ext) + "\">" + f.Name.HTMLEscape() + "</file>";
             }
 
             yield return "</directory>";
@@ -204,9 +204,9 @@ namespace Servers
                     string Headers = HeadersSoFar.Remove(i);
                     Console.WriteLine(Headers);
                     Console.WriteLine();
-                    HTTPResponse Response = HandleRequestAfterHeaders(Socket, Headers, Buffer, i + 4, BytesReceived - i - 4);
                     try
                     {
+                        HTTPResponse Response = HandleRequestAfterHeaders(Socket, Headers, Buffer, i + 4, BytesReceived - i - 4);
                         bool ConnectionKeepAlive = false;
                         try
                         {
@@ -226,6 +226,11 @@ namespace Servers
                     catch (SocketException)
                     {
                     }
+
+                    // Workaround. It seems that closing the socket immediately doesn't necessarily flush all the data. We want to make sure that all the data is received.
+                    // if (Socket.Connected)
+                        // Thread.Sleep(1);
+
                     Socket.Close();
                     return;
                 }
@@ -289,9 +294,7 @@ namespace Servers
             if (UseKeepAlive)
                 Response.Headers.Connection = HTTPConnection.KeepAlive;
 
-            Stream Output;
-
-            // If we know the content length and it is smaller than the in-memory gzip threshold, do all the gzipping now
+            // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
             if (UseGzip && ContentLengthKnown && ContentLength < Opt.GzipInMemoryUpToSize)
             {
                 // In this case, do all the gzipping before sending the headers.
@@ -307,14 +310,17 @@ namespace Servers
                 }
                 gz.Close();
                 byte[] ResultBuffer = ms.ToArray();
-                Response.Content = new MemoryStream(ResultBuffer);
                 Response.Headers.ContentLength = ResultBuffer.Length;
                 SendHeaders(Socket, Response);
                 if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
                     return UseKeepAlive;
-                Output = new StreamOnSocket(Socket);
+                Socket.Send(ResultBuffer);
+                return UseKeepAlive;
             }
-            else if (UseGzip && !UseKeepAlive)
+
+            Stream Output;
+
+            if (UseGzip && !UseKeepAlive)
             {
                 // In this case, send the headers first, then instantiate the GZipStream.
                 // Otherwise we run the risk that the GzipStream might write to the socket before the headers are sent.
@@ -328,7 +334,7 @@ namespace Servers
             }
             else if (UseGzip)
             {
-                // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Type header
+                // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Length header
                 Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
                 SendHeaders(Socket, Response);
                 if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
@@ -732,70 +738,16 @@ namespace Servers
         }
         public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
         {
-            string StatusCodeName = HTMLEscape("" + ((int) StatusCode) + " " + GetStatusCodeName(StatusCode));
+            string StatusCodeName = ("" + ((int) StatusCode) + " " + GetStatusCodeName(StatusCode)).HTMLEscape();
             Headers.ContentType = "text/html; charset=utf-8";
             string ContentStr = "<html><head><title>HTTP " + StatusCodeName + "</title></head><body><h1>" + StatusCodeName + "</h1>" +
-                (Message != null ? "<p>" + HTMLEscape(Message) + "</p>" : "") + "</body></html>";
-            byte[] ContentBuffer = Encoding.UTF8.GetBytes(ContentStr);
+                (Message != null ? "<p>" + Message.HTMLEscape() + "</p>" : "") + "</body></html>";
             return new HTTPResponse()
             {
                 Status = StatusCode,
                 Headers = Headers,
-                Content = new MemoryStream(ContentBuffer)
+                Content = new MemoryStream(ContentStr.ToUTF8())
             };
-        }
-
-        public static string HTMLEscape(string Message)
-        {
-            return Message.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("'", "&#39;").Replace("\"", "&quot;");
-        }
-
-        public static string URLEscape(string URL)
-        {
-            byte[] UTF8 = Encoding.UTF8.GetBytes(URL);
-            StringBuilder sb = new StringBuilder();
-            foreach (byte b in UTF8)
-                sb.Append((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
-                    || (b == '-') || (b == '/') || (b == '_') || (b == '~') || (b == '.')
-                    ? ((char) b).ToString() : string.Format("%{0:X2}", b));
-            return sb.ToString();
-        }
-
-        public static string URLUnescape(string URL)
-        {
-            if (URL.Length < 3)
-                return URL;
-            int BufferSize = 0;
-            int i = 0;
-            while (i < URL.Length)
-            {
-                BufferSize++;
-                if (URL[i] == '%') { i += 2; }
-                i++;
-            }
-            byte[] Buffer = new byte[BufferSize];
-            BufferSize = 0;
-            i = 0;
-            while (i < URL.Length)
-            {
-                if (URL[i] == '%' && i < URL.Length - 2)
-                {
-                    try
-                    {
-                        Buffer[BufferSize] = byte.Parse("" + URL[i + 1] + URL[i + 2], NumberStyles.HexNumber);
-                        BufferSize++;
-                    }
-                    catch (Exception) { }
-                    i += 3;
-                }
-                else
-                {
-                    Buffer[BufferSize] = (byte) URL[i];
-                    BufferSize++;
-                    i++;
-                }
-            }
-            return Encoding.UTF8.GetString(Buffer, 0, BufferSize);
         }
 
         private static string GetStatusCodeName(HTTPStatusCode StatusCode)
