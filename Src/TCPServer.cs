@@ -53,7 +53,7 @@ namespace Servers
             while (true)
             {
                 Socket Socket = Listener.AcceptSocket();
-                TCPSocket TCPSocket = new TCPSocket(Socket);
+                TCPClient TCPSocket = new TCPClient(Socket);
                 if (IncomingData != null)
                     TCPSocket.IncomingData += IncomingData;
                 if (IncomingConnection != null)

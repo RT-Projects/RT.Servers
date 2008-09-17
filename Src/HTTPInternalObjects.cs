@@ -43,7 +43,7 @@ namespace Servers
                                         <td style=""font-size: 180%"">Directory listing</td>
                                     </tr>
                                     <tr>
-                                        <td><xsl:value-of select=""@url""/>/</td>
+                                        <td><xsl:value-of select=""@url""/></td>
                                     </tr>
                                 </table>
                             </tr>
@@ -51,7 +51,9 @@ namespace Servers
                             <tr class=""l""><td colspan=""2"">
                                 <table style=""width: 100%"">
                                     <tr class=""h""><th class=""n"" colspan=""2"">Name</th><th>Size</th></tr>
-                                    <tr><td></td><td class=""n""><a href=""{@url}/.."">..</a></td><td class=""s d"">Folder</td></tr>
+                                    <xsl:if test=""@url!='/'"">
+                                        <tr><td></td><td class=""n""><a href="".."">..</a></td><td class=""s d"">Folder</td></tr>
+                                    </xsl:if>
                                     <xsl:apply-templates select=""dir"" />
                                     <xsl:apply-templates select=""file"" />
                                     <tr style=""height: 3pt""><td class=""n"" colspan=""2""/><td/></tr>
@@ -214,6 +216,11 @@ namespace Servers
         public static byte[] ToUTF8(this string Str)
         {
             return Encoding.UTF8.GetBytes(Str);
+        }
+
+        public static byte[] ToASCII(this string Str)
+        {
+            return Encoding.ASCII.GetBytes(Str);
         }
 
         public static int UTF8Length(this string Str)

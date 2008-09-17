@@ -27,8 +27,14 @@ namespace Servers
 
     public struct HTTPContentRange
     {
-        public int From;
-        public int To;
-        public int Total;
+        public long From;
+        public long To;
+        public long Total;
+    }
+
+    public struct HTTPRange
+    {
+        public long? From;
+        public long? To;
     }
 }

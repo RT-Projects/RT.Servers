@@ -6,12 +6,12 @@ using Servers.TCPEvents;
 
 namespace Servers
 {
-    public class TCPSocket
+    public class TCPClient
     {
         private Socket Socket;
         private Thread ReadingThread;
 
-        public TCPSocket(Socket Socket)
+        public TCPClient(Socket Socket)
         {
             this.Socket = Socket;
             ReadingThread = new Thread(ReadingThreadFunction);

@@ -45,6 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DebugLog.cs" />
     <Compile Include="DynamicContentStream.cs" />
     <Compile Include="HTTPEnums.cs" />
     <Compile Include="HTTPInternalObjects.cs" />
@@ -59,6 +60,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Stopwatch.cs" />
     <Compile Include="StreamOnSocket.cs" />
     <Compile Include="TCPEvents.cs" />
     <Compile Include="TCPServer.cs" />

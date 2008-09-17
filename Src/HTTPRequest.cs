@@ -12,8 +12,7 @@ namespace Servers
         public string[] AcceptCharset;
         public HTTPContentEncoding[] AcceptEncoding;
         public string[] AcceptLanguage;
-        public HTTPAcceptRanges AcceptRanges;
-        // public ? Authorization
+        // Authorization?
         public HTTPConnection Connection;
         public int? ContentLength;      // required only for POST
         public string ContentType;      // required only for POST
@@ -21,6 +20,7 @@ namespace Servers
         public string Host;
         public DateTime? IfModifiedSince;
         public string IfNoneMatch;
+        public HTTPRange[] Range;
         public string UserAgent;
         public Dictionary<string, string> UnrecognisedHeaders;
     }
