@@ -296,8 +296,12 @@ namespace Servers
                 do
                 {
                     BytesRead = Content.Read(Buffer, WriteIndex, 65536 - WriteIndex);
-                    if (BytesRead == 0)
-                        break;
+                    if (BytesRead == 0) // premature end of content
+                    {
+                        if (CurrentWritingStream != null)
+                            CurrentWritingStream.Close();
+                        return fc;
+                    }
                     WriteIndex += BytesRead;
                 } while (WriteIndex < Headers.ContentMultipartBoundary.Length + 8);
                 BytesRead = WriteIndex;
