@@ -274,14 +274,12 @@ namespace Servers
                             // Write some of the data to the output stream, but leave enough so that we can still recognise the boundary
                             int HowMuchToWrite = BytesRead - Headers.ContentMultipartBoundary.Length - 8;
                             if (HowMuchToWrite > 0)
-                            {
                                 CurrentWritingStream.Write(Buffer, BufferIndex, HowMuchToWrite);
-                                byte[] NewBuffer = new byte[65536];
-                                Array.Copy(Buffer, BufferIndex + HowMuchToWrite, NewBuffer, 0, BytesRead - HowMuchToWrite);
-                                Buffer = NewBuffer;
-                                BufferIndex = 0;
-                                BytesRead -= HowMuchToWrite;
-                            }
+                            byte[] NewBuffer = new byte[65536];
+                            Array.Copy(Buffer, BufferIndex + HowMuchToWrite, NewBuffer, 0, BytesRead - HowMuchToWrite);
+                            Buffer = NewBuffer;
+                            BufferIndex = 0;
+                            BytesRead -= HowMuchToWrite;
                             WriteIndex = BytesRead;
                         }
                     }
