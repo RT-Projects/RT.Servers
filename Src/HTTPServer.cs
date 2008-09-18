@@ -29,7 +29,6 @@ namespace Servers
         private Thread ListeningThread;
         private Dictionary<string, HTTPRequestHandler> RequestHandlers = new Dictionary<string, HTTPRequestHandler>();
         private HTTPServerOptions Opt;
-        private static Random Rnd = new Random();
 
         public void StopListening()
         {
@@ -271,9 +270,9 @@ namespace Servers
                         NextReadOffset += SepIndex + 4 - PrevHeadersLength;
                         NextReadLength -= SepIndex + 4 - PrevHeadersLength;
                         HTTPResponse Response = HandleRequestAfterHeaders(Socket, HeadersSoFar, NextRead, ref NextReadOffset, ref NextReadLength, s);
+                        s.w("Returned from HandleRequestAfterHeaders()");
                         if (NextReadLength == 0)
                             NextRead = null;
-                        s.w("Returned from HandleRequestAfterHeaders()");
                         bool ConnectionKeepAlive = false;
                         try
                         {
@@ -322,218 +321,230 @@ namespace Servers
 
         private bool OutputResponse(Socket Socket, HTTPResponse Response, Stopwatch s)
         {
-            s.w("OutputResponse() - enter");
-
-            // If no status is given, by default assume 200 OK
-            if (Response.Status == HTTPStatusCode.None)
-                Response.Status = HTTPStatusCode._200_OK;
-
-            // If no Content-Type is given and there is no Location header, use default
-            if (Response.Headers.ContentType == null && Response.Headers.Location == null)
-                Response.Headers.ContentType = Opt.DefaultContentType;
-
-            bool KeepAliveRequested = Response.OriginalRequest.Headers.Connection == HTTPConnection.KeepAlive;
-            bool GzipRequested = false;
-            if (Response.OriginalRequest.Headers.AcceptEncoding != null)
-                foreach (HTTPContentEncoding hce in Response.OriginalRequest.Headers.AcceptEncoding)
-                    GzipRequested = GzipRequested || (hce == HTTPContentEncoding.Gzip);
-            bool ContentLengthKnown = false;
-            long ContentLength = 0;
-
-            // Find out if we know the content length
-            if (Response.Content == null)
+            try
             {
-                ContentLength = 0;
-                ContentLengthKnown = true;
-            }
-            else if (Response.Headers.ContentLength != null)
-            {
-                ContentLength = Response.Headers.ContentLength.Value;
-                ContentLengthKnown = true;
-            }
-            else
-            {
-                // See if we can deduce the content length from the stream
-                try
+                s.w("OutputResponse() - enter");
+
+                // If no status is given, by default assume 200 OK
+                if (Response.Status == HTTPStatusCode.None)
+                    Response.Status = HTTPStatusCode._200_OK;
+
+                // If no Content-Type is given and there is no Location header, use default
+                if (Response.Headers.ContentType == null && Response.Headers.Location == null)
+                    Response.Headers.ContentType = Opt.DefaultContentType;
+
+                bool KeepAliveRequested = Response.OriginalRequest.Headers.Connection == HTTPConnection.KeepAlive;
+                bool GzipRequested = false;
+                if (Response.OriginalRequest.Headers.AcceptEncoding != null)
+                    foreach (HTTPContentEncoding hce in Response.OriginalRequest.Headers.AcceptEncoding)
+                        GzipRequested = GzipRequested || (hce == HTTPContentEncoding.Gzip);
+                bool ContentLengthKnown = false;
+                long ContentLength = 0;
+
+                // Find out if we know the content length
+                if (Response.Content == null)
                 {
-                    ContentLength = Response.Content.Length;
+                    ContentLength = 0;
                     ContentLengthKnown = true;
                 }
-                catch (NotSupportedException) { }
-            }
-
-            bool UseKeepAlive = KeepAliveRequested;
-            if (UseKeepAlive)
-                Response.Headers.Connection = HTTPConnection.KeepAlive;
-
-            // If we know the content length and the stream can seek, then we can support Ranges
-            if (ContentLengthKnown && Response.Status == HTTPStatusCode._200_OK && Response.Content.CanSeek)
-            {
-                Response.Headers.AcceptRanges = HTTPAcceptRanges.Bytes;
-
-                // If the client requested a range, then serve it
-                if (Response.Status == HTTPStatusCode._200_OK && Response.OriginalRequest.Headers.Range != null)
+                else if (Response.Headers.ContentLength != null)
                 {
-                    // Construct a canonical set of satisfiable ranges
-                    var Ranges = new SortedList<long, long>();
-                    foreach (var r in Response.OriginalRequest.Headers.Range)
+                    ContentLength = Response.Headers.ContentLength.Value;
+                    ContentLengthKnown = true;
+                }
+                else
+                {
+                    // See if we can deduce the content length from the stream
+                    try
                     {
-                        long rFrom = r.From == null || r.From.Value < 0 ? 0 : r.From.Value;
-                        long rTo = r.To == null || r.To.Value >= ContentLength ? ContentLength - 1 : r.To.Value;
-                        if (Ranges.ContainsKey(rFrom))
-                            Ranges[rFrom] = Math.Max(Ranges[rFrom], rTo);
-                        else
-                            Ranges.Add(rFrom, rTo);
+                        ContentLength = Response.Content.Length;
+                        ContentLengthKnown = true;
                     }
+                    catch (NotSupportedException) { }
+                }
 
-                    // If one of the ranges spans the complete file, don't bother with ranges
-                    if (!Ranges.ContainsKey(0) || Ranges[0] < ContentLength - 1)
+                bool UseKeepAlive = KeepAliveRequested;
+                if (UseKeepAlive)
+                    Response.Headers.Connection = HTTPConnection.KeepAlive;
+
+                // If we know the content length and the stream can seek, then we can support Ranges
+                if (ContentLengthKnown && Response.Status == HTTPStatusCode._200_OK && Response.Content.CanSeek)
+                {
+                    Response.Headers.AcceptRanges = HTTPAcceptRanges.Bytes;
+
+                    // If the client requested a range, then serve it
+                    if (Response.Status == HTTPStatusCode._200_OK && Response.OriginalRequest.Headers.Range != null)
                     {
-                        // Make a copy of this so that we can modify Ranges while iterating over it
-                        var RangeFroms = new List<long>(Ranges.Keys);
-
-                        long PrevFrom = 0;
-                        bool HavePrevFrom = false;
-                        foreach (long From in RangeFroms)
+                        // Construct a canonical set of satisfiable ranges
+                        var Ranges = new SortedList<long, long>();
+                        foreach (var r in Response.OriginalRequest.Headers.Range)
                         {
-                            if (!HavePrevFrom)
-                            {
-                                PrevFrom = From;
-                                HavePrevFrom = true;
-                            }
-                            else if (Ranges[PrevFrom] >= From)
-                            {
-                                Ranges[PrevFrom] = Math.Max(Ranges[PrevFrom], Ranges[From]);
-                                Ranges.Remove(From);
-                            }
+                            long rFrom = r.From == null || r.From.Value < 0 ? 0 : r.From.Value;
+                            long rTo = r.To == null || r.To.Value >= ContentLength ? ContentLength - 1 : r.To.Value;
+                            if (Ranges.ContainsKey(rFrom))
+                                Ranges[rFrom] = Math.Max(Ranges[rFrom], rTo);
+                            else
+                                Ranges.Add(rFrom, rTo);
                         }
 
-                        // Note that "ContentLength" here refers to the total size of the file.
-                        // The functions ServeSingleRange() and ServeRanges() will automatically
-                        // set a Content-Length header that specifies the size of just the range(s).
+                        // If one of the ranges spans the complete file, don't bother with ranges
+                        if (!Ranges.ContainsKey(0) || Ranges[0] < ContentLength - 1)
+                        {
+                            // Make a copy of this so that we can modify Ranges while iterating over it
+                            var RangeFroms = new List<long>(Ranges.Keys);
 
-                        // Also note that if Ranges.Count is 0, we want to fall through and handle the request without ranges
-                        if (Ranges.Count == 1)
-                        {
-                            ServeSingleRange(Socket, Response, Ranges, ContentLength);
-                            return UseKeepAlive;
-                        }
-                        else if (Ranges.Count > 1)
-                        {
-                            ServeRanges(Socket, Response, Ranges, ContentLength);
-                            return UseKeepAlive;
+                            long PrevFrom = 0;
+                            bool HavePrevFrom = false;
+                            foreach (long From in RangeFroms)
+                            {
+                                if (!HavePrevFrom)
+                                {
+                                    PrevFrom = From;
+                                    HavePrevFrom = true;
+                                }
+                                else if (Ranges[PrevFrom] >= From)
+                                {
+                                    Ranges[PrevFrom] = Math.Max(Ranges[PrevFrom], Ranges[From]);
+                                    Ranges.Remove(From);
+                                }
+                            }
+
+                            // Note that "ContentLength" here refers to the total size of the file.
+                            // The functions ServeSingleRange() and ServeRanges() will automatically
+                            // set a Content-Length header that specifies the size of just the range(s).
+
+                            // Also note that if Ranges.Count is 0, we want to fall through and handle the request without ranges
+                            if (Ranges.Count == 1)
+                            {
+                                ServeSingleRange(Socket, Response, Ranges, ContentLength);
+                                return UseKeepAlive;
+                            }
+                            else if (Ranges.Count > 1)
+                            {
+                                ServeRanges(Socket, Response, Ranges, ContentLength);
+                                return UseKeepAlive;
+                            }
                         }
                     }
                 }
-            }
 
-            bool UseGzip = GzipRequested && !(ContentLengthKnown && ContentLength <= 1024);
-            if (UseGzip)
-                Response.Headers.ContentEncoding = HTTPContentEncoding.Gzip;
+                bool UseGzip = GzipRequested && !(ContentLengthKnown && ContentLength <= 1024);
+                if (UseGzip)
+                    Response.Headers.ContentEncoding = HTTPContentEncoding.Gzip;
 
-            s.w("OutputResponse() - find out things");
+                s.w("OutputResponse() - find out things");
 
-            // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
-            if (UseGzip && ContentLengthKnown && ContentLength < Opt.GzipInMemoryUpToSize)
-            {
-                s.w("OutputResponse() - using in-memory gzip");
-                // In this case, do all the gzipping before sending the headers.
-                // After all we want to include the new (compressed) Content-Length.
-                MemoryStream ms = new MemoryStream();
-                GZipStream gz = new GZipStream(ms, CompressionMode.Compress);
-                byte[] ContentReadBuffer = new byte[65536];
-                int Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
-                while (Bytes > 0)
+                // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
+                if (UseGzip && ContentLengthKnown && ContentLength < Opt.GzipInMemoryUpToSize)
                 {
-                    gz.Write(ContentReadBuffer, 0, Bytes);
-                    Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
-                }
-                gz.Close();
-                s.w("OutputResponse() - finished gzipping");
-                byte[] ResultBuffer = ms.ToArray();
-                Response.Headers.ContentLength = ResultBuffer.Length;
-                SendHeaders(Socket, Response);
-                s.w("OutputResponse() - finished sending headers");
-                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                    s.w("OutputResponse() - using in-memory gzip");
+                    // In this case, do all the gzipping before sending the headers.
+                    // After all we want to include the new (compressed) Content-Length.
+                    MemoryStream ms = new MemoryStream();
+                    GZipStream gz = new GZipStream(ms, CompressionMode.Compress);
+                    byte[] ContentReadBuffer = new byte[65536];
+                    int Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
+                    while (Bytes > 0)
+                    {
+                        gz.Write(ContentReadBuffer, 0, Bytes);
+                        Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
+                    }
+                    gz.Close();
+                    s.w("OutputResponse() - finished gzipping");
+                    byte[] ResultBuffer = ms.ToArray();
+                    Response.Headers.ContentLength = ResultBuffer.Length;
+                    SendHeaders(Socket, Response);
+                    s.w("OutputResponse() - finished sending headers");
+                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                        return UseKeepAlive;
+                    Socket.Send(ResultBuffer);
+                    s.w("OutputResponse() - finished sending response");
                     return UseKeepAlive;
-                Socket.Send(ResultBuffer);
-                s.w("OutputResponse() - finished sending response");
+                }
+
+                s.w("OutputResponse() - using something other than in-memory gzip");
+
+                Stream Output;
+
+                if (UseGzip && !UseKeepAlive)
+                {
+                    // In this case, send the headers first, then instantiate the GZipStream.
+                    // Otherwise we run the risk that the GzipStream might write to the socket before the headers are sent.
+                    // Also note that we are not sending a Content-Length header; even if we know the content length
+                    // of the uncompressed file, we cannot predict the length of the compressed output yet
+                    SendHeaders(Socket, Response);
+                    s.w("OutputResponse() - sending headers");
+                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                        return UseKeepAlive;
+                    StreamOnSocket str = new StreamOnSocket(Socket);
+                    Output = new GZipStream(str, CompressionMode.Compress);
+                }
+                else if (UseGzip)
+                {
+                    // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Length header
+                    Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
+                    SendHeaders(Socket, Response);
+                    s.w("OutputResponse() - sending headers");
+                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                        return UseKeepAlive;
+                    StreamOnSocket str = new StreamOnSocketChunked(Socket);
+                    Output = new GZipStream(str, CompressionMode.Compress);
+                }
+                else if (UseKeepAlive && !ContentLengthKnown)
+                {
+                    // Use chunked encoding without Gzip
+                    Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
+                    SendHeaders(Socket, Response);
+                    s.w("OutputResponse() - sending headers");
+                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                        return UseKeepAlive;
+                    Output = new StreamOnSocketChunked(Socket);
+                }
+                else
+                {
+                    // No Gzip, no chunked, but if we know the content length, supply it
+                    // (if we don't, then we're not using keep-alive here)
+                    if (ContentLengthKnown)
+                        Response.Headers.ContentLength = ContentLength;
+
+                    SendHeaders(Socket, Response);
+                    s.w("OutputResponse() - sending headers");
+
+                    // If the content length is zero, we can exit as quickly as possible
+                    // (no need to instantiate an output stream)
+                    if ((ContentLengthKnown && ContentLength == 0) || Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                        return UseKeepAlive;
+
+                    Output = new StreamOnSocket(Socket);
+                }
+
+                s.w("OutputResponse() - instantiating output stream");
+
+                // Finally output the actual content
+                int BufferSize = 65536;
+                byte[] Buffer = new byte[BufferSize];
+                int BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
+                s.w("OutputResponse() - read from response content stream");
+                while (BytesRead > 0)
+                {
+                    Output.Write(Buffer, 0, BytesRead);
+                    s.w("OutputResponse() - write to socket output stream");
+                    BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
+                    s.w("OutputResponse() - read from response content stream");
+                }
+                Output.Close();
+                s.w("OutputResponse() - done sending response");
                 return UseKeepAlive;
             }
-
-            s.w("OutputResponse() - using something other than in-memory gzip");
-
-            Stream Output;
-
-            if (UseGzip && !UseKeepAlive)
+            finally
             {
-                // In this case, send the headers first, then instantiate the GZipStream.
-                // Otherwise we run the risk that the GzipStream might write to the socket before the headers are sent.
-                // Also note that we are not sending a Content-Length header; even if we know the content length
-                // of the uncompressed file, we cannot predict the length of the compressed output yet
-                SendHeaders(Socket, Response);
-                s.w("OutputResponse() - sending headers");
-                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                    return UseKeepAlive;
-                StreamOnSocket str = new StreamOnSocket(Socket);
-                Output = new GZipStream(str, CompressionMode.Compress);
+                try
+                {
+                    if (Response.TemporaryFile != null)
+                        File.Delete(Response.TemporaryFile);
+                }
+                catch (Exception) { }
             }
-            else if (UseGzip)
-            {
-                // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Length header
-                Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
-                SendHeaders(Socket, Response);
-                s.w("OutputResponse() - sending headers");
-                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                    return UseKeepAlive;
-                StreamOnSocket str = new StreamOnSocketChunked(Socket);
-                Output = new GZipStream(str, CompressionMode.Compress);
-            }
-            else if (UseKeepAlive && !ContentLengthKnown)
-            {
-                // Use chunked encoding without Gzip
-                Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
-                SendHeaders(Socket, Response);
-                s.w("OutputResponse() - sending headers");
-                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                    return UseKeepAlive;
-                Output = new StreamOnSocketChunked(Socket);
-            }
-            else
-            {
-                // No Gzip, no chunked, but if we know the content length, supply it
-                // (if we don't, then we're not using keep-alive here)
-                if (ContentLengthKnown)
-                    Response.Headers.ContentLength = ContentLength;
-
-                SendHeaders(Socket, Response);
-                s.w("OutputResponse() - sending headers");
-
-                // If the content length is zero, we can exit as quickly as possible
-                // (no need to instantiate an output stream)
-                if ((ContentLengthKnown && ContentLength == 0) || Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                    return UseKeepAlive;
-
-                Output = new StreamOnSocket(Socket);
-            }
-
-            s.w("OutputResponse() - instantiating output stream");
-
-            // Finally output the actual content
-            int BufferSize = 65536;
-            byte[] Buffer = new byte[BufferSize];
-            int BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
-            s.w("OutputResponse() - read from response content stream");
-            while (BytesRead > 0)
-            {
-                Output.Write(Buffer, 0, BytesRead);
-                s.w("OutputResponse() - write to socket output stream");
-                BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
-                s.w("OutputResponse() - read from response content stream");
-            }
-            Output.Close();
-            s.w("OutputResponse() - done sending response");
-            return UseKeepAlive;
         }
 
         private void ServeSingleRange(Socket Socket, HTTPResponse Response, SortedList<long, long> Ranges, long TotalFileSize)
@@ -569,7 +580,7 @@ namespace Servers
 
             // Generate a random boundary token
             byte[] Boundary = new byte[64];
-            lock (Rnd) { for (int i = 0; i < 64; i++) Boundary[i] = RandomHexDigit(); }
+            lock (HTTPInternalObjects.Rnd) { for (int i = 0; i < 64; i++) Boundary[i] = HTTPInternalObjects.RandomHexDigit(); }
 
             // Calculate the total content length
             long CLength = 0;
@@ -612,15 +623,6 @@ namespace Servers
             Socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
         }
 
-        public static byte RandomHexDigit()
-        {
-            lock (Rnd)
-            {
-                int r = Rnd.Next(16);
-                return r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
-            }
-        }
-
         private HTTPResponse HandleRequestAfterHeaders(Socket Socket, string Headers, byte[] BufferWithContentSoFar, ref int ContentOffset, ref int ContentLengthSoFar, Stopwatch s)
         {
             s.w("HandleRequestAfterHeaders() - enter");
@@ -638,7 +640,8 @@ namespace Servers
             {
                 Method = Match.Groups[1].Value == "HEAD" ? HTTPMethod.HEAD :
                          Match.Groups[1].Value == "POST" ? HTTPMethod.POST : HTTPMethod.GET,
-                URL = Match.Groups[2].Value
+                URL = Match.Groups[2].Value,
+                TempDir = Opt.TempDir   // this will only be used if there is a file upload in a POST request.
             };
 
             s.w("HandleRequestAfterHeaders() - Instantiate HTTPRequest");
@@ -676,6 +679,8 @@ namespace Servers
             if (Req.Handler == null)
                 return GenericError(HTTPStatusCode._404_NotFound);
 
+            string TemporaryFile = null;
+
             if (Req.Method == HTTPMethod.POST)
             {
                 // Some validity checks
@@ -687,9 +692,9 @@ namespace Servers
                 // Read the contents of the POST request
                 if (ContentLengthSoFar >= Req.Headers.ContentLength.Value)
                 {
-                    Req.Content = new MemoryStream(BufferWithContentSoFar, ContentOffset, Req.Headers.ContentLength.Value, false);
-                    ContentOffset += Req.Headers.ContentLength.Value;
-                    ContentLengthSoFar -= Req.Headers.ContentLength.Value;
+                    Req.Content = new MemoryStream(BufferWithContentSoFar, ContentOffset, (int)Req.Headers.ContentLength.Value, false);
+                    ContentOffset += (int)Req.Headers.ContentLength.Value;
+                    ContentLengthSoFar -= (int) Req.Headers.ContentLength.Value;
                 }
                 else if (Req.Headers.ContentLength.Value < Opt.UseFileUploadAtSize)
                 {
@@ -700,58 +705,53 @@ namespace Servers
                     while (ContentLengthSoFar < Req.Headers.ContentLength)
                     {
                         SocketError ErrorCode;
-                        int BytesReceived = Socket.Receive(Buffer, ContentLengthSoFar, Req.Headers.ContentLength.Value - ContentLengthSoFar, SocketFlags.None, out ErrorCode);
+                        int BytesReceived = Socket.Receive(Buffer, ContentLengthSoFar, (int)Req.Headers.ContentLength.Value - ContentLengthSoFar, SocketFlags.None, out ErrorCode);
                         if (ErrorCode != SocketError.Success)
                             throw new SocketException();
                         ContentLengthSoFar += BytesReceived;
                     }
-                    Req.Content = new MemoryStream(Buffer, 0, Req.Headers.ContentLength.Value);
+                    Req.Content = new MemoryStream(Buffer, 0, (int)Req.Headers.ContentLength.Value);
                     ContentLengthSoFar = 0;
                 }
                 else
                 {
                     // Store the POST request content in a temporary file
-                    string Dir = Opt.TempDir + (Opt.TempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
-                    FileStream f;
-                    string Filename;
-                    lock (Rnd)
+                    Stream f;
+                    try
                     {
-                        int Counter = Rnd.Next(1000);
-                        // This seemingly bizarre construct tries to prevent race conditions between several threads/processes trying to create the same file.
-                        while (true)
+                        TemporaryFile = HTTPInternalObjects.RandomTempFilepath(Opt.TempDir, out f);
+                    }
+                    catch (IOException)
+                    {
+                        return GenericError(HTTPStatusCode._500_InternalServerError);
+                    }
+                    try
+                    {
+                        if (ContentLengthSoFar > 0)
+                            f.Write(BufferWithContentSoFar, ContentOffset, ContentLengthSoFar);
+                        byte[] Buffer = new byte[65536];
+                        while (ContentLengthSoFar < Req.Headers.ContentLength)
                         {
-                            if (Counter > 100000)
-                                return GenericError(HTTPStatusCode._500_InternalServerError);
-                            try
+                            SocketError ErrorCode;
+                            int BytesReceived = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode);
+                            if (ErrorCode != SocketError.Success)
+                                throw new SocketException();
+                            if (BytesReceived > 0)
                             {
-                                Filename = Opt.TempDir + "http_upload_" + Counter;
-                                f = File.Open(Filename, FileMode.CreateNew, FileAccess.Write);
-                                break;
-                            }
-                            catch (IOException)
-                            {
-                                Counter += Rnd.Next(1000);
+                                f.Write(Buffer, 0, BytesReceived);
+                                ContentLengthSoFar += BytesReceived;
                             }
                         }
+                        f.Close();
+                        Req.Content = File.Open(TemporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        ContentLengthSoFar = 0;
                     }
-                    if (ContentLengthSoFar > 0)
-                        f.Write(BufferWithContentSoFar, ContentOffset, ContentLengthSoFar);
-                    byte[] Buffer = new byte[65536];
-                    while (ContentLengthSoFar < Req.Headers.ContentLength)
+                    catch (Exception e)
                     {
-                        SocketError ErrorCode;
-                        int BytesReceived = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode);
-                        if (ErrorCode != SocketError.Success)
-                            throw new SocketException();
-                        if (BytesReceived > 0)
-                        {
-                            f.Write(Buffer, 0, BytesReceived);
-                            ContentLengthSoFar += BytesReceived;
-                        }
+                        f.Close();
+                        File.Delete(TemporaryFile);
+                        throw e;
                     }
-                    f.Close();
-                    Req.Content = File.Open(Filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    ContentLengthSoFar = 0;
                 }
             }
 
@@ -759,6 +759,7 @@ namespace Servers
             HTTPResponse Resp = Req.Handler(Req);
             s.w("HandleRequestAfterHeaders() - Returned from handler");
             Resp.OriginalRequest = Req;
+            Resp.TemporaryFile = TemporaryFile;
             return Resp;
         }
 
@@ -797,9 +798,22 @@ namespace Servers
                 Req.Headers.ContentLength = IntOutput;
             else if (HeaderName == "content-type")
             {
-                if (Req.Method == HTTPMethod.POST && ValueLower != "application/x-www-form-urlencoded" && ValueLower != "multipart/form-data")
-                    throw new InvalidRequestException(GenericError(HTTPStatusCode._501_NotImplemented));
-                Req.Headers.ContentType = ValueLower;
+                if (Req.Method == HTTPMethod.POST)
+                {
+                    if (ValueLower == "application/x-www-form-urlencoded")
+                        Req.Headers.ContentType = HTTPPOSTContentType.ApplicationXWWWFormURLEncoded;
+                    else
+                    {
+                        Match m = Regex.Match(ValueLower, @"^multipart/form-data\s*;\s*boundary=");
+                        if (m.Success)
+                        {
+                            Req.Headers.ContentType = HTTPPOSTContentType.MultipartFormData;
+                            Req.Headers.ContentMultipartBoundary = HeaderValue.Substring(m.Length);
+                        }
+                        else
+                            throw new InvalidRequestException(GenericError(HTTPStatusCode._501_NotImplemented));
+                    }
+                }
             }
             else if (HeaderName == "cookie")
             {

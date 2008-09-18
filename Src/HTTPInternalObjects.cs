@@ -88,6 +88,43 @@ namespace Servers
         ";
         private static byte[] DirectoryListingXSLByteArray = null;
 
+        public static Random Rnd = new Random();
+
+        public static byte RandomHexDigit()
+        {
+            lock (Rnd)
+            {
+                int r = Rnd.Next(16);
+                return r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
+            }
+        }
+
+        public static string RandomTempFilepath(string TempDir, out Stream FStream)
+        {  
+            string Dir = TempDir + (TempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
+            lock (HTTPInternalObjects.Rnd)
+            {
+                int Counter = HTTPInternalObjects.Rnd.Next(1000);
+                // This seemingly bizarre construct tries to prevent race conditions between several threads/processes trying to create the same file.
+                while (true)
+                {
+                    if (Counter > 100000)
+                        throw new IOException("Could not generate a new temporary filename in the directory " + TempDir + 
+                            ". Make sure that the directory exists. You may need to clear out this directory if it is full.");
+                    try
+                    {
+                        string Filepath = Dir + "http_upload_" + Counter;
+                        FStream = File.Open(Filepath, FileMode.CreateNew, FileAccess.Write);
+                        return Filepath;
+                    }
+                    catch (IOException)
+                    {
+                        Counter += HTTPInternalObjects.Rnd.Next(1000);
+                    }
+                }
+            }
+        }
+
         public static byte[] DirectoryListingXSL()
         {
             if (DirectoryListingXSLByteArray != null)
@@ -171,7 +208,8 @@ namespace Servers
             StringBuilder sb = new StringBuilder();
             foreach (byte b in UTF8)
                 sb.Append((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
-                    || (b == '-') || (b == '/') || (b == '_') || (b == '~') || (b == '.')
+                    || (b == '$') || (b == '-') || (b == '_') || (b == '.') || (b == '!') || (b == '/')
+                    || (b == '*') || (b == '\'') || (b == '(') || (b == ')') || (b == ',')
                     ? ((char) b).ToString() : string.Format("%{0:X2}", b));
             return sb.ToString();
         }
@@ -205,7 +243,7 @@ namespace Servers
                 }
                 else
                 {
-                    Buffer[BufferSize] = (byte) URL[i];
+                    Buffer[BufferSize] = URL[i] == '+' ? (byte) ' ' : (byte) URL[i];
                     BufferSize++;
                     i++;
                 }

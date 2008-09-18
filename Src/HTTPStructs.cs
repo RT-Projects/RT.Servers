@@ -37,4 +37,11 @@ namespace Servers
         public long? From;
         public long? To;
     }
+
+    public struct FileUpload
+    {
+        public string LocalTempFilename;
+        public string Filename;
+        public string ContentType;
+    }
 }

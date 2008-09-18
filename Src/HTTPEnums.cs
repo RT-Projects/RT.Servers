@@ -69,4 +69,11 @@ namespace Servers
         HTML,
         XMLplusXSL
     }
+
+    public enum HTTPPOSTContentType
+    {
+        None,
+        ApplicationXWWWFormURLEncoded,
+        MultipartFormData
+    }
 }

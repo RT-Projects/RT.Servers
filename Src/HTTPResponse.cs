@@ -123,6 +123,8 @@ namespace Servers
         public HTTPStatusCode Status;
         public HTTPResponseHeaders Headers;
         public Stream Content;
+
         internal HTTPRequest OriginalRequest;
+        internal string TemporaryFile;
     }
 }
