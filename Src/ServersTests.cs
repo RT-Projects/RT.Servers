@@ -50,10 +50,9 @@ Content-Type: text/html
             {
                 SlowStream.ChunkSize = cs;
                 Stream f = new SlowStream(new MemoryStream(TestCase));
-                HTTPRequest r = new HTTPRequest()
+                HTTPRequest r = new HTTPRequest(f)
                 {
-                    Content = f,
-                    Headers = new HTTPRequestHeaders()
+                    Headers = new HTTPRequestHeaders
                     {
                         ContentLength = InputStr.Length,
                         ContentMultipartBoundary = "---------------------------265001916915724",
@@ -74,7 +73,7 @@ Content-Type: text/html
                 Assert.AreEqual("temp.htm", Files["documentfile"].Filename);
                 Assert.AreEqual("text/html", Files["documentfile"].ContentType);
                 Assert.IsTrue(File.Exists(Files["documentfile"].LocalTempFilename));
-                
+
                 string FileContent = Encoding.UTF8.GetString(File.ReadAllBytes(Files["documentfile"].LocalTempFilename));
                 File.Delete(Files["documentfile"].LocalTempFilename);
                 Assert.AreEqual(@"<html>

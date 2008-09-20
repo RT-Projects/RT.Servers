@@ -6,18 +6,31 @@ using System.Text;
 
 namespace Servers
 {
+    /// <summary>
+    /// Provides a read-only stream that can "read from" an <see cref="IEnumerable&lt;string&gt;"/>.
+    /// In particular, an intended application is to "read from" a method that uses "yield return" to return strings as execution proceeds.
+    /// This enables generation of, for example, HTML for dynamic web pages.
+    /// </summary>
     public class DynamicContentStream : Stream
     {
-        private long BytesGenerated = 0;
         private IEnumerator<string> Enumerator = null;
         private byte[] LastUnprocessedBytes = null;
         private int LastUnprocessedBytesIndex = 0;
-        private bool Buffered = true;
 
+        /// <summary>
+        /// Instantiates a buffered <see cref="DynamicContentStream"/>.
+        /// </summary>
+        /// <param name="Enumerable">The object that provides the content for this stream to read from.</param>
         public DynamicContentStream(IEnumerable<string> Enumerable)
         {
             this.Enumerator = Enumerable.GetEnumerator();
         }
+
+        /// <summary>
+        /// Instantiates a <see cref="DynamicContentStream"/> and lets you configure whether it's buffered or not.
+        /// </summary>
+        /// <param name="Enumerable">The object that provides the content for this stream to read from.</param>
+        /// <param name="Buffered">Provides an initial value for the <see cref="Buffered"/> property.</param>
         public DynamicContentStream(IEnumerable<string> Enumerable, bool Buffered)
         {
             this.Enumerator = Enumerable.GetEnumerator();
@@ -29,18 +42,22 @@ namespace Servers
         public override bool CanWrite { get { return false; } }
         public override void Flush() { }
 
-        public override long Position
-        {
-            get
-            {
-                return BytesGenerated;
-            }
-            set
-            {
-                throw new NotSupportedException();
-            }
-        }
+        /// <summary>
+        /// If true, each call to <see cref="Read()"/> will move the enumerator forward as far as necessary to fill the buffer.
+        /// If false, each call to <see cref="Read()"/> returns only the text produced by a single MoveNext() of the enumerator.
+        /// </summary>
+        public bool Buffered { get; set; }
 
+        /// <summary>
+        /// Reads some text into the specified buffer. The behaviour depends on the <see cref="Buffered"/> property.
+        /// The bytes returned respresent the text returned by the underlying enumerator, UTF-8-encoded.
+        /// Although DynamicContentStream makes no effort to keep multi-byte characters within a single invocation
+        /// of Read(), all output will be valid UTF-8 when concatenated.
+        /// </summary>
+        /// <param name="buffer">The buffer to copy the data into.</param>
+        /// <param name="offset">The offset at which to start copying into buffer.</param>
+        /// <param name="count">The maximum number of bytes to copy. The stream may return less than this.</param>
+        /// <returns>The number of bytes actually copied into the buffer.</returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (LastUnprocessedBytes != null && LastUnprocessedBytes.Length > 0)
@@ -92,8 +109,11 @@ namespace Servers
             }
             else
             {
-                if (!Enumerator.MoveNext())
-                    return 0;
+                do
+                {
+                    if (!Enumerator.MoveNext())
+                        return 0;
+                } while (Enumerator.Current.Length == 0);
                 byte[] Encoded = Enumerator.Current.ToUTF8();
                 if (Encoded.Length > count)
                 {
@@ -115,5 +135,16 @@ namespace Servers
         public override long Seek(long offset, SeekOrigin origin) { throw new NotSupportedException(); }
         public override void SetLength(long value) { throw new NotSupportedException(); }
         public override void Write(byte[] buffer, int offset, int count) { throw new NotSupportedException(); }
+        public override long Position
+        {
+            get
+            {
+                throw new NotSupportedException();
+            }
+            set
+            {
+                throw new NotSupportedException();
+            }
+        }
     }
 }

@@ -3,8 +3,16 @@ using System.IO;
 
 namespace Servers
 {
+    /// <summary>
+    /// Contains configuration settings for an <see cref="HTTPServer"/>.
+    /// </summary>
     public class HTTPServerOptions
     {
+        /// <summary>
+        /// The port on which the HTTP server should listen. Default is 80.
+        /// </summary>
+        public int Port = 80;
+
         /// <summary>
         /// Timeout in milliseconds for idle connections. Set to 0 for no timeout. Default is 10000 (10 seconds).
         /// </summary>
@@ -26,7 +34,8 @@ namespace Servers
         public long UseFileUploadAtSize = 1024 * 1024;
 
         /// <summary>
-        /// The maximum size (in bytes) of a response at which the server will gzip the entire content in-memory. Default is 1 MB. Content larger than this size will be gzipped in chunks.
+        /// The maximum size (in bytes) of a response at which the server will gzip the entire content in-memory (assuming gzip is requested in the HTTP request).
+        /// Default is 1 MB. Content larger than this size will be gzipped in chunks (if requested).
         /// </summary>
         public long GzipInMemoryUpToSize = 1024 * 1024;
 
@@ -39,7 +48,34 @@ namespace Servers
         /// Maps from file extension to MIME type. Used by FileSystemHandler().
         /// Use the key "*" for the default MIME type. Otherwise the default is "application/octet-stream".
         /// </summary>
-        public Dictionary<string, string> MIMETypes = new Dictionary<string, string>();
+        public Dictionary<string, string> MIMETypes = new Dictionary<string, string>
+        {
+            // Plain text
+            { "txt", "text/plain; charset=utf-8" },
+            { "csv", "text/csv; charset=utf-8" },
+
+            // HTML and dependancies
+            { "htm", "text/html; charset=utf-8" },
+            { "html", "text/html; charset=utf-8" },
+            { "css", "text/css; charset=utf-8" },
+            { "js", "text/javascript; charset=utf-8" },
+
+            // XML and stuff
+            { "xhtml", "application/xhtml+xml; charset=utf-8" },
+            { "xml", "application/xml; charset=utf-8" },
+            { "xsl", "application/xml; charset=utf-8" },
+
+            // Images
+            { "gif", "image/gif" },
+            { "png", "image/png" },
+            { "jp2", "image/jp2" },
+            { "jpg", "image/jpeg" },
+            { "jpeg", "image/jpeg" },
+            { "bmp", "image/bmp" },
+
+            // Default
+            { "*", "application/octet-stream" }
+        };
 
         /// <summary>
         /// Content-Type to return when handler provides none. Default is "text/html; charset=utf-8".
@@ -47,37 +83,8 @@ namespace Servers
         public string DefaultContentType = "text/html; charset=utf-8";
 
         /// <summary>
-        /// Enum specifying which way directory listings should be generated.
+        /// Enum specifying which way directory listings should be generated. Default is DirectoryListingStyle.XMLplusXSL.
         /// </summary>
         public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XMLplusXSL;
-
-        public HTTPServerOptions()
-        {
-            // Plain text
-            MIMETypes["txt"] = "text/plain; charset=utf-8";
-            MIMETypes["csv"] = "text/csv; charset=utf-8";
-
-            // HTML and dependancies
-            MIMETypes["htm"] = "text/html; charset=utf-8";
-            MIMETypes["html"] = "text/html; charset=utf-8";
-            MIMETypes["css"] = "text/css; charset=utf-8";
-            MIMETypes["js"] = "text/javascript; charset=utf-8";
-
-            // XML and stuff
-            MIMETypes["xhtml"] = "application/xhtml+xml; charset=utf-8";
-            MIMETypes["xml"] = "application/xml; charset=utf-8";
-            MIMETypes["xsl"] = "application/xml; charset=utf-8";
-
-            // Images
-            MIMETypes["gif"] = "image/gif";
-            MIMETypes["png"] = "image/png";
-            MIMETypes["jp2"] = "image/jp2";
-            MIMETypes["jpg"] = "image/jpeg";
-            MIMETypes["jpeg"] = "image/jpeg";
-            MIMETypes["bmp"] = "image/bmp";
-
-            // Default
-            MIMETypes["*"] = "application/octet-stream";
-        }
     }
 }

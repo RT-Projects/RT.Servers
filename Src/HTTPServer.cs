@@ -8,21 +8,58 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Servers.HTMLTags;
 
 namespace Servers
 {
+    /// <summary>
+    /// Provides an HTTP server.
+    /// </summary>
     public class HTTPServer
     {
-        public HTTPServer() { Opt = new HTTPServerOptions(); }  // use default values
-        public HTTPServer(HTTPServerOptions Options) { Opt = Options; }
+        /// <summary>
+        /// Constructs an HTTP server with all configuration values set to default values.
+        /// </summary>
+        public HTTPServer() { Opt = new HTTPServerOptions(); }
 
+        /// <summary>
+        /// Constructs an HTTP server with the specified configuration settings.
+        /// </summary>
+        /// <param name="Options">Specifies the configuration settings to use for this <see cref="HTTPServer"/>.</param>
+        public HTTPServer(HTTPServerOptions Options)
+        {
+            Opt = Options;
+        }
+
+        /// <summary>
+        /// Hooks a request handler to a specified URL.
+        /// </summary>
+        /// <example>
+        ///     The following example sets a handler for an entire domain.
+        ///     <code>MyServer["www.mydomain.com"] = MyHandler;</code>
+        ///     The following example provides different handlers for various sub-paths under a domain.
+        ///     <code>
+        ///         HTTPServer MyServer = new HTTPServer();
+        ///         MyServer["www.mydomain.com/users"] = MyServer.FileSystemHandler(@"D:\UserFiles");
+        ///         MyServer["www.mydomain.com/web"] = MyDynamicWebsite;
+        ///     </code>
+        /// </example>
+        /// <param name="index">The domain or URL fragment on which to hook a handler.</param>
+        /// <returns>The handler currently defined for the specified domain or URL fragment.</returns>
         public HTTPRequestHandler this[string index]
         {
             get { return RequestHandlers[index.ToLowerInvariant()]; }
             set { RequestHandlers[index.ToLowerInvariant()] = value; }
         }
 
+        /// <summary>
+        /// Returns the configuration settings currently in effect for this server.
+        /// </summary>
         public HTTPServerOptions Options { get { return Opt; } }
+
+        /// <summary>
+        /// Returns a boolean specifying whether the server is currently running (listening).
+        /// </summary>
         public bool IsListening { get { return ListeningThread != null && ListeningThread.IsAlive; } }
 
         private TcpListener Listener;
@@ -30,6 +67,10 @@ namespace Servers
         private Dictionary<string, HTTPRequestHandler> RequestHandlers = new Dictionary<string, HTTPRequestHandler>();
         private HTTPServerOptions Opt;
 
+        /// <summary>
+        /// Shuts the HTTP server down. This method is only useful if <see cref="StartListening"/>() 
+        /// was called with the Blocking parameter set to false.
+        /// </summary>
         public void StopListening()
         {
             if (!IsListening)
@@ -40,14 +81,20 @@ namespace Servers
             Listener = null;
         }
 
-        public void StartListening(int Port, bool Blocking)
+        /// <summary>
+        /// Runs the HTTP server.
+        /// </summary>
+        /// <param name="Blocking">If true, the method will continually wait for and handle incoming requests and never return.
+        /// If false, a separate thread is spawned in which the server will handle incoming requests,
+        /// and control is returned immediately.</param>
+        public void StartListening(bool Blocking)
         {
             if (IsListening && !Blocking)
                 return;
             if (IsListening)
                 StopListening();
 
-            Listener = new TcpListener(System.Net.IPAddress.Any, Port);
+            Listener = new TcpListener(System.Net.IPAddress.Any, Opt.Port);
             Listener.Start();
             if (Blocking)
             {
@@ -60,12 +107,29 @@ namespace Servers
             }
         }
 
+        /// <summary>
+        /// Returns an <see cref="HTTPRequestHandler"/> that serves static files from a specified directory on the
+        /// local file system and that lists the contents of directories within the specified directory.
+        /// The MIME type used for the returned files is determined from <see cref="HTTPServerOptions.MIMETypes"/>.
+        /// </summary>
+        /// <param name="BaseDir">The base directory from which to serve files.</param>
+        /// <returns>An <see cref="HTTPRequestHandler"/> that can be assigned to the indexing property of this <see cref="HTTPServer"/>.</returns>
+        /// <example>
+        ///     <code>
+        ///         HTTPServer MyServer = new HTTPServer();
+        ///         MyServer["www.mydomain.com/users"] = MyServer.FileSystemHandler(@"D:\UserFiles");
+        ///     </code>
+        ///     The above code will instantiate an <see cref="HTTPServer"/> which will serve files from the <c>D:\UserFiles</c> directory
+        ///     on the local file system. For example, a request for the URL <c>http://www.mydomain.com/users/adam/report.txt</c>
+        ///     will serve the file stored at the location <c>D:\UserFiles\adam\report.txt</c>. A request for the URL
+        ///     <c>http://www.mydomain.com/users/adam/</c> will list all the files in the directory <c>D:\UserFiles\adam</c>.
+        /// </example>
         public HTTPRequestHandler FileSystemHandler(string BaseDir)
         {
-            return (HTTPRequest Req) => { return FileSystemHandlerResponse(BaseDir, Req); };
+            return Req => FileSystemHandlerResponse(BaseDir, Req);
         }
 
-        public HTTPResponse FileSystemHandlerResponse(string BaseDir, HTTPRequest Req)
+        private HTTPResponse FileSystemHandlerResponse(string BaseDir, HTTPRequest Req)
         {
             string p = BaseDir.EndsWith("" + Path.DirectorySeparatorChar) ? BaseDir.Remove(BaseDir.Length - 1) : BaseDir;
             string BaseURL = Req.URL.Substring(0, Req.URL.Length - Req.RestURL.Length);
@@ -90,27 +154,7 @@ namespace Servers
                     if (Req.URL != BaseURL + SoFarURL)
                         return GenericRedirect(BaseURL + SoFarURL);
 
-                    try
-                    {
-                        FileInfo f = new FileInfo(p + NextSoFar);
-                        FileStream FileStream = File.Open(f.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        string Extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
-                        return new HTTPResponse()
-                        {
-                            Content = FileStream,
-                            Headers = new HTTPResponseHeaders()
-                            {
-                                ContentType = Opt.MIMETypes.ContainsKey(Extension) ? Opt.MIMETypes[Extension] :
-                                    Opt.MIMETypes.ContainsKey("*") ? Opt.MIMETypes["*"] : "application/octet-stream"
-                            },
-                            Status = HTTPStatusCode._200_OK
-                        };
-                    }
-                    catch (IOException e)
-                    {
-                        return GenericError(HTTPStatusCode._500_InternalServerError,
-                            "File could not be opened in the file system: " + e.Message);
-                    }
+                    return FileHandler(p + NextSoFar);
                 }
                 else if (Directory.Exists(p + NextSoFar))
                 {
@@ -135,28 +179,56 @@ namespace Servers
 
             if (Opt.DirectoryListingStyle == DirectoryListingStyle.XMLplusXSL)
             {
-                return new HTTPResponse()
+                return new HTTPResponse
                 {
-                    Headers = new HTTPResponseHeaders() { ContentType = "application/xml; charset=utf-8" },
+                    Headers = new HTTPResponseHeaders { ContentType = "application/xml; charset=utf-8" },
                     Status = HTTPStatusCode._200_OK,
                     Content = new DynamicContentStream(DirectoryHandlerXMLplusXSL(p + SoFar, TrueDirURL))
                 };
             }
-            /*
-            else if (Opt.DirectoryListingStyle == DirectoryListingStyle.HTML)
-            {
-                return new HTTPResponse()
-                {
-                    Headers = new HTTPResponseHeaders() { ContentType = "text/html" },
-                    Status = HTTPStatusCode._200_OK,
-                    Content = new DynamicContentStream(DirectoryHandlerHTML(p + SoFar, BaseURL + SoFarURL))
-                };
-            }
-            */
             else
                 return GenericError(HTTPStatusCode._500_InternalServerError);
         }
 
+        /// <summary>
+        /// Generates an <see cref="HTTPResponse"/> that causes the server to return the specified file from the local file system.
+        /// </summary>
+        /// <param name="Filepath">Full path and filename of the file to return.</param>
+        /// <returns><see cref="HTTPResponse"/> object that encapsulates the return of the specified file.</returns>
+        public HTTPResponse FileHandler(string Filepath)
+        {
+            if (!File.Exists(Filepath))
+                return GenericError(HTTPStatusCode._404_NotFound, "The requested file does not exist.");
+
+            try
+            {
+                FileInfo f = new FileInfo(Filepath);
+                FileStream FileStream = File.Open(f.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
+                string Extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
+                return new HTTPResponse
+                {
+                    Content = FileStream,
+                    Headers = new HTTPResponseHeaders
+                    {
+                        ContentType = Opt.MIMETypes.ContainsKey(Extension) ? Opt.MIMETypes[Extension] :
+                            Opt.MIMETypes.ContainsKey("*") ? Opt.MIMETypes["*"] : "application/octet-stream"
+                    },
+                    Status = HTTPStatusCode._200_OK
+                };
+            }
+            catch (IOException e)
+            {
+                return GenericError(HTTPStatusCode._500_InternalServerError,
+                    "File could not be opened in the file system: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Generates XML that represents the contents of a directory on the local file system.
+        /// </summary>
+        /// <param name="LocalPath">Full path of a directory to list the contents of.</param>
+        /// <param name="URL">URL (not including a domain) that points at the directory.</param>
+        /// <returns>XML that represents the contents of the specified directory.</returns>
         public static IEnumerable<string> DirectoryHandlerXMLplusXSL(string LocalPath, string URL)
         {
             if (!Directory.Exists(LocalPath))
@@ -169,8 +241,8 @@ namespace Servers
                 Dirs.Add(d);
             foreach (var f in Inf.GetFiles())
                 Files.Add(f);
-            Dirs.Sort((DirectoryInfo a, DirectoryInfo b) => { return a.Name.CompareTo(b.Name); });
-            Files.Sort((FileInfo a, FileInfo b) => { return a.Name.CompareTo(b.Name); });
+            Dirs.Sort((a, b) => a.Name.CompareTo(b.Name));
+            Files.Sort((a, b) => a.Name.CompareTo(b.Name));
 
             yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
             yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>";
@@ -188,12 +260,73 @@ namespace Servers
             yield return "</directory>";
         }
 
+        /// <summary>
+        /// Generates an <see cref="HTTPResponse"/> that redirects the client to a new URL, using the HTTP status code 301 Moved Permanently.
+        /// </summary>
+        /// <param name="NewURL">URL to redirect the client to.</param>
+        /// <returns><see cref="HTTPResponse"/> encapsulating a redirect to the specified URL, using the HTTP status code 301 Moved Permanently.</returns>
         public static HTTPResponse GenericRedirect(string NewURL)
         {
-            return new HTTPResponse()
+            return new HTTPResponse
             {
-                Headers = new HTTPResponseHeaders() { Location = NewURL },
+                Headers = new HTTPResponseHeaders { Location = NewURL },
                 Status = HTTPStatusCode._301_MovedPermanently
+            };
+        }
+
+        /// <summary>
+        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code. Generally used for error.
+        /// </summary>
+        /// <param name="StatusCode">HTTP status code to use in the response.</param>
+        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code.</returns>
+        public static HTTPResponse GenericError(HTTPStatusCode StatusCode)
+        {
+            return GenericError(StatusCode, new HTTPResponseHeaders(), null);
+        }
+
+        /// <summary>
+        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code and message. Generally used for error.
+        /// </summary>
+        /// <param name="StatusCode">HTTP status code to use in the response.</param>
+        /// <param name="Message">Message to display along with the HTTP status code.</param>
+        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code and message.</returns>
+        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, string Message)
+        {
+            return GenericError(StatusCode, new HTTPResponseHeaders(), Message);
+        }
+
+        /// <summary>
+        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code and headers. Generally used for error.
+        /// </summary>
+        /// <param name="StatusCode">HTTP status code to use in the response.</param>
+        /// <param name="Headers">Headers to use in the <see cref="HTTPResponse"/>.</param>
+        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code and headers.</returns>
+        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers)
+        {
+            return GenericError(StatusCode, Headers, null);
+        }
+
+        /// <summary>
+        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code, headers and message. Generally used for error.
+        /// </summary>
+        /// <param name="StatusCode">HTTP status code to use in the response.</param>
+        /// <param name="Headers">Headers to use in the <see cref="HTTPResponse"/>.</param>
+        /// <param name="Message">Message to display along with the HTTP status code.</param>
+        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code, headers and message.</returns>
+        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
+        {
+            string StatusCodeName = ("" + ((int) StatusCode) + " " + HTTPInternalObjects.GetStatusCodeName(StatusCode)).HTMLEscape();
+            Headers.ContentType = "text/html; charset=utf-8";
+
+            // var x = new HTML(new HEAD(new TITLE("HTTP " + StatusCodeName)), new BODY(new H1(StatusCodeName), Message != null ? new P(Message) : null));
+            string ContentStr = // x.ToEnumerable();
+                "<html><head><title>HTTP " + StatusCodeName + "</title></head><body><h1>" + StatusCodeName + "</h1>" +
+                (Message != null ? "<p>" + Message.HTMLEscape() + "</p>" : "") + "</body></html>";
+            return new HTTPResponse
+            {
+                Status = StatusCode,
+                Headers = Headers,
+                Content = new MemoryStream(ContentStr.ToUTF8())
             };
         }
 
@@ -202,7 +335,7 @@ namespace Servers
             while (true)
             {
                 Socket Socket = Listener.AcceptSocket();
-                new Thread(() => { ReadingThreadFunction(Socket); }).Start();
+                new Thread(() => ReadingThreadFunction(Socket)).Start();
             }
         }
 
@@ -313,7 +446,7 @@ namespace Servers
 
         private void SendHeaders(Socket Socket, HTTPResponse Response)
         {
-            string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + GetStatusCodeName(Response.Status) + "\r\n" +
+            string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + HTTPInternalObjects.GetStatusCodeName(Response.Status) + "\r\n" +
                 Response.Headers.ToString() + "\r\n";
             Console.WriteLine(HeadersStr);
             Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
@@ -540,8 +673,8 @@ namespace Servers
             {
                 try
                 {
-                    if (Response.TemporaryFile != null)
-                        File.Delete(Response.TemporaryFile);
+                    if (Response.OriginalRequest.TemporaryFile != null)
+                        File.Delete(Response.OriginalRequest.TemporaryFile);
                 }
                 catch (Exception) { }
             }
@@ -555,7 +688,7 @@ namespace Servers
                 // Note: this is the length of just the range
                 Response.Headers.ContentLength = r.Value - r.Key + 1;
                 // Note: here "ContentLength" is the length of the complete file
-                Response.Headers.ContentRange = new HTTPContentRange() { From = r.Key, To = r.Value, Total = TotalFileSize };
+                Response.Headers.ContentRange = new HTTPContentRange { From = r.Key, To = r.Value, Total = TotalFileSize };
                 SendHeaders(Socket, Response);
                 if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
                     return;
@@ -636,7 +769,7 @@ namespace Servers
             if (!Match.Success)
                 return GenericError(HTTPStatusCode._501_NotImplemented);
 
-            HTTPRequest Req = new HTTPRequest()
+            HTTPRequest Req = new HTTPRequest
             {
                 Method = Match.Groups[1].Value == "HEAD" ? HTTPMethod.HEAD :
                          Match.Groups[1].Value == "POST" ? HTTPMethod.POST : HTTPMethod.GET,
@@ -679,8 +812,6 @@ namespace Servers
             if (Req.Handler == null)
                 return GenericError(HTTPStatusCode._404_NotFound);
 
-            string TemporaryFile = null;
-
             if (Req.Method == HTTPMethod.POST)
             {
                 // Some validity checks
@@ -692,8 +823,8 @@ namespace Servers
                 // Read the contents of the POST request
                 if (ContentLengthSoFar >= Req.Headers.ContentLength.Value)
                 {
-                    Req.Content = new MemoryStream(BufferWithContentSoFar, ContentOffset, (int)Req.Headers.ContentLength.Value, false);
-                    ContentOffset += (int)Req.Headers.ContentLength.Value;
+                    Req.Content = new MemoryStream(BufferWithContentSoFar, ContentOffset, (int) Req.Headers.ContentLength.Value, false);
+                    ContentOffset += (int) Req.Headers.ContentLength.Value;
                     ContentLengthSoFar -= (int) Req.Headers.ContentLength.Value;
                 }
                 else if (Req.Headers.ContentLength.Value < Opt.UseFileUploadAtSize)
@@ -705,12 +836,12 @@ namespace Servers
                     while (ContentLengthSoFar < Req.Headers.ContentLength)
                     {
                         SocketError ErrorCode;
-                        int BytesReceived = Socket.Receive(Buffer, ContentLengthSoFar, (int)Req.Headers.ContentLength.Value - ContentLengthSoFar, SocketFlags.None, out ErrorCode);
+                        int BytesReceived = Socket.Receive(Buffer, ContentLengthSoFar, (int) Req.Headers.ContentLength.Value - ContentLengthSoFar, SocketFlags.None, out ErrorCode);
                         if (ErrorCode != SocketError.Success)
                             throw new SocketException();
                         ContentLengthSoFar += BytesReceived;
                     }
-                    Req.Content = new MemoryStream(Buffer, 0, (int)Req.Headers.ContentLength.Value);
+                    Req.Content = new MemoryStream(Buffer, 0, (int) Req.Headers.ContentLength.Value);
                     ContentLengthSoFar = 0;
                 }
                 else
@@ -719,7 +850,7 @@ namespace Servers
                     Stream f;
                     try
                     {
-                        TemporaryFile = HTTPInternalObjects.RandomTempFilepath(Opt.TempDir, out f);
+                        Req.TemporaryFile = HTTPInternalObjects.RandomTempFilepath(Opt.TempDir, out f);
                     }
                     catch (IOException)
                     {
@@ -743,13 +874,13 @@ namespace Servers
                             }
                         }
                         f.Close();
-                        Req.Content = File.Open(TemporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        Req.Content = File.Open(Req.TemporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read);
                         ContentLengthSoFar = 0;
                     }
                     catch (Exception e)
                     {
                         f.Close();
-                        File.Delete(TemporaryFile);
+                        File.Delete(Req.TemporaryFile);
                         throw e;
                     }
                 }
@@ -759,7 +890,6 @@ namespace Servers
             HTTPResponse Resp = Req.Handler(Req);
             s.w("HandleRequestAfterHeaders() - Returned from handler");
             Resp.OriginalRequest = Req;
-            Resp.TemporaryFile = TemporaryFile;
             return Resp;
         }
 
@@ -817,7 +947,7 @@ namespace Servers
             }
             else if (HeaderName == "cookie")
             {
-                Cookie PrevCookie = new Cookie() { Name = null };
+                Cookie PrevCookie = new Cookie { Name = null };
                 while (HeaderValue.Length > 0)
                 {
                     string Key, Value;
@@ -877,7 +1007,7 @@ namespace Servers
                     }
                     else
                     {
-                        PrevCookie = new Cookie() { Name = Key, Value = Value };
+                        PrevCookie = new Cookie { Name = Key, Value = Value };
                         Req.Headers.Cookie[Key] = PrevCookie;
                     }
                 }
@@ -966,18 +1096,18 @@ namespace Servers
         {
             if (Req.URL == "/$/directory-listing/xsl")
             {
-                return new HTTPResponse()
+                return new HTTPResponse
                 {
-                    Headers = new HTTPResponseHeaders() { ContentType = "application/xml; charset=utf-8" },
+                    Headers = new HTTPResponseHeaders { ContentType = "application/xml; charset=utf-8" },
                     Content = new MemoryStream(HTTPInternalObjects.DirectoryListingXSL())
                 };
             }
             else if (Req.URL.StartsWith("/$/directory-listing/icons/"))
             {
                 string Rest = Req.URL.Substring(27);
-                return new HTTPResponse()
+                return new HTTPResponse
                 {
-                    Headers = new HTTPResponseHeaders() { ContentType = "image/png" },
+                    Headers = new HTTPResponseHeaders { ContentType = "image/png" },
                     Content = new MemoryStream(HTTPInternalObjects.GetDirectoryListingIcon(Rest))
                 };
             }
@@ -1007,78 +1137,6 @@ namespace Servers
             foreach (var kvp in Items)
                 FinalList.AddRange(kvp.Value);
             return FinalList.ToArray();
-        }
-
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode)
-        {
-            return GenericError(StatusCode, new HTTPResponseHeaders(), null);
-        }
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, string Message)
-        {
-            return GenericError(StatusCode, new HTTPResponseHeaders(), Message);
-        }
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers)
-        {
-            return GenericError(StatusCode, Headers, null);
-        }
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
-        {
-            string StatusCodeName = ("" + ((int) StatusCode) + " " + GetStatusCodeName(StatusCode)).HTMLEscape();
-            Headers.ContentType = "text/html; charset=utf-8";
-            string ContentStr = "<html><head><title>HTTP " + StatusCodeName + "</title></head><body><h1>" + StatusCodeName + "</h1>" +
-                (Message != null ? "<p>" + Message.HTMLEscape() + "</p>" : "") + "</body></html>";
-            return new HTTPResponse()
-            {
-                Status = StatusCode,
-                Headers = Headers,
-                Content = new MemoryStream(ContentStr.ToUTF8())
-            };
-        }
-
-        private static string GetStatusCodeName(HTTPStatusCode StatusCode)
-        {
-            if (StatusCode == HTTPStatusCode._100_Continue) return "Continue";
-            if (StatusCode == HTTPStatusCode._101_SwitchingProtocols) return "Switching Protocols";
-            if (StatusCode == HTTPStatusCode._200_OK) return "OK";
-            if (StatusCode == HTTPStatusCode._201_Created) return "Created";
-            if (StatusCode == HTTPStatusCode._202_Accepted) return "Accepted";
-            if (StatusCode == HTTPStatusCode._203_NonAuthoritativeInformation) return "Non-Authoritative Information";
-            if (StatusCode == HTTPStatusCode._204_NoContent) return "No Content";
-            if (StatusCode == HTTPStatusCode._205_ResetContent) return "Reset Content";
-            if (StatusCode == HTTPStatusCode._206_PartialContent) return "Partial Content";
-            if (StatusCode == HTTPStatusCode._300_MultipleChoices) return "Multiple Choices";
-            if (StatusCode == HTTPStatusCode._301_MovedPermanently) return "Moved Permanently";
-            if (StatusCode == HTTPStatusCode._302_Found) return "Found";
-            if (StatusCode == HTTPStatusCode._303_SeeOther) return "See Other";
-            if (StatusCode == HTTPStatusCode._304_NotModified) return "Not Modified";
-            if (StatusCode == HTTPStatusCode._305_UseProxy) return "Use Proxy";
-            if (StatusCode == HTTPStatusCode._306__Unused) return "(Unused)";
-            if (StatusCode == HTTPStatusCode._307_TemporaryRedirect) return "Temporary Redirect";
-            if (StatusCode == HTTPStatusCode._400_BadRequest) return "Bad Request";
-            if (StatusCode == HTTPStatusCode._401_Unauthorized) return "Unauthorized";
-            if (StatusCode == HTTPStatusCode._402_PaymentRequired) return "Payment Required";
-            if (StatusCode == HTTPStatusCode._403_Forbidden) return "Forbidden";
-            if (StatusCode == HTTPStatusCode._404_NotFound) return "Not Found";
-            if (StatusCode == HTTPStatusCode._405_MethodNotAllowed) return "Method Not Allowed";
-            if (StatusCode == HTTPStatusCode._406_NotAcceptable) return "Not Acceptable";
-            if (StatusCode == HTTPStatusCode._407_ProxyAuthenticationRequired) return "Proxy Authentication Required";
-            if (StatusCode == HTTPStatusCode._408_RequestTimeout) return "Request Timeout";
-            if (StatusCode == HTTPStatusCode._409_Conflict) return "Conflict";
-            if (StatusCode == HTTPStatusCode._410_Gone) return "Gone";
-            if (StatusCode == HTTPStatusCode._411_LengthRequired) return "Length Required";
-            if (StatusCode == HTTPStatusCode._412_PreconditionFailed) return "Precondition Failed";
-            if (StatusCode == HTTPStatusCode._413_RequestEntityTooLarge) return "Request Entity Too Large";
-            if (StatusCode == HTTPStatusCode._414_RequestURITooLong) return "Request URI Too Long";
-            if (StatusCode == HTTPStatusCode._415_UnsupportedMediaType) return "Unsupported Media Type";
-            if (StatusCode == HTTPStatusCode._416_RequestedRangeNotSatisfiable) return "Requested Range Not Satisfiable";
-            if (StatusCode == HTTPStatusCode._417_ExpectationFailed) return "Expectation Failed";
-            if (StatusCode == HTTPStatusCode._500_InternalServerError) return "Internal Server Error";
-            if (StatusCode == HTTPStatusCode._501_NotImplemented) return "Not Implemented";
-            if (StatusCode == HTTPStatusCode._502_BadGateway) return "Bad Gateway";
-            if (StatusCode == HTTPStatusCode._503_ServiceUnavailable) return "Service Unavailable";
-            if (StatusCode == HTTPStatusCode._504_GatewayTimeout) return "Gateway Timeout";
-            if (StatusCode == HTTPStatusCode._505_HTTPVersionNotSupported) return "HTTP Version Not Supported";
-            return "Unknown Error";
         }
 
         public static string PrettySize(long Size)

@@ -7,8 +7,16 @@ using System.Text.RegularExpressions;
 
 namespace Servers
 {
+    /// <summary>
+    /// An HTTP request handler is a function that takes an HTTP request and returns an HTTP response.
+    /// </summary>
+    /// <param name="Request">The HTTP request to be processed.</param>
+    /// <returns>The HTTP response generated from the HTTP request.</returns>
     public delegate HTTPResponse HTTPRequestHandler(HTTPRequest Request);
 
+    /// <summary>
+    /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
+    /// </summary>
     public struct HTTPRequestHeaders
     {
         public string[] Accept;
@@ -18,7 +26,7 @@ namespace Servers
         public HTTPConnection Connection;
         public long? ContentLength;                 // required only for POST
         public HTTPPOSTContentType ContentType;     // required only for POST
-        public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HTTPPOSTContentType.ApplicationXWWWFormURLEncoded
+        public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HTTPPOSTContentType.MultipartFormData
         public Dictionary<string, Cookie> Cookie;
         public string Host;
         public DateTime? IfModifiedSince;
@@ -28,6 +36,10 @@ namespace Servers
         public Dictionary<string, string> UnrecognisedHeaders;
     }
 
+    /// <summary>
+    /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HTTPServer"/> generates this when it receives an 
+    /// HTTP request and passes it to the relevant <see cref="HTTPRequestHandler"/>.
+    /// </summary>
     public struct HTTPRequest
     {
         private struct FieldsCache
@@ -40,28 +52,104 @@ namespace Servers
         private FieldsCache GETFieldsCache;
         private FieldsCache POSTFieldsCache;
 
-        public string RestURL;  // the part of the URL that follows the path where the handler is hooked
-        public HTTPMethod Method;
-        public HTTPRequestHeaders Headers;
-        public Stream Content;
+        /// <summary>
+        /// Contains the part of the URL that follows the path where the request handler is hooked.
+        /// </summary>
+        /// <example>
+        ///     Consider the following example code:
+        ///     <code>
+        ///         HTTPServer MyServer = new HTTPServer();
+        ///         MyServer["www.mydomain.com/homepages"] = HomepagesHandler;
+        ///     </code>
+        ///     In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
+        ///     would have the RestURL field set to the value <c>/a/adam</c>.
+        /// </example>
+        public string RestURL;
 
-        internal HTTPRequestHandler Handler;  // used only internally
+        /// <summary>
+        /// The HTTP request method (GET, POST or HEAD).
+        /// </summary>
+        public HTTPMethod Method;
+
+        /// <summary>
+        /// The HTTP request headers that were received and understood by <see cref="HTTPServer"/>.
+        /// </summary>
+        public HTTPRequestHeaders Headers;
+
+        /// <summary>
+        /// The directory to use for temporary files if the request is a POST request and contains a file upload.
+        /// This can be set before <see cref="FileUploads"/>, <see cref="POST"/> or <see cref="POSTArr"/> is called for the first time.
+        /// After the first call to any of these, file uploads will already have been processed.
+        /// </summary>
         public string TempDir;
 
+        /// <summary>
+        /// Contains a stream providing read access to the content of a POST request.
+        /// NULL if the request is a GET or HEAD.
+        /// </summary>
+        internal Stream Content;
+
+        /// <summary>
+        /// Contains the delegate function used to handle this request.
+        /// </summary>
+        internal HTTPRequestHandler Handler;
+
+        /// <summary>
+        /// Contains the path and filename of a temporary file that has been used to store the POST request content, if any. 
+        /// <see cref="HTTPServer"/> uses this field to keep track of it and delete the file when it is no longer needed.
+        /// </summary>
+        internal string TemporaryFile;
+
+        /// <summary>
+        /// DO NOT USE THIS CONSTRUCTOR except in unit testing.
+        /// </summary>
+        /// <param name="Content">DO NOT USE THIS CONSTRUCTOR except in unit testing.</param>
+        /// <param name="TempDir">DO NOT USE THIS CONSTRUCTOR except in unit testing.</param>
+        public HTTPRequest(Stream Content)
+        {
+            this.Content = Content;
+
+            // Default values. I don't understand why I have to set them here.
+            _URL = null;
+            GETFieldsCache = new FieldsCache();
+            POSTFieldsCache = new FieldsCache();
+            RestURL = null;
+            Method = HTTPMethod.GET;
+            Headers = new HTTPRequestHeaders();
+            Handler = null;
+            TemporaryFile = null;
+            TempDir = null;
+        }
+
+        /// <summary>
+        /// The URL of the request, not including the domain, but including GET query parameters if any.
+        /// </summary>
         public string URL
         {
             get { return _URL; }
-            set { _URL = value; GETFieldsCache = new FieldsCache(); POSTFieldsCache = new FieldsCache(); }
+            set { _URL = value; GETFieldsCache = new FieldsCache(); }
         }
+
+        /// <summary>
+        /// The URL of the request, not including the domain or any GET query parameters.
+        /// </summary>
         public string URLWithoutQuery
         {
             get { return _URL.Contains('?') ? _URL.Remove(_URL.IndexOf('?')) : _URL; }
         }
+
+        /// <summary>
+        /// The <see cref="RestURL"/> (q.v.) of the request, not including the domain or any GET query parameters.
+        /// </summary>
         public string RestURLWithoutQuery
         {
             get { return RestURL.Contains('?') ? RestURL.Remove(RestURL.IndexOf('?')) : RestURL; }
         }
 
+        /// <summary>
+        /// Provides access to GET query parameters that are individual values.
+        /// </summary>
+        /// <seealso cref="GETArr"/>
         public Dictionary<string, string> GET
         {
             get
@@ -73,6 +161,11 @@ namespace Servers
                 return GETFieldsCache.ValueCache;
             }
         }
+
+        /// <summary>
+        /// Provides access to GET query parameters that are arrays.
+        /// </summary>
+        /// <seealso cref="GET"/>
         public Dictionary<string, List<string>> GETArr
         {
             get
@@ -84,6 +177,11 @@ namespace Servers
                 return GETFieldsCache.ArrayCache;
             }
         }
+
+        /// <summary>
+        /// Provides access to POST query parameters that are individual values (empty if the request is not a POST request).
+        /// </summary>
+        /// <seealso cref="POSTArr"/>
         public Dictionary<string, string> POST
         {
             get
@@ -95,6 +193,11 @@ namespace Servers
                 return POSTFieldsCache.ValueCache;
             }
         }
+
+        /// <summary>
+        /// Provides access to POST query parameters that are arrays (empty if the request is not a POST request).
+        /// </summary>
+        /// <seealso cref="POST"/>
         public Dictionary<string, List<string>> POSTArr
         {
             get
@@ -106,6 +209,10 @@ namespace Servers
                 return POSTFieldsCache.ArrayCache;
             }
         }
+
+        /// <summary>
+        /// Contains information about file uploads included in a POST request. Empty if the request is not a POST request.
+        /// </summary>
         public Dictionary<string, FileUpload> FileUploads
         {
             get
@@ -122,7 +229,7 @@ namespace Servers
         {
             if (Headers.ContentType == HTTPPOSTContentType.ApplicationXWWWFormURLEncoded)
                 return ParseQueryParameters(Content);
-            FieldsCache fc = new FieldsCache()
+            FieldsCache fc = new FieldsCache
             {
                 ArrayCache = new Dictionary<string, List<string>>(),
                 ValueCache = new Dictionary<string, string>(),
@@ -207,7 +314,7 @@ namespace Servers
                             else if (FileName != null && CurrentFieldName != null)
                             {
                                 string TempFile = HTTPInternalObjects.RandomTempFilepath(TempDir, out CurrentWritingStream);
-                                fc.FileCache[CurrentFieldName] = new FileUpload()
+                                fc.FileCache[CurrentFieldName] = new FileUpload
                                 {
                                     ContentType = ContentType,
                                     Filename = FileName,
@@ -312,7 +419,7 @@ namespace Servers
 
         private FieldsCache ParseQueryParameters(Stream s)
         {
-            FieldsCache fc = new FieldsCache()
+            FieldsCache fc = new FieldsCache
             {
                 ArrayCache = new Dictionary<string, List<string>>(),
                 ValueCache = new Dictionary<string, string>(),
@@ -352,9 +459,21 @@ namespace Servers
         }
     }
 
+    /// <summary>
+    /// Exception thrown to indicate error during processing of the request. Usually this exception is caught to generate an HTTP 500 Internal Server Error.
+    /// </summary>
     public class InvalidRequestException : Exception
     {
+        /// <summary>
+        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.GenericError"/>() is used to generate an HTTP 500 Internal Server Error.
+        /// </summary>
         public HTTPResponse Response;
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="Response">Response to return when the exception is caught.
+        /// Usually <see cref="HTTPServer.GenericError"/>() is used to generate an HTTP 500 Internal Server Error.</param>
         public InvalidRequestException(HTTPResponse Response) { this.Response = Response; }
     }
 }

@@ -5,6 +5,9 @@ using System.Text;
 
 namespace Servers
 {
+    /// <summary>
+    /// Encapsulates all supported HTTP response headers. A request handler can set these appropriately to cause the server to emit the required headers.
+    /// </summary>
     public struct HTTPResponseHeaders
     {
         public HTTPAcceptRanges AcceptRanges;
@@ -27,6 +30,10 @@ namespace Servers
         public List<Cookie> SetCookie;
         public HTTPTransferEncoding TransferEncoding;
 
+        /// <summary>
+        /// Returns the HTTP-compliant ASCII representation of all response headers that have been set.
+        /// </summary>
+        /// <returns>The HTTP-compliant ASCII representation of all response headers that have been set.</returns>
         public override string ToString()
         {
             StringBuilder b = new StringBuilder();
@@ -118,13 +125,33 @@ namespace Servers
         }
     }
 
+    /// <summary>
+    /// Encapsulates an HTTP response, to be sent by <see cref="HTTPServer"/> to the HTTP client that sent the original request.
+    /// A request handler must return an HTTPResponse object to the <see cref="HTTPServer"/> when handling a request.
+    /// </summary>
     public struct HTTPResponse
     {
+        /// <summary>
+        /// The HTTP status code. For example, HTTP 200 OK, HTTP 404 Not Found, HTTP 500 Internal Server Error.
+        /// If not set, HTTP 200 OK is assumed as the default.
+        /// </summary>
         public HTTPStatusCode Status;
+
+        /// <summary>
+        /// The HTTP response headers which are to be sent back to the HTTP client as part of this HTTP response.
+        /// </summary>
         public HTTPResponseHeaders Headers;
+
+        /// <summary>
+        /// A stream object providing read access to the content returned. For static files, use <see cref="FileStream"/>.
+        /// For objects cached in memory, use <see cref="MemoryStream"/>.
+        /// For dynamic websites, consider using <see cref="DynamicContentStream"/>.
+        /// </summary>
         public Stream Content;
 
+        /// <summary>
+        /// Internal field for <see cref="HTTPServer"/> to access the original request that this is the response for.
+        /// </summary>
         internal HTTPRequest OriginalRequest;
-        internal string TemporaryFile;
     }
 }

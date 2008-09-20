@@ -5,43 +5,14 @@ using System.Text;
 
 namespace Servers.HTMLTags
 {
-    public abstract class HTMLTag
+    /// <summary>Abstract base class for HTML tags.</summary>
+    public abstract class HTMLTag : TagSoup
     {
-        private object[] TagContents = null;
-        public abstract string TagName { get; }
-        public virtual bool StartTag { get { return true; } }
-        public virtual bool EndTag { get { return true; } }
-        public HTMLTag() { }
-        public HTMLTag _(params object[] Contents) { TagContents = Contents; return this; }
-        public IEnumerable<string> ToEnumerable()
-        {
-            if (StartTag)
-                yield return "<" + TagName;
-            bool TagPrinted = StartTag;
-            foreach (var Field in this.GetType().GetFields())
-            {
-                object Val = Field.GetValue(this);
-                if (Val == null) continue;
-                if (!TagPrinted)
-                {
-                    yield return "<" + this.TagName;
-                    TagPrinted = true;
-                }
-                yield return " " + Field.Name + "=\"" + Val.ToString().HTMLEscape() + "\"";
-            }
-            if (TagPrinted)
-                yield return ">";
-            foreach (object Content in TagContents)
-            {
-                if (Content is HTMLTag)
-                    foreach (string Str in ((HTMLTag) Content).ToEnumerable())
-                        yield return Str;
-                else
-                    yield return Content.ToString();
-            }
-            if (EndTag)
-                yield return "</" + TagName + ">";
-        }
+        /// <summary>Constructs an HTML tag.</summary>
+        /// <param name="Contents">Contents of the tag.</param>
+        public HTMLTag(params object[] Contents) { TagContents = Contents; }
+        /// <summary>Returns false.</summary>
+        public override bool AllowXHTMLEmpty { get { return false; } }
     }
 
     public class A : HTMLTag
@@ -766,6 +737,7 @@ namespace Servers.HTMLTags
         public override string TagName { get { return "HTML"; } }
         public override bool StartTag { get { return false; } }
         public override bool EndTag { get { return false; } }
+        public override string DocType { get { return @"<!DOCTYPE HTML PUBLIC ""-//W3C//DTD HTML 4.01//EN"" ""http://www.w3.org/TR/html4/strict.dtd"">"; } }
         public string dir;
         public string lang;
     }

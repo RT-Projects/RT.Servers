@@ -1,6 +1,9 @@
 ﻿
 namespace Servers
 {
+    /// <summary>
+    /// Contains definitions for all the HTTP status codes defined in HTTP/1.1.
+    /// </summary>
     public enum HTTPStatusCode
     {
         None = 0,

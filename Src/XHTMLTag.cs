@@ -6,95 +6,42 @@ using System.Text.RegularExpressions;
 
 namespace Servers.XHTMLTags
 {
-    public abstract class XHTMLTag
+    /// <summary>Abstract base class for XHTML tags.</summary>
+    public abstract class XHTMLTag : TagSoup
     {
-        protected object[] TagContents = null;
-        public abstract string TagName { get; }
-        public virtual bool DocType { get { return false; } }
+        /// <summary>Constructs an XHTML tag.</summary>
+        /// <param name="Contents">Contents of the tag.</param>
         public XHTMLTag(params object[] Contents) { TagContents = Contents; }
-        public XHTMLTag _(params object[] Contents) { TagContents = Contents; return this; }
-        public virtual IEnumerable<string> ToEnumerable()
-        {
-            if (DocType)
-                yield return @"<!DOCTYPE HTML PUBLIC ""-//W3C//DTD HTML 4.01//EN"" ""http://www.w3.org/TR/html4/strict.dtd"">";
-            yield return "<" + TagName;
-            foreach (var Field in this.GetType().GetFields())
-            {
-                if (Field.Name.StartsWith("_"))
-                    continue;
-                object Val = Field.GetValue(this);
-                if (Val == null) continue;
-                if (Field.FieldType.IsEnum)
-                {
-                    if (Val.ToString() == "_")
-                        continue;
-                    yield return " " + FixFieldName(Field.Name) + "=\"" + FixFieldName(Val.ToString()) + "\"";
-                }
-                else if (Val is bool)
-                {
-                    if (!((bool) Val))
-                        continue;
-                    string s = FixFieldName(Field.Name);
-                    yield return " " + s + "=\"" + s + "\"";
-                }
-                else
-                    yield return " " + FixFieldName(Field.Name) + "=\"" + Val.ToString().HTMLEscape() + "\"";
-            }
-            if (TagContents == null || TagContents.Length == 0)
-            {
-                yield return "/>";
-                yield break;
-            }
-            yield return ">";
-            foreach (object Content in TagContents)
-            {
-                if (Content is XHTMLTag)
-                    foreach (string s in ((XHTMLTag) Content).ToEnumerable())
-                        yield return s;
-                else if (Content is IEnumerable<string>)
-                    foreach (string s in (IEnumerable<string>) Content)
-                        yield return s;
-                else if (Content is Func<string>)
-                    yield return ((Func<string>) Content)();
-                else if (Content is Func<IEnumerable<string>>)
-                    foreach (string s in ((Func<IEnumerable<string>>) Content)())
-                        yield return s;
-                else if (Content is Func<XHTMLTag>)
-                    foreach (string s in (((Func<XHTMLTag>) Content)()).ToEnumerable())
-                        yield return s;
-                else if (Content is Func<IEnumerable<XHTMLTag>>)
-                    foreach (XHTMLTag t in ((Func<IEnumerable<XHTMLTag>>) Content)())
-                        foreach (string s in ((XHTMLTag) t).ToEnumerable())
-                            yield return s;
-                else
-                    yield return Content.ToString().HTMLEscape();
-            }
-            yield return "</" + TagName + ">";
-        }
-
-        private string FixFieldName(string fn)
-        {
-            Match m;
-            while ((m = Regex.Match(fn, @"^(.*)([A-Z])(.*)$")).Success)
-                fn = m.Groups[1].Value + ":" + m.Groups[2].Value.ToLowerInvariant() + m.Groups[3].Value;
-            if (fn.EndsWith("_"))
-                fn = fn.Remove(fn.Length - 1);
-            fn = fn.Replace('_', '-');
-            return fn;
-        }
+        /// <summary>Returns true.</summary>
+        public override bool AllowXHTMLEmpty { get { return true; } }
     }
 
+    /// <summary>Special class to help construct an XHTML <c>&lt;table&gt;</c> element
+    /// without needing to instantiate all intermediate row and cell tags.</summary>
     public class XHTMLTable : table
     {
         public XHTMLTable(params object[] Contents) : base(Contents) { }
         public override string TagName { get { return "table"; } }
+
+        /// <summary>If set to a value other than null, causes all rows and cells within the generated table to have the specified CSS class.</summary>
         public string _AllClasses;
-        public XHTMLTable(params object[][] Rows)
+
+        /// <summary>Constructs an XHTML table in which all rows and cells have the same CSS class.</summary>
+        /// <param name="ClassOnAllTags">Optional. If non-null, all rows and cells within the generated table have the specified CSS class.</param>
+        /// <param name="Rows">Rows (arrays of cell contents).</param>
+        public XHTMLTable(string ClassOnAllTags, params object[][] Rows)
         {
-            List<object> Contents = new List<object>();
+            if (ClassOnAllTags != null)
+                class_ = ClassOnAllTags;
+            List<object> RowTags = new List<object>();
             foreach (object[] Row in Rows)
-                Contents.Add(_AllClasses == null ? new tr(Row) : new tr(Row) { class_ = _AllClasses });
-            TagContents = Contents.ToArray();
+            {
+                List<object> CellTags = new List<object>();
+                foreach (object Cell in Row)
+                    CellTags.Add(ClassOnAllTags == null ? new td(Cell) : new td(Cell) { class_ = ClassOnAllTags });
+                RowTags.Add(ClassOnAllTags == null ? new tr(CellTags.ToArray()) : new tr(CellTags.ToArray()) { class_ = ClassOnAllTags });
+            }
+            TagContents = RowTags.ToArray();
         }
     }
 
@@ -898,7 +845,7 @@ namespace Servers.XHTMLTags
     {
         public html(params object[] Contents) : base(Contents) { }
         public override string TagName { get { return "html"; } }
-        public override bool DocType { get { return true; } }
+        public override string DocType { get { return @"<!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Strict//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"">"; } }
         public dir dir;
         public string id;
         public string lang;

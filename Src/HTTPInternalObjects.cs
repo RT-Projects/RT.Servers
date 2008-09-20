@@ -3,11 +3,19 @@ using System.Text;
 using System.Xml;
 using System.Globalization;
 using System;
+using System.Collections.Generic;
 
 namespace Servers
 {
+    /// <summary>
+    /// Internal class containing global static objects.
+    /// </summary>
     public static class HTTPInternalObjects
     {
+        /// <summary>
+        /// XSL to use for directory listings. This will be converted to UTF-8, whitespace-optimised and cached before being output.
+        /// This is the file that is returned at the URL /$/directory-listing/xsl.
+        /// </summary>
         private static string DirectoryListingXSLString = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 
             <xsl:stylesheet version=""1.0""
@@ -86,10 +94,79 @@ namespace Servers
 
             </xsl:stylesheet>
         ";
+
+        /// <summary>
+        /// Caches the UTF-8-encoded version of the directory-listing XSL file.
+        /// </summary>
         private static byte[] DirectoryListingXSLByteArray = null;
 
+        /// <summary>
+        /// Contains string representations of the HTTP status codes defined in HTTP/1.1.
+        /// </summary>
+        public static Dictionary<HTTPStatusCode, string> StatusCodeNames = new Dictionary<HTTPStatusCode, string>
+        {
+            { HTTPStatusCode._100_Continue, "Continue" },
+            { HTTPStatusCode._101_SwitchingProtocols, "Switching Protocols" },
+            { HTTPStatusCode._200_OK, "OK" },
+            { HTTPStatusCode._201_Created, "Created" },
+            { HTTPStatusCode._202_Accepted, "Accepted" },
+            { HTTPStatusCode._203_NonAuthoritativeInformation, "Non-Authoritative Information" },
+            { HTTPStatusCode._204_NoContent, "No Content" },
+            { HTTPStatusCode._205_ResetContent, "Reset Content" },
+            { HTTPStatusCode._206_PartialContent, "Partial Content" },
+            { HTTPStatusCode._300_MultipleChoices, "Multiple Choices" },
+            { HTTPStatusCode._301_MovedPermanently, "Moved Permanently" },
+            { HTTPStatusCode._302_Found, "Found" },
+            { HTTPStatusCode._303_SeeOther, "See Other" },
+            { HTTPStatusCode._304_NotModified, "Not Modified" },
+            { HTTPStatusCode._305_UseProxy, "Use Proxy" },
+            { HTTPStatusCode._306__Unused, "(Unused)" },
+            { HTTPStatusCode._307_TemporaryRedirect, "Temporary Redirect" },
+            { HTTPStatusCode._400_BadRequest, "Bad Request" },
+            { HTTPStatusCode._401_Unauthorized, "Unauthorized" },
+            { HTTPStatusCode._402_PaymentRequired, "Payment Required" },
+            { HTTPStatusCode._403_Forbidden, "Forbidden" },
+            { HTTPStatusCode._404_NotFound, "Not Found" },
+            { HTTPStatusCode._405_MethodNotAllowed, "Method Not Allowed" },
+            { HTTPStatusCode._406_NotAcceptable, "Not Acceptable" },
+            { HTTPStatusCode._407_ProxyAuthenticationRequired, "Proxy Authentication Required" },
+            { HTTPStatusCode._408_RequestTimeout, "Request Timeout" },
+            { HTTPStatusCode._409_Conflict, "Conflict" },
+            { HTTPStatusCode._410_Gone, "Gone" },
+            { HTTPStatusCode._411_LengthRequired, "Length Required" },
+            { HTTPStatusCode._412_PreconditionFailed, "Precondition Failed" },
+            { HTTPStatusCode._413_RequestEntityTooLarge, "Request Entity Too Large" },
+            { HTTPStatusCode._414_RequestURITooLong, "Request URI Too Long" },
+            { HTTPStatusCode._415_UnsupportedMediaType, "Unsupported Media Type" },
+            { HTTPStatusCode._416_RequestedRangeNotSatisfiable, "Requested Range Not Satisfiable" },
+            { HTTPStatusCode._417_ExpectationFailed, "Expectation Failed" },
+            { HTTPStatusCode._500_InternalServerError, "Internal Server Error" },
+            { HTTPStatusCode._501_NotImplemented, "Not Implemented" },
+            { HTTPStatusCode._502_BadGateway, "Bad Gateway" },
+            { HTTPStatusCode._503_ServiceUnavailable, "Service Unavailable" },
+            { HTTPStatusCode._504_GatewayTimeout, "Gateway Timeout" },
+            { HTTPStatusCode._505_HTTPVersionNotSupported, "HTTP Version Not Supported" }
+        };
+
+        /// <summary>
+        /// Returns a string representation of the specified HTTP status code.
+        /// </summary>
+        /// <param name="StatusCode">The status code to return a string representation for.</param>
+        /// <returns>A string representation of the specified HTTP status code.</returns>
+        public static string GetStatusCodeName(HTTPStatusCode StatusCode)
+        {
+            return StatusCodeNames.ContainsKey(StatusCode) ? StatusCodeNames[StatusCode] : "Unknown status code";
+        }
+
+        /// <summary>
+        /// A random number generator used throughout the core server code.
+        /// </summary>
         public static Random Rnd = new Random();
 
+        /// <summary>
+        /// Produces a single random hexadecimal digit and returns it as a byte.
+        /// </summary>
+        /// <returns>A single random hexadecimal digit as a byte.</returns>
         public static byte RandomHexDigit()
         {
             lock (Rnd)
@@ -99,8 +176,14 @@ namespace Servers
             }
         }
 
+        /// <summary>
+        /// Generates a random filename for a temporary file in the specified directory.
+        /// </summary>
+        /// <param name="TempDir">Directory to generate a temporary file in.</param>
+        /// <param name="FStream">Will be set to a writable FileStream pointing at the newly-created, empty temporary file.</param>
+        /// <returns>The full path and filename of the temporary file.</returns>
         public static string RandomTempFilepath(string TempDir, out Stream FStream)
-        {  
+        {
             string Dir = TempDir + (TempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
             lock (HTTPInternalObjects.Rnd)
             {
@@ -109,7 +192,7 @@ namespace Servers
                 while (true)
                 {
                     if (Counter > 100000)
-                        throw new IOException("Could not generate a new temporary filename in the directory " + TempDir + 
+                        throw new IOException("Could not generate a new temporary filename in the directory " + TempDir +
                             ". Make sure that the directory exists. You may need to clear out this directory if it is full.");
                     try
                     {
@@ -125,6 +208,10 @@ namespace Servers
             }
         }
 
+        /// <summary>
+        /// Returns a byte array containing the UTF-8-encoded directory-listing XSL.
+        /// </summary>
+        /// <returns>A byte array containing the UTF-8-encoded directory-listing XSL.</returns>
         public static byte[] DirectoryListingXSL()
         {
             if (DirectoryListingXSLByteArray != null)
@@ -147,6 +234,11 @@ namespace Servers
             return DirectoryListingXSLByteArray;
         }
 
+        /// <summary>
+        /// Returns a byte array representing an icon in PNG format that corresponds to the specified file extension.
+        /// </summary>
+        /// <param name="Ext">The file extension for which to retrieve an icon in PNG format.</param>
+        /// <returns>A byte array representing an icon in PNG format that corresponds to the specified file extension.</returns>
         public static byte[] GetDirectoryListingIcon(string Ext)
         {
             if (Ext == "folder") return Resources.folder_16;
@@ -172,6 +264,11 @@ namespace Servers
             return Resources.txt_16;
         }
 
+        /// <summary>
+        /// Returns a file extension whose icon is used in directory listings to represent files of the specified file extension.
+        /// </summary>
+        /// <param name="Ext">The extension of the actual file for which to display an icon.</param>
+        /// <returns>The file extension whose icon is used in directory listings to represent files of the specified file extension.</returns>
         public static string GetDirectoryListingIconStr(string Ext)
         {
             if (Ext == "folder") return Ext;
@@ -197,14 +294,24 @@ namespace Servers
             return "txt";
         }
 
-        public static string HTMLEscape(this string Message)
+        /// <summary>
+        /// Escapes all necessary characters in the specified string so as to make it usable safely in an HTML or XML context.
+        /// </summary>
+        /// <param name="Input">The string to apply HTML or XML escaping to.</param>
+        /// <returns>The specified string with the necessary HTML or XML escaping applied.</returns>
+        public static string HTMLEscape(this string Input)
         {
-            return Message.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("'", "&#39;").Replace("\"", "&quot;");
+            return Input.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("'", "&#39;").Replace("\"", "&quot;");
         }
 
-        public static string URLEscape(this string URL)
+        /// <summary>
+        /// Escapes all necessary characters in the specified string so as to make it usable safely in a URL.
+        /// </summary>
+        /// <param name="Input">The string to apply URL escaping to.</param>
+        /// <returns>The specified string with the necessary URL escaping applied.</returns>
+        public static string URLEscape(this string Input)
         {
-            byte[] UTF8 = URL.ToUTF8();
+            byte[] UTF8 = Input.ToUTF8();
             StringBuilder sb = new StringBuilder();
             foreach (byte b in UTF8)
                 sb.Append((b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
@@ -214,28 +321,33 @@ namespace Servers
             return sb.ToString();
         }
 
-        public static string URLUnescape(this string URL)
+        /// <summary>
+        /// Reverses the escaping performed by <see cref="URLEscape"/>() by decoding hexadecimal URL escape sequences into their original characters.
+        /// </summary>
+        /// <param name="Input">String containing URL escape sequences to be decoded.</param>
+        /// <returns>The specified string with all URL escape sequences decoded.</returns>
+        public static string URLUnescape(this string Input)
         {
-            if (URL.Length < 3)
-                return URL;
+            if (Input.Length < 3)
+                return Input;
             int BufferSize = 0;
             int i = 0;
-            while (i < URL.Length)
+            while (i < Input.Length)
             {
                 BufferSize++;
-                if (URL[i] == '%') { i += 2; }
+                if (Input[i] == '%') { i += 2; }
                 i++;
             }
             byte[] Buffer = new byte[BufferSize];
             BufferSize = 0;
             i = 0;
-            while (i < URL.Length)
+            while (i < Input.Length)
             {
-                if (URL[i] == '%' && i < URL.Length - 2)
+                if (Input[i] == '%' && i < Input.Length - 2)
                 {
                     try
                     {
-                        Buffer[BufferSize] = byte.Parse("" + URL[i + 1] + URL[i + 2], NumberStyles.HexNumber);
+                        Buffer[BufferSize] = byte.Parse("" + Input[i + 1] + Input[i + 2], NumberStyles.HexNumber);
                         BufferSize++;
                     }
                     catch (Exception) { }
@@ -243,7 +355,7 @@ namespace Servers
                 }
                 else
                 {
-                    Buffer[BufferSize] = URL[i] == '+' ? (byte) ' ' : (byte) URL[i];
+                    Buffer[BufferSize] = Input[i] == '+' ? (byte) ' ' : (byte) Input[i];
                     BufferSize++;
                     i++;
                 }
@@ -251,19 +363,34 @@ namespace Servers
             return Encoding.UTF8.GetString(Buffer, 0, BufferSize);
         }
 
-        public static byte[] ToUTF8(this string Str)
+        /// <summary>
+        /// Converts the specified string to UTF-8.
+        /// </summary>
+        /// <param name="Input">String to convert to UTF-8.</param>
+        /// <returns>The specified string, converted to a byte-array containing the UTF-8 encoding of the string.</returns>
+        public static byte[] ToUTF8(this string Input)
         {
-            return Encoding.UTF8.GetBytes(Str);
+            return Encoding.UTF8.GetBytes(Input);
         }
 
-        public static byte[] ToASCII(this string Str)
+        /// <summary>
+        /// Determines the length of the UTF-8 encoding of the specified string.
+        /// </summary>
+        /// <param name="Input">String to determined UTF-8 length of.</param>
+        /// <returns>The length of the string in bytes when encoded as UTF-8.</returns>
+        public static int UTF8Length(this string Input)
         {
-            return Encoding.ASCII.GetBytes(Str);
+            return Encoding.UTF8.GetByteCount(Input);
         }
 
-        public static int UTF8Length(this string Str)
+        /// <summary>
+        /// Converts the specified string to a byte array. Non-ASCII characters are replaced with question marks ('?').
+        /// </summary>
+        /// <param name="Input">String to convert to a byte array.</param>
+        /// <returns>The specified string, converted to a byte-array with non-ASCII characters replaced with question marks ('?').</returns>
+        public static byte[] ToASCII(this string Input)
         {
-            return Encoding.UTF8.GetByteCount(Str);
+            return Encoding.ASCII.GetBytes(Input);
         }
     }
 }
