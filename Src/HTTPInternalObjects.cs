@@ -51,7 +51,7 @@ namespace Servers
                                         <td style=""font-size: 180%"">Directory listing</td>
                                     </tr>
                                     <tr>
-                                        <td><xsl:value-of select=""@url""/></td>
+                                        <td><span title=""{@url}""><xsl:value-of select=""@unescapedurl""/></span></td>
                                     </tr>
                                 </table>
                             </tr>

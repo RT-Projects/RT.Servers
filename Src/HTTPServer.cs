@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Servers.HTMLTags;
+using System.Collections;
 
 namespace Servers
 {
@@ -246,7 +247,7 @@ namespace Servers
 
             yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
             yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>";
-            yield return "<directory url=\"" + URL.URLEscape() + "/\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">";
+            yield return "<directory url=\"" + URL.HTMLEscape() + "\" unescapedurl=\"" + URL.URLUnescape().HTMLEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">";
 
             foreach (var d in Dirs)
                 yield return "<dir link=\"" + d.Name.URLEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HTMLEscape() + "</dir>";
@@ -342,7 +343,7 @@ namespace Servers
         private void ReadingThreadFunction(Socket Socket)
         {
             string StopWatchFilename = Socket.RemoteEndPoint.ToString().Replace(':', '_');
-            Stopwatch s = new StopwatchDummy();
+            Stopwatch sw = new StopwatchDummy();
 
             byte[] NextRead = null;
             int NextReadOffset = 0;
@@ -372,7 +373,7 @@ namespace Servers
                         if (NextReadLength == 0)
                             continue;
 
-                        s.w("Received " + NextReadLength + " bytes of data");
+                        sw.Log("Received " + NextReadLength + " bytes of data");
                         NextRead = Buffer;
                         NextReadOffset = 0;
                     }
@@ -392,7 +393,7 @@ namespace Servers
                         continue;
                     }
 
-                    s.w("Begin interpret headers");
+                    sw.Log("Begin interpret headers");
 
                     int SepIndex = HeadersSoFar.IndexOf("\r\n\r\n");
                     HeadersSoFar = HeadersSoFar.Remove(SepIndex);
@@ -402,45 +403,45 @@ namespace Servers
                     {
                         NextReadOffset += SepIndex + 4 - PrevHeadersLength;
                         NextReadLength -= SepIndex + 4 - PrevHeadersLength;
-                        HTTPResponse Response = HandleRequestAfterHeaders(Socket, HeadersSoFar, NextRead, ref NextReadOffset, ref NextReadLength, s);
-                        s.w("Returned from HandleRequestAfterHeaders()");
+                        HTTPResponse Response = HandleRequestAfterHeaders(Socket, HeadersSoFar, NextRead, ref NextReadOffset, ref NextReadLength, sw);
+                        sw.Log("Returned from HandleRequestAfterHeaders()");
                         if (NextReadLength == 0)
                             NextRead = null;
                         bool ConnectionKeepAlive = false;
                         try
                         {
-                            ConnectionKeepAlive = OutputResponse(Socket, Response, s);
-                            s.w("Returned from OutputResponse()");
+                            ConnectionKeepAlive = OutputResponse(Socket, Response, sw);
+                            sw.Log("Returned from OutputResponse()");
                         }
                         finally
                         {
                             if (Response.Content != null)
                             {
-                                s.w("Before Response.Content.Close()");
+                                sw.Log("Before Response.Content.Close()");
                                 Response.Content.Close();
-                                s.w("After Response.Content.Close()");
+                                sw.Log("After Response.Content.Close()");
                             }
                         }
                         if (ConnectionKeepAlive && Socket.Connected)
                         {
                             HeadersSoFar = "";
-                            s.w("Reusing connection");
+                            sw.Log("Reusing connection");
                             continue;
                         }
                     }
                     catch (SocketException)
                     {
-                        s.w("Socket Exception!");
+                        sw.Log("Socket Exception!");
                     }
 
                     Socket.Close();
-                    s.w("Exiting");
+                    sw.Log("Exiting");
                     return;
                 }
             }
             finally
             {
-                s.SaveToFile(@"C:\temp\log\log_" + StopWatchFilename);
+                sw.SaveToFile(@"C:\temp\log\log_" + StopWatchFilename);
             }
         }
 
@@ -456,7 +457,7 @@ namespace Servers
         {
             try
             {
-                s.w("OutputResponse() - enter");
+                s.Log("OutputResponse() - enter");
 
                 // If no status is given, by default assume 200 OK
                 if (Response.Status == HTTPStatusCode.None)
@@ -565,12 +566,12 @@ namespace Servers
                 if (UseGzip)
                     Response.Headers.ContentEncoding = HTTPContentEncoding.Gzip;
 
-                s.w("OutputResponse() - find out things");
+                s.Log("OutputResponse() - find out things");
 
                 // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
                 if (UseGzip && ContentLengthKnown && ContentLength < Opt.GzipInMemoryUpToSize)
                 {
-                    s.w("OutputResponse() - using in-memory gzip");
+                    s.Log("OutputResponse() - using in-memory gzip");
                     // In this case, do all the gzipping before sending the headers.
                     // After all we want to include the new (compressed) Content-Length.
                     MemoryStream ms = new MemoryStream();
@@ -583,19 +584,19 @@ namespace Servers
                         Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
                     }
                     gz.Close();
-                    s.w("OutputResponse() - finished gzipping");
+                    s.Log("OutputResponse() - finished gzipping");
                     byte[] ResultBuffer = ms.ToArray();
                     Response.Headers.ContentLength = ResultBuffer.Length;
                     SendHeaders(Socket, Response);
-                    s.w("OutputResponse() - finished sending headers");
+                    s.Log("OutputResponse() - finished sending headers");
                     if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
                         return UseKeepAlive;
                     Socket.Send(ResultBuffer);
-                    s.w("OutputResponse() - finished sending response");
+                    s.Log("OutputResponse() - finished sending response");
                     return UseKeepAlive;
                 }
 
-                s.w("OutputResponse() - using something other than in-memory gzip");
+                s.Log("OutputResponse() - using something other than in-memory gzip");
 
                 Stream Output;
 
@@ -606,7 +607,7 @@ namespace Servers
                     // Also note that we are not sending a Content-Length header; even if we know the content length
                     // of the uncompressed file, we cannot predict the length of the compressed output yet
                     SendHeaders(Socket, Response);
-                    s.w("OutputResponse() - sending headers");
+                    s.Log("OutputResponse() - sending headers");
                     if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
                         return UseKeepAlive;
                     StreamOnSocket str = new StreamOnSocket(Socket);
@@ -617,7 +618,7 @@ namespace Servers
                     // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Length header
                     Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
                     SendHeaders(Socket, Response);
-                    s.w("OutputResponse() - sending headers");
+                    s.Log("OutputResponse() - sending headers");
                     if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
                         return UseKeepAlive;
                     StreamOnSocket str = new StreamOnSocketChunked(Socket);
@@ -628,7 +629,7 @@ namespace Servers
                     // Use chunked encoding without Gzip
                     Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
                     SendHeaders(Socket, Response);
-                    s.w("OutputResponse() - sending headers");
+                    s.Log("OutputResponse() - sending headers");
                     if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
                         return UseKeepAlive;
                     Output = new StreamOnSocketChunked(Socket);
@@ -641,7 +642,7 @@ namespace Servers
                         Response.Headers.ContentLength = ContentLength;
 
                     SendHeaders(Socket, Response);
-                    s.w("OutputResponse() - sending headers");
+                    s.Log("OutputResponse() - sending headers");
 
                     // If the content length is zero, we can exit as quickly as possible
                     // (no need to instantiate an output stream)
@@ -651,22 +652,22 @@ namespace Servers
                     Output = new StreamOnSocket(Socket);
                 }
 
-                s.w("OutputResponse() - instantiating output stream");
+                s.Log("OutputResponse() - instantiating output stream");
 
                 // Finally output the actual content
                 int BufferSize = 65536;
                 byte[] Buffer = new byte[BufferSize];
                 int BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
-                s.w("OutputResponse() - read from response content stream");
+                s.Log("OutputResponse() - read from response content stream");
                 while (BytesRead > 0)
                 {
                     Output.Write(Buffer, 0, BytesRead);
-                    s.w("OutputResponse() - write to socket output stream");
+                    s.Log("OutputResponse() - write to socket output stream");
                     BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
-                    s.w("OutputResponse() - read from response content stream");
+                    s.Log("OutputResponse() - read from response content stream");
                 }
                 Output.Close();
-                s.w("OutputResponse() - done sending response");
+                s.Log("OutputResponse() - done sending response");
                 return UseKeepAlive;
             }
             finally
@@ -758,7 +759,7 @@ namespace Servers
 
         private HTTPResponse HandleRequestAfterHeaders(Socket Socket, string Headers, byte[] BufferWithContentSoFar, ref int ContentOffset, ref int ContentLengthSoFar, Stopwatch s)
         {
-            s.w("HandleRequestAfterHeaders() - enter");
+            s.Log("HandleRequestAfterHeaders() - enter");
 
             string[] Lines = Headers.Split(new string[] { "\r\n" }, StringSplitOptions.None);
             if (Lines.Length < 2)
@@ -777,7 +778,7 @@ namespace Servers
                 TempDir = Opt.TempDir   // this will only be used if there is a file upload in a POST request.
             };
 
-            s.w("HandleRequestAfterHeaders() - Instantiate HTTPRequest");
+            s.Log("HandleRequestAfterHeaders() - Instantiate HTTPRequest");
 
             // Parse the request headers
             try
@@ -794,20 +795,20 @@ namespace Servers
                         if (!Match.Success)
                             return GenericError(HTTPStatusCode._400_BadRequest);
                         ParseHeader(LastHeader, ValueSoFar, ref Req);
-                        s.w("HandleRequestAfterHeaders() - Parse header: " + LastHeader);
+                        s.Log("HandleRequestAfterHeaders() - Parse header: " + LastHeader);
                         LastHeader = Match.Groups[1].Value.ToLowerInvariant();
                         ValueSoFar = Match.Groups[2].Value.Trim();
                     }
                 }
                 ParseHeader(LastHeader, ValueSoFar, ref Req);
-                s.w("HandleRequestAfterHeaders() - Parse header: " + LastHeader);
+                s.Log("HandleRequestAfterHeaders() - Parse header: " + LastHeader);
             }
             catch (InvalidRequestException e)
             {
                 return e.Response;
             }
 
-            s.w("HandleRequestAfterHeaders() - Parse headers: done");
+            s.Log("HandleRequestAfterHeaders() - Parse headers: done");
 
             if (Req.Handler == null)
                 return GenericError(HTTPStatusCode._404_NotFound);
@@ -886,9 +887,9 @@ namespace Servers
                 }
             }
 
-            s.w("HandleRequestAfterHeaders() - About to call handler");
+            s.Log("HandleRequestAfterHeaders() - About to call handler");
             HTTPResponse Resp = Req.Handler(Req);
-            s.w("HandleRequestAfterHeaders() - Returned from handler");
+            s.Log("HandleRequestAfterHeaders() - Returned from handler");
             Resp.OriginalRequest = Req;
             return Resp;
         }

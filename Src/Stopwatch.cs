@@ -25,7 +25,7 @@ namespace Servers
         /// Logs an event.
         /// </summary>
         /// <param name="Msg">Message to log.</param>
-        public abstract void w(string Msg);
+        public abstract void Log(string Msg);
 
         /// <summary>
         /// Outputs the stopwatch report with timing information to the specified file.
@@ -54,7 +54,7 @@ namespace Servers
         /// Logs an event.
         /// </summary>
         /// <param name="Msg">Message to log.</param>
-        public override void w(string Msg)
+        public override void Log(string Msg)
         {
             Elements.Add(new StopWatchElement
             {
@@ -113,7 +113,7 @@ namespace Servers
         /// Doesn't do anything.
         /// </summary>
         /// <param name="Msg">Is ignored.</param>
-        public override void w(string Msg) { }
+        public override void Log(string Msg) { }
         
         /// <summary>
         /// Returns an empty string.
