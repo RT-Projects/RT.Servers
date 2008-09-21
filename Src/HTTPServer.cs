@@ -10,6 +10,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Servers.HTMLTags;
 using System.Collections;
+using RT.Util.ExtensionMethods;
+using RT.Util.Streams;
 
 namespace Servers
 {
