@@ -12,7 +12,7 @@ namespace Servers
     /// </summary>
     public abstract class TagSoup
     {
-        protected object[] TagContents = null;
+        protected List<object> TagContents = null;
 
         /// <summary>Name of the tag.</summary>
         public abstract string TagName { get; }
@@ -40,7 +40,18 @@ namespace Servers
         ///     </list>
         ///     <para>Using objects of type <c>Func&lt;...&gt;</c> is a convenient way to defer execution to ensure maximally responsive output.</para>
         /// </remarks>
-        public TagSoup _(params object[] Contents) { TagContents = Contents; return this; }
+        public TagSoup _(params object[] Contents)
+        {
+            if (TagContents == null)
+                TagContents = new List<object>(Contents);
+            else
+                TagContents.AddRange(Contents);
+            return this;
+        }
+
+        /// <summary>Adds stuff at the end of the contents of this tag (a string, a tag, a collection of strings or of tags).</summary>
+        /// <param name="Content">The stuff to add.</param>
+        public void Add(object Content) { TagContents.Add(Content); }
 
         /// <summary>Outputs this tag and all its contents.</summary>
         /// <returns>A collection of strings which, when concatenated, represent this tag and all its contents.</returns>
@@ -80,7 +91,7 @@ namespace Servers
                 else
                     yield return " " + FixFieldName(Field.Name) + "=\"" + Val.ToString().HTMLEscape() + "\"";
             }
-            if (TagPrinted && AllowXHTMLEmpty && (TagContents == null || TagContents.Length == 0))
+            if (TagPrinted && AllowXHTMLEmpty && (TagContents == null || TagContents.Count == 0))
             {
                 yield return "/>";
                 yield break;
@@ -114,6 +125,16 @@ namespace Servers
             }
             if (EndTag)
                 yield return "</" + TagName + ">";
+        }
+
+        /// <summary>Converts the entire tag tree into a single string.</summary>
+        /// <returns>The entire tag tree as a single string.</returns>
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (string s in ToEnumerable())
+                sb.Append(s);
+            return sb.ToString();
         }
 
         /// <summary>Converts a C#-compatible field name into an HTML/XHTML-compatible one.</summary>

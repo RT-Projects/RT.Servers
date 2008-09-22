@@ -12,7 +12,7 @@ namespace Servers.XHTMLTags
     {
         /// <summary>Constructs an XHTML tag.</summary>
         /// <param name="Contents">Contents of the tag.</param>
-        public XHTMLTag(params object[] Contents) { TagContents = Contents; }
+        public XHTMLTag(params object[] Contents) { TagContents = new List<object>(Contents); }
         /// <summary>Returns true.</summary>
         public override bool AllowXHTMLEmpty { get { return true; } }
     }
@@ -42,7 +42,7 @@ namespace Servers.XHTMLTags
                     CellTags.Add(ClassOnAllTags == null ? new td(Cell) : new td(Cell) { class_ = ClassOnAllTags });
                 RowTags.Add(ClassOnAllTags == null ? new tr(CellTags.ToArray()) : new tr(CellTags.ToArray()) { class_ = ClassOnAllTags });
             }
-            TagContents = RowTags.ToArray();
+            TagContents = RowTags;
         }
     }
 
