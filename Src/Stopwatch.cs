@@ -17,39 +17,29 @@ namespace Servers
     }
 
     /// <summary>
-    /// This class provides an object that remembers events as they happen and
-    /// when they happen and outputs a report with timing information at the end.
-    /// For best performance it is useful to use this from a partial method (see example).
+    /// Abstract base class to encapsulate a stopwatch - an object that remembers events as they happen
+    /// and when they happen and outputs a report with timing information at the end.
     /// </summary>
-    /// <example>
-    ///     The following code exemplifies the intended use of this class. Two partial methods
-    ///     are declared which by default are empty. This way, if a stopwatch is not needed,
-    ///     it has zero impact on runtime behaviour.
-    ///
-    ///     If the commented portion is commented back in, a Stopwatch object is instantiated
-    ///     and the methods are implemented to use it.
-    ///
-    ///     <code>
-    ///         partial void Stopwatch(string Msg);
-    ///         partial void StopwatchOutput(string StopwatchFilename);
-    ///
-    ///         /*      <!-- simply change this to //* to enable the stopwatch -->
-    ///         private static Stopwatch sw = null;
-    ///         partial void Stopwatch(string Msg)
-    ///         {
-    ///             if (sw == null)
-    ///                 sw = new Stopwatch();
-    ///             sw.Log(Msg);
-    ///         }
-    ///         partial void StopwatchOutput(string StopwatchFilename)
-    ///         {
-    ///             if (sw != null)
-    ///                 sw.SaveToFile(StopwatchFilename);
-    ///         }
-    ///         /**/
-    ///     </code>
-    /// </example>
-    public class Stopwatch
+    public abstract class Stopwatch
+    {
+        /// <summary>
+        /// Logs an event.
+        /// </summary>
+        /// <param name="Msg">Message to log.</param>
+        public abstract void Log(string Msg);
+
+        /// <summary>
+        /// Outputs the stopwatch report with timing information to the specified file.
+        /// </summary>
+        /// <param name="Filepath">File to save stopwatch output to. If the file already exists, it will be overwritten.</param>
+        public abstract void SaveToFile(string Filepath);
+    }
+
+    /// <summary>
+    /// Concrete implementation of <see cref="Stopwatch"/>. This class provides an object that remembers events
+    /// as they happen and when they happen and outputs a report with timing information at the end.
+    /// </summary>
+    public class StopwatchReal : Stopwatch
     {
         /// <summary>
         /// Remembers when the stopwatch was started.
@@ -65,7 +55,7 @@ namespace Servers
         /// Logs an event.
         /// </summary>
         /// <param name="Msg">Message to log.</param>
-        public void Log(string Msg)
+        public override void Log(string Msg)
         {
             Elements.Add(new StopWatchElement
             {
@@ -100,18 +90,39 @@ namespace Servers
         /// Outputs the stopwatch report with timing information to the specified file.
         /// </summary>
         /// <param name="Filepath">File to save stopwatch output to. If the file already exists, it will be overwritten.</param>
-        public void SaveToFile(string Filepath)
+        public override void SaveToFile(string Filepath)
         {
             try
             {
-                FileStream f = File.Open(Filepath, FileMode.Create, FileAccess.Write, FileShare.Write);
-                byte[] b = this.ToString().ToUTF8();
-                f.Write(b, 0, b.Length);
-                f.Close();
+                File.WriteAllBytes(Filepath, this.ToString().ToUTF8());
             }
             catch (IOException)
             {
             }
         }
+    }
+
+    /// <summary>
+    /// Implementation of <see cref="Stopwatch"/> that doesn't do anything.
+    /// </summary>
+    public class StopwatchDummy : Stopwatch
+    {
+        /// <summary>
+        /// Doesn't do anything.
+        /// </summary>
+        /// <param name="Msg">Is ignored.</param>
+        public override void Log(string Msg) { }
+
+        /// <summary>
+        /// Returns an empty string.
+        /// </summary>
+        /// <returns>An empty string.</returns>
+        public override string ToString() { return ""; }
+
+        /// <summary>
+        /// Doesn't do anything.
+        /// </summary>
+        /// <param name="Filepath">Is ignored.</param>
+        public override void SaveToFile(string Filepath) { }
     }
 }
