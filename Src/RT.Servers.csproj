@@ -62,7 +62,6 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Stopwatch.cs" />
-    <Compile Include="StreamOnSocket.cs" />
     <Compile Include="TagSoup.cs" />
     <Compile Include="TCPEvents.cs" />
     <Compile Include="TCPServer.cs" />
