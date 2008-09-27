@@ -24,16 +24,12 @@ namespace RT.Servers
         /// domain and all subdomains or to this domain only, depending on the value of <see cref="SpecificDomain"/>.</summary>
         public string Domain;
 
-        /// <summary>The handler applies to this port only (default is 80), or to all ports depending on the value of <see cref="AnyPort"/>.</summary>
-        public int Port = 80;
+        /// <summary>If null (default), the handler applies to all ports; otherwise to the specified port only.</summary>
+        public int? Port;
 
         /// <summary>If null (default), the handler applies to all URL paths. Otherwise, the handler applies to this
         /// path and all subpaths or to this path only, depending on the value of <see cref="SpecificPath"/>.</summary>
         public string Path;
-
-        /// <summary>If false (default), <see cref="Port"/> specifies what port this handler applies to.
-        /// If true, the handler applies to all ports and the <see cref="Port"/> property is ignored.</summary>
-        public bool AnyPort;
 
         /// <summary>If false (default), the handler applies to all subdomains of the domain specified by
         /// <see cref="Domain"/>. Otherwise it applies to the specific domain only.</summary>
@@ -92,7 +88,7 @@ namespace RT.Servers
                 throw new ArgumentException("The handler specified by the Handler option cannot be null.");
             if (HandlerHook.Path != null && !HandlerHook.Path.StartsWith("/"))
                 throw new ArgumentException("A path specified by the Path option must begin with the slash character (\"/\").");
-            if (!HandlerHook.AnyPort && (HandlerHook.Port < 1 || HandlerHook.Port > 65535))
+            if (HandlerHook.Port != null && (HandlerHook.Port.Value < 1 || HandlerHook.Port.Value > 65535))
                 throw new ArgumentException("The Port option must contain an integer in the range 1 to 65535.");
 
             RequestHandlerHooks.Add(HandlerHook);
@@ -1102,7 +1098,7 @@ namespace RT.Servers
 
                     string URL = Req.URL.Contains('?') ? Req.URL.Remove(Req.URL.IndexOf('?')) : Req.URL;
 
-                    var Hook = RequestHandlerHooks.FirstOrDefault(hk => (hk.AnyPort || hk.Port == Port) &&
+                    var Hook = RequestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == Port) &&
                             (hk.Domain == null || hk.Domain == Host || (!hk.SpecificDomain && Host.EndsWith("." + hk.Domain))) &&
                             (hk.Path == null || hk.Path == URL || (!hk.SpecificPath && URL.StartsWith(hk.Path + "/"))));
                     if (Hook == null)
