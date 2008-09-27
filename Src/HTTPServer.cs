@@ -15,6 +15,39 @@ using RT.Util.Streams;
 namespace RT.Servers
 {
     /// <summary>
+    /// Encapsulates the various ways in which a URL can map to a request handler. Use <see cref="HTTPServer.AddHandler"/>
+    /// to hook a handler to a specific <see cref="HTTPServer"/> instance.
+    /// </summary>
+    public class HTTPRequestHandlerHook
+    {
+        /// <summary>If null (default), the handler applies to all domain names. Otherwise, the handler applies to this
+        /// domain and all subdomains or to this domain only, depending on the value of <see cref="SpecificDomain"/>.</summary>
+        public string Domain;
+
+        /// <summary>The handler applies to this port only (default is 80), or to all ports depending on the value of <see cref="AnyPort"/>.</summary>
+        public int Port = 80;
+
+        /// <summary>If null (default), the handler applies to all URL paths. Otherwise, the handler applies to this
+        /// path and all subpaths or to this path only, depending on the value of <see cref="SpecificPath"/>.</summary>
+        public string Path;
+
+        /// <summary>If false (default), <see cref="Port"/> specifies what port this handler applies to.
+        /// If true, the handler applies to all ports and the <see cref="Port"/> property is ignored.</summary>
+        public bool AnyPort;
+
+        /// <summary>If false (default), the handler applies to all subdomains of the domain specified by
+        /// <see cref="Domain"/>. Otherwise it applies to the specific domain only.</summary>
+        public bool SpecificDomain;
+
+        /// <summary>If false (default), the handler applies to all subpaths of the path specified by
+        /// <see cref="Path"/>. Otherwise it applies to the specific path only.</summary>
+        public bool SpecificPath;
+
+        /// <summary>The request handler to hook.</summary>
+        public HTTPRequestHandler Handler;
+    }
+
+    /// <summary>
     /// Provides an HTTP server.
     /// </summary>
     public partial class HTTPServer
@@ -33,25 +66,36 @@ namespace RT.Servers
             Opt = Options;
         }
 
-        /// <summary>
-        /// Hooks a request handler to a specified URL or URL mask.
-        /// </summary>
-        /// <example>
-        ///     The following example sets a handler for an entire domain.
-        ///     <code>MyServer["www.mydomain.com"] = MyHandler;</code>
-        ///     The following example provides different handlers for various sub-paths under a domain.
-        ///     <code>
-        ///         HTTPServer MyServer = new HTTPServer();
-        ///         MyServer["www.mydomain.com/users"] = MyServer.FileSystemHandler(@"D:\UserFiles");
-        ///         MyServer["www.mydomain.com/web"] = MyDynamicWebsite;
-        ///     </code>
-        /// </example>
-        /// <param name="index">The domain or URL fragment on which to hook a handler.</param>
-        /// <returns>The handler currently defined for the specified domain or URL fragment.</returns>
-        public HTTPRequestHandler this[string index]
+        /// <summary>Adds a handler for a specified combination of domain, path and port.</summary>
+        /// <param name="HandlerHook">A <see cref="HTTPRequestHandlerHook"/> structure containing the desired parameters.</param>
+        public void AddHandler(HTTPRequestHandlerHook HandlerHook)
         {
-            get { return RequestHandlers[index.ToLowerInvariant()]; }
-            set { RequestHandlers[index.ToLowerInvariant()] = value; }
+            if (HandlerHook.Domain == null && HandlerHook.SpecificDomain)
+                throw new ArgumentException("If the SpecificDomain option is set to true, a domain must be specified with the Domain option.");
+            if (HandlerHook.Domain != null && !Regex.IsMatch(HandlerHook.Domain, @"^[-.a-z0-9]+$"))
+                throw new ArgumentException("The domain specified with the Domain option must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
+            if (HandlerHook.Domain != null && (HandlerHook.Domain.Contains(".-") || HandlerHook.Domain.Contains("-.") || HandlerHook.Domain.StartsWith("-") || HandlerHook.Domain.EndsWith("-")))
+                throw new ArgumentException("The domain specified with the Domain option must not contain a domain name beginning or ending with a hyphen (-).");
+            if (HandlerHook.Domain != null && !HandlerHook.SpecificDomain && HandlerHook.Domain.StartsWith("."))
+                throw new ArgumentException(@"If the SpecificDomain option is set to false (or not specified), the domain specified with the Domain option must not begin with a period (.). It will, however, be treated as a domain. For example, if you specify the domain ""cream.net"", only domains ending in "".cream.net"" and the domain ""cream.net"" itself are considered. The domain ""scream.net"" would not be considered a match. If you wish to hook the handler to every domain, simply omit the Domain option entirely.");
+            if (HandlerHook.Domain != null && (HandlerHook.Domain.StartsWith(".") || HandlerHook.Domain.EndsWith(".")))
+                throw new ArgumentException(@"The domain specified with the Domain option must not begin or end with a period (.).");
+
+            if (HandlerHook.Path == null && HandlerHook.SpecificPath)
+                throw new ArgumentException("If the SpecificPath option is set to true, a path must be specified with the Path option.");
+            if (HandlerHook.Path != null && !Regex.IsMatch(HandlerHook.Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]+$"))
+                throw new ArgumentException("The path specified with the Path option must not contain any characters that are invalid in URLs, or the question mark (?) character, and it must begin with a slash (/).");
+            if (HandlerHook.Path != null && !HandlerHook.SpecificPath && HandlerHook.Path.EndsWith("/"))
+                throw new ArgumentException(@"If the SpecificPath option is set to false (or not specified), the path specified with the Path option must not end with a slash (/). It will, however, be treated as a directory. For example, if you specify the path ""/files"", only URLs beginning with ""/files/"" and the URL ""/files"" itself are considered. The URL ""/fileshare"" would not be considered a match. If you wish to hook the handler to the root directory of the domain, simply omit the Path option entirely.");
+
+            if (HandlerHook.Handler == null)
+                throw new ArgumentException("The handler specified by the Handler option cannot be null.");
+            if (HandlerHook.Path != null && !HandlerHook.Path.StartsWith("/"))
+                throw new ArgumentException("A path specified by the Path option must begin with the slash character (\"/\").");
+            if (!HandlerHook.AnyPort && (HandlerHook.Port < 1 || HandlerHook.Port > 65535))
+                throw new ArgumentException("The Port option must contain an integer in the range 1 to 65535.");
+
+            RequestHandlerHooks.Add(HandlerHook);
         }
 
         /// <summary>
@@ -66,7 +110,7 @@ namespace RT.Servers
 
         private TcpListener Listener;
         private Thread ListeningThread;
-        private Dictionary<string, HTTPRequestHandler> RequestHandlers = new Dictionary<string, HTTPRequestHandler>();
+        private List<HTTPRequestHandlerHook> RequestHandlerHooks = new List<HTTPRequestHandlerHook>();
         private HTTPServerOptions Opt;
 
         /// <summary>
@@ -407,7 +451,7 @@ namespace RT.Servers
                     sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
                     HeadersSoFar = HeadersSoFar.Remove(SepIndex);
                     sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
-                    
+
                     /*
                     Console.WriteLine(HeadersSoFar);
                     Console.WriteLine();
@@ -1045,35 +1089,27 @@ namespace RT.Servers
                     Req.Handler = InternalHandler;
                 else
                 {
-                    string Host = HeaderValue.ToLowerInvariant();
+                    string Host = ValueLower;
+                    int Port = 80;
+                    if (Host.Contains(":"))
+                    {
+                        int Pos = Host.IndexOf(":");
+                        if (int.TryParse(Host.Substring(Pos + 1), out Port))
+                            Host = Host.Remove(Pos);
+                    }
                     if (Host[Host.Length - 1] == '.')
                         Host = Host.Remove(Host.Length - 1);
+
                     string URL = Req.URL.Contains('?') ? Req.URL.Remove(Req.URL.IndexOf('?')) : Req.URL;
-                    while (Req.Handler == null)
-                    {
-                        if (RequestHandlers.ContainsKey(Host + URL))
-                        {
-                            Req.RestURL = Req.URL.Substring(URL.Length);
-                            Req.Handler = RequestHandlers[Host + URL];
-                            break;
-                        }
-                        if (!URL.Contains('/'))
-                            break;
-                        URL = URL.Remove(URL.LastIndexOf('/'));
-                    }
-                    while (Req.Handler == null)
-                    {
-                        if (RequestHandlers.ContainsKey(Host))
-                        {
-                            Req.Handler = RequestHandlers[Host];
-                            break;
-                        }
-                        if (!Host.Contains('.'))
-                            break;
-                        Host = Host.Substring(Host.IndexOf('.') + 1);
-                    }
-                    if (Req.Handler == null)
+
+                    var Hook = RequestHandlerHooks.FirstOrDefault(hk => (hk.AnyPort || hk.Port == Port) &&
+                            (hk.Domain == null || hk.Domain == Host || (!hk.SpecificDomain && Host.EndsWith("." + hk.Domain))) &&
+                            (hk.Path == null || hk.Path == URL || (!hk.SpecificPath && URL.StartsWith(hk.Path + "/"))));
+                    if (Hook == null)
                         throw new InvalidRequestException(GenericError(HTTPStatusCode._404_NotFound));
+
+                    Req.Handler = Hook.Handler;
+                    Req.RestURL = Hook.Path == null ? URL : URL.Substring(Hook.Path.Length);
                 }
                 Req.Headers.Host = ValueLower;
             }
