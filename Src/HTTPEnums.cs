@@ -1,6 +1,9 @@
 ﻿
-namespace Servers
+namespace RT.Servers
 {
+
+#pragma warning disable 1591
+
     /// <summary>
     /// Contains values for the supported HTTP methods.
     /// </summary>
@@ -103,4 +106,7 @@ namespace Servers
         ApplicationXWWWFormURLEncoded,
         MultipartFormData
     }
+
+#pragma warning restore 1591
+
 }

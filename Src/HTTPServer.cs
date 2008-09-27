@@ -8,12 +8,11 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using Servers.HTMLTags;
 using System.Collections;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// Provides an HTTP server.
@@ -35,7 +34,7 @@ namespace Servers
         }
 
         /// <summary>
-        /// Hooks a request handler to a specified URL.
+        /// Hooks a request handler to a specified URL or URL mask.
         /// </summary>
         /// <example>
         ///     The following example sets a handler for an entire domain.
@@ -344,7 +343,7 @@ namespace Servers
 
         private void ReadingThreadFunction(Socket Socket)
         {
-            Stopwatch sw = new StopwatchReal();
+            Stopwatch sw = new StopwatchDummy();
             string StopWatchFilename = Socket.RemoteEndPoint.ToString().Replace(':', '_');
             sw.Log("Start ReadingThreadFunction()");
 
@@ -408,9 +407,13 @@ namespace Servers
                     sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
                     HeadersSoFar = HeadersSoFar.Remove(SepIndex);
                     sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
+                    
+                    /*
                     Console.WriteLine(HeadersSoFar);
                     Console.WriteLine();
                     sw.Log(@"Console.WriteLine(HeadersSoFar)");
+                    */
+
                     try
                     {
                         NextReadOffset += SepIndex + 4 - PrevHeadersLength;
@@ -464,7 +467,7 @@ namespace Servers
         {
             string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + HTTPInternalObjects.GetStatusCodeName(Response.Status) + "\r\n" +
                 Response.Headers.ToString() + "\r\n";
-            Console.WriteLine(HeadersStr);
+            // Console.WriteLine(HeadersStr);
             Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
         }
 
@@ -1157,6 +1160,11 @@ namespace Servers
             return FinalList.ToArray();
         }
 
+        /// <summary>
+        /// Returns a file size in user-readable format, using units like KB, MB, GB, TB.
+        /// </summary>
+        /// <param name="Size">Size of a file in bytes.</param>
+        /// <returns>User-readable formatted file size.</returns>
         public static string PrettySize(long Size)
         {
             if (Size >= (1L << 40))

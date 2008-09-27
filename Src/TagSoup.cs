@@ -5,13 +5,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
 
-namespace Servers
+namespace RT
 {
     /// <summary>
     /// Abstract base class for an HTML or XHTML tag.
     /// </summary>
     public abstract class TagSoup
     {
+        /// <summary>Remembers the contents of this tag.</summary>
         protected List<object> TagContents = null;
 
         /// <summary>Name of the tag.</summary>

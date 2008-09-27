@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Servers.HTMLTags
+namespace RT.HTMLTags
 {
     /// <summary>Abstract base class for HTML tags.</summary>
     public abstract class HTMLTag : TagSoup
@@ -14,6 +14,8 @@ namespace Servers.HTMLTags
         /// <summary>Returns false.</summary>
         public override bool AllowXHTMLEmpty { get { return false; } }
     }
+
+#pragma warning disable 1591
 
     public class A : HTMLTag
     {
@@ -1701,4 +1703,7 @@ namespace Servers.HTMLTags
         public string style;
         public string title;
     }
+
+#pragma warning restore 1591
+
 }

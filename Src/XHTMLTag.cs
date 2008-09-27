@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
 
-namespace Servers.XHTMLTags
+namespace RT.Servers.XHTMLTags
 {
     /// <summary>Abstract base class for XHTML tags.</summary>
     public abstract class XHTMLTag : TagSoup
@@ -21,9 +21,6 @@ namespace Servers.XHTMLTags
     /// without needing to instantiate all intermediate row and cell tags.</summary>
     public class XHTMLTable : table
     {
-        public XHTMLTable(params object[] Contents) : base(Contents) { }
-        public override string TagName { get { return "table"; } }
-
         /// <summary>If set to a value other than null, causes all rows and cells within the generated table to have the specified CSS class.</summary>
         public string _AllClasses;
 
@@ -45,6 +42,8 @@ namespace Servers.XHTMLTags
             TagContents = RowTags;
         }
     }
+
+#pragma warning disable 1591
 
     public enum align { _, left, center, right, justify, char_ }
     public enum btype { _, button, submit, reset }
@@ -1834,4 +1833,7 @@ namespace Servers.XHTMLTags
         public string title;
         public string xmlLang;
     }
+
+#pragma warning restore 1591
+
 }

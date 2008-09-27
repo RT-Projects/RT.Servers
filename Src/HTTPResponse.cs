@@ -3,13 +3,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// Encapsulates all supported HTTP response headers. A request handler can set these appropriately to cause the server to emit the required headers.
     /// </summary>
     public struct HTTPResponseHeaders
     {
+
+#pragma warning disable 1591
+
         public HTTPAcceptRanges AcceptRanges;
         public int? Age; // in seconds
         public string[] Allow;  // usually: { "GET", "HEAD", "POST" }
@@ -29,6 +32,8 @@ namespace Servers
         public string Server;
         public List<Cookie> SetCookie;
         public HTTPTransferEncoding TransferEncoding;
+
+#pragma warning restore 1591
 
         /// <summary>
         /// Returns the HTTP-compliant ASCII representation of all response headers that have been set.
@@ -145,7 +150,7 @@ namespace Servers
         /// <summary>
         /// A stream object providing read access to the content returned. For static files, use <see cref="FileStream"/>.
         /// For objects cached in memory, use <see cref="MemoryStream"/>.
-        /// For dynamic websites, consider using <see cref="DynamicContentStream"/>.
+        /// For dynamic websites, consider using <see cref="RT.Util.Streams.DynamicContentStream"/>.
         /// </summary>
         public Stream Content;
 

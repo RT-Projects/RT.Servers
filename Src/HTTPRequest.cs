@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
 
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// An HTTP request handler is a function that takes an HTTP request and returns an HTTP response.
@@ -20,6 +20,7 @@ namespace Servers
     /// </summary>
     public struct HTTPRequestHeaders
     {
+#pragma warning disable 1591
         public string[] Accept;
         public string[] AcceptCharset;
         public HTTPContentEncoding[] AcceptEncoding;
@@ -34,6 +35,9 @@ namespace Servers
         public string IfNoneMatch;
         public HTTPRange[] Range;
         public string UserAgent;
+#pragma warning restore 1591
+
+        /// <summary>Stores the header values pertaining to headers not supported by <see cref="HTTPRequestHeaders"/> as raw strings.</summary>
         public Dictionary<string, string> UnrecognisedHeaders;
     }
 
@@ -105,7 +109,6 @@ namespace Servers
         /// DO NOT USE THIS CONSTRUCTOR except in unit testing.
         /// </summary>
         /// <param name="Content">DO NOT USE THIS CONSTRUCTOR except in unit testing.</param>
-        /// <param name="TempDir">DO NOT USE THIS CONSTRUCTOR except in unit testing.</param>
         public HTTPRequest(Stream Content)
         {
             this.Content = Content;
@@ -466,7 +469,7 @@ namespace Servers
     public class InvalidRequestException : Exception
     {
         /// <summary>
-        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.GenericError"/>() is used to generate an HTTP 500 Internal Server Error.
+        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.GenericError(HTTPStatusCode)"/>() is used to generate an HTTP 500 Internal Server Error.
         /// </summary>
         public HTTPResponse Response;
 
@@ -474,7 +477,7 @@ namespace Servers
         /// Constructor.
         /// </summary>
         /// <param name="Response">Response to return when the exception is caught.
-        /// Usually <see cref="HTTPServer.GenericError"/>() is used to generate an HTTP 500 Internal Server Error.</param>
+        /// Usually <see cref="HTTPServer.GenericError(HTTPStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.</param>
         public InvalidRequestException(HTTPResponse Response) { this.Response = Response; }
     }
 }

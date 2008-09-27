@@ -1,9 +1,9 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using Servers.TCPEvents;
+using RT.Servers.TCPEvents;
 
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// Provides a TCP server which can listens on a TCP port and invoke callback functions when

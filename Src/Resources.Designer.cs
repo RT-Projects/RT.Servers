@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Servers {
+namespace RT.Servers {
     using System;
     
     

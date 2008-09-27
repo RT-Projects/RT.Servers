@@ -2,13 +2,14 @@
 using System.Net.Sockets;
 using System.Text;
 
-namespace Servers
+namespace RT.Util.Streams
 {
     /// <summary>
     /// Use this if you need to write to a <see cref="Stream"/> but actually want the output sent to a <see cref="Socket"/>.
     /// </summary>
     public class StreamOnSocket : Stream
     {
+        /// <summary>Contains the underlying socket.</summary>
         protected Socket Socket;
 
         /// <summary>
@@ -20,23 +21,25 @@ namespace Servers
             this.Socket = Socket;
         }
 
-        public override bool CanRead { get { return false; } }
-        public override bool CanSeek { get { return false; } }
-        public override bool CanWrite { get { return true; } }
-        public override void Flush() { }
-
         /// <summary>
         /// Writes the specified data to the underlying <see cref="Socket"/>.
         /// </summary>
         /// <param name="buffer">Buffer containing the data to be written.</param>
         /// <param name="offset">Buffer offset starting at which data is obtained.</param>
-        /// <param name="count">Number of bytes to read from <see cref="buffer"/> and send to the socket.</param>
+        /// <param name="count">Number of bytes to read from buffer and send to the socket.</param>
         public override void Write(byte[] buffer, int offset, int count)
         {
             Socket.Send(buffer, offset, count, SocketFlags.None);
         }
 
+#pragma warning disable 1591
+
         // Stuff you can't do
+        public override bool CanRead { get { return false; } }
+        public override bool CanSeek { get { return false; } }
+        public override bool CanWrite { get { return true; } }
+        public override void Flush() { }
+
         public override long Length { get { throw new System.NotSupportedException(); } }
         public override long Position
         {
@@ -46,6 +49,9 @@ namespace Servers
         public override int Read(byte[] buffer, int offset, int count) { throw new System.NotSupportedException(); }
         public override long Seek(long offset, SeekOrigin origin) { throw new System.NotSupportedException(); }
         public override void SetLength(long value) { throw new System.NotSupportedException(); }
+
+#pragma warning restore 1591
+    
     }
 
     /// <summary>
@@ -69,7 +75,7 @@ namespace Servers
         /// </summary>
         /// <param name="buffer">Buffer containing the data to be written.</param>
         /// <param name="offset">Buffer offset starting at which data is obtained.</param>
-        /// <param name="count">Number of bytes to read from <see cref="buffer"/> and send to the socket.</param>
+        /// <param name="count">Number of bytes to read from buffer and send to the socket.</param>
         public override void Write(byte[] buffer, int offset, int count)
         {
             Socket.Send(Encoding.ASCII.GetBytes(count.ToString("X") + "\r\n"));

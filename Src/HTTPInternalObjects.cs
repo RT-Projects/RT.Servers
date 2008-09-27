@@ -5,7 +5,7 @@ using System.Globalization;
 using System;
 using System.Collections.Generic;
 
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// Internal class containing global static objects.

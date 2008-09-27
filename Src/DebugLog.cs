@@ -5,7 +5,7 @@ using System.Text;
 using System.IO;
 using RT.Util.ExtensionMethods;
 
-namespace Servers
+namespace RT
 {
     /// <summary>
     /// Helper class to write a debugging log with timestamped messages to a file.

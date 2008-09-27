@@ -1,12 +1,18 @@
 ﻿
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// Contains definitions for all the HTTP status codes defined in HTTP/1.1.
     /// </summary>
     public enum HTTPStatusCode
     {
+        /// <summary>
+        /// Default value to capture the case where no status code is provided. 
+        /// The server will then default to <see cref="_200_OK"/> before sending the headers.
+        /// </summary>
         None = 0,
+
+#pragma warning disable 1591
 
         // Informational 1xx
         _100_Continue = 100,
@@ -58,5 +64,8 @@ namespace Servers
         _503_ServiceUnavailable = 503,
         _504_GatewayTimeout = 504,
         _505_HTTPVersionNotSupported = 505
+
+#pragma warning restore 1591
+    
     }
 }

@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
-using Servers.TCPEvents;
+using RT.Servers.TCPEvents;
 
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// Provides a TCP client that can monitor an existing TCP connection (<see cref="Socket"/>)

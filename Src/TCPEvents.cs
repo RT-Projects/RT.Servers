@@ -1,5 +1,5 @@
 ﻿
-namespace Servers.TCPEvents
+namespace RT.Servers.TCPEvents
 {
     /// <summary>
     /// Provides a callback function to call when a <see cref="TCPClient"/> receives data.

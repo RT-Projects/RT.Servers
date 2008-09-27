@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 
-namespace Servers
+namespace RT.Servers
 {
     /// <summary>
     /// Contains configuration settings for an <see cref="HTTPServer"/>.
