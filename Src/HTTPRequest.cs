@@ -20,7 +20,7 @@ namespace RT.Servers
     /// </summary>
     public struct HTTPRequestHeaders
     {
-#pragma warning disable 1591
+#pragma warning disable 1591   // missing comment for public member
         public string[] Accept;
         public string[] AcceptCharset;
         public HTTPContentEncoding[] AcceptEncoding;

@@ -11,6 +11,7 @@ using System.Threading;
 using System.Collections;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
+using RT.Util;
 
 namespace RT.Servers
 {
@@ -108,6 +109,9 @@ namespace RT.Servers
         private Thread ListeningThread;
         private List<HTTPRequestHandlerHook> RequestHandlerHooks = new List<HTTPRequestHandlerHook>();
         private HTTPServerOptions Opt;
+
+        /// <summary>If set, various debug events will be logged to here.</summary>
+        public LoggerBase Log;
 
         /// <summary>
         /// Shuts the HTTP server down. This method is only useful if <see cref="StartListening"/>() 
@@ -286,20 +290,20 @@ namespace RT.Servers
             Dirs.Sort((a, b) => a.Name.CompareTo(b.Name));
             Files.Sort((a, b) => a.Name.CompareTo(b.Name));
 
-            yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
-            yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>";
-            yield return "<directory url=\"" + URL.HTMLEscape() + "\" unescapedurl=\"" + URL.URLUnescape().HTMLEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">";
+            yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+            yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>\n";
+            yield return "<directory url=\"" + URL.HTMLEscape() + "\" unescapedurl=\"" + URL.URLUnescape().HTMLEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">\n";
 
             foreach (var d in Dirs)
-                yield return "<dir link=\"" + d.Name.URLEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HTMLEscape() + "</dir>";
+                yield return "  <dir link=\"" + d.Name.URLEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HTMLEscape() + "</dir>\n";
             foreach (var f in Files)
             {
                 string Ext = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
-                yield return "<file link=\"" + f.Name.URLEscape() + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
-                yield return "\" img=\"/$/directory-listing/icons/" + HTTPInternalObjects.GetDirectoryListingIconStr(Ext) + "\">" + f.Name.HTMLEscape() + "</file>";
+                yield return "  <file link=\"" + f.Name.URLEscape() + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
+                yield return "\" img=\"/$/directory-listing/icons/" + HTTPInternalObjects.GetDirectoryListingIconStr(Ext) + "\">" + f.Name.HTMLEscape() + "</file>\n";
             }
 
-            yield return "</directory>";
+            yield return "</directory>\n";
         }
 
         /// <summary>
@@ -448,11 +452,7 @@ namespace RT.Servers
                     HeadersSoFar = HeadersSoFar.Remove(SepIndex);
                     sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
 
-                    /*
-                    Console.WriteLine(HeadersSoFar);
-                    Console.WriteLine();
-                    sw.Log(@"Console.WriteLine(HeadersSoFar)");
-                    */
+                    if (Log != null) Log.Info(HeadersSoFar);
 
                     try
                     {
@@ -507,7 +507,7 @@ namespace RT.Servers
         {
             string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + HTTPInternalObjects.GetStatusCodeName(Response.Status) + "\r\n" +
                 Response.Headers.ToString() + "\r\n";
-            // Console.WriteLine(HeadersStr);
+            if (Log != null) Log.Info(HeadersStr);
             Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
         }
 
