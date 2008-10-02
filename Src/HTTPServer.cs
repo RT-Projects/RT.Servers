@@ -272,13 +272,13 @@ namespace RT.Servers
                 string Extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
                 return new HTTPResponse
                 {
+                    Status = HTTPStatusCode._200_OK,
                     Content = FileStream,
                     Headers = new HTTPResponseHeaders
                     {
                         ContentType = Opt.MIMETypes.ContainsKey(Extension) ? Opt.MIMETypes[Extension] :
                             Opt.MIMETypes.ContainsKey("*") ? Opt.MIMETypes["*"] : "application/octet-stream"
-                    },
-                    Status = HTTPStatusCode._200_OK
+                    }
                 };
             }
             catch (IOException e)
