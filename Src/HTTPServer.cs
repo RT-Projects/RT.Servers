@@ -80,7 +80,7 @@ namespace RT.Servers
 
             if (HandlerHook.Path == null && HandlerHook.SpecificPath)
                 throw new ArgumentException("If the SpecificPath option is set to true, a path must be specified with the Path option.");
-            if (HandlerHook.Path != null && !Regex.IsMatch(HandlerHook.Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]+$"))
+            if (HandlerHook.Path != null && !Regex.IsMatch(HandlerHook.Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]*$"))
                 throw new ArgumentException("The path specified with the Path option must not contain any characters that are invalid in URLs, or the question mark (?) character, and it must begin with a slash (/).");
             if (HandlerHook.Path != null && !HandlerHook.SpecificPath && HandlerHook.Path.EndsWith("/"))
                 throw new ArgumentException(@"If the SpecificPath option is set to false (or not specified), the path specified with the Path option must not end with a slash (/). It will, however, be treated as a directory. For example, if you specify the path ""/files"", only URLs beginning with ""/files/"" and the URL ""/files"" itself are considered. The URL ""/fileshare"" would not be considered a match. If you wish to hook the handler to the root directory of the domain, simply omit the Path option entirely.");
@@ -170,12 +170,31 @@ namespace RT.Servers
         ///     will serve the file stored at the location <c>D:\UserFiles\adam\report.txt</c>. A request for the URL
         ///     <c>http://www.mydomain.com/users/adam/</c> will list all the files in the directory <c>D:\UserFiles\adam</c>.
         /// </example>
-        public HTTPRequestHandler FileSystemHandler(string BaseDir)
+        public HTTPRequestHandler CreateFileSystemHandler(string BaseDir)
         {
-            return Req => FileSystemHandlerResponse(BaseDir, Req);
+            return Req => FileSystemResponse(BaseDir, Req);
         }
 
-        private HTTPResponse FileSystemHandlerResponse(string BaseDir, HTTPRequest Req)
+        /// <summary>
+        /// Creates a handler which will serve the file specified in <see pref="Filepath"/>.
+        /// To be used in conjunction with <see cref="AddHandler"/>.
+        /// See also: <see cref="CreateFileSystemHandler"/>.
+        /// </summary>
+        public HTTPRequestHandler CreateFileHandler(string Filepath)
+        {
+            return Req => FileResponse(Filepath);
+        }
+
+        /// <summary>
+        /// Creates a handler which will redirect the browser to <see pref="NewURL"/>.
+        /// To be used in conjunction with <see cref="AddHandler"/>.
+        /// </summary>
+        public HTTPRequestHandler CreateRedirectHandler(string NewURL)
+        {
+            return Req => RedirectResponse(NewURL);
+        }
+
+        private HTTPResponse FileSystemResponse(string BaseDir, HTTPRequest Req)
         {
             string p = BaseDir.EndsWith("" + Path.DirectorySeparatorChar) ? BaseDir.Remove(BaseDir.Length - 1) : BaseDir;
             string BaseURL = Req.URL.Substring(0, Req.URL.Length - Req.RestURL.Length);
@@ -198,9 +217,9 @@ namespace RT.Servers
                     }
 
                     if (Req.URL != BaseURL + SoFarURL)
-                        return GenericRedirect(BaseURL + SoFarURL);
+                        return RedirectResponse(BaseURL + SoFarURL);
 
-                    return FileHandler(p + NextSoFar);
+                    return FileResponse(p + NextSoFar);
                 }
                 else if (Directory.Exists(p + NextSoFar))
                 {
@@ -213,7 +232,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    return GenericError(HTTPStatusCode._404_NotFound, "\"" + BaseURL + SoFarURL + "/" + Piece + "\" doesn't exist.");
+                    return ErrorResponse(HTTPStatusCode._404_NotFound, "\"" + BaseURL + SoFarURL + "/" + Piece + "\" doesn't exist.");
                 }
                 SoFar = NextSoFar;
             }
@@ -221,7 +240,7 @@ namespace RT.Servers
             // If this point is reached, it's a directory
             string TrueDirURL = BaseURL + SoFarURL + "/";
             if (Req.URL != TrueDirURL)
-                return GenericRedirect(TrueDirURL);
+                return RedirectResponse(TrueDirURL);
 
             if (Opt.DirectoryListingStyle == DirectoryListingStyle.XMLplusXSL)
             {
@@ -229,11 +248,11 @@ namespace RT.Servers
                 {
                     Headers = new HTTPResponseHeaders { ContentType = "application/xml; charset=utf-8" },
                     Status = HTTPStatusCode._200_OK,
-                    Content = new DynamicContentStream(DirectoryHandlerXMLplusXSL(p + SoFar, TrueDirURL))
+                    Content = new DynamicContentStream(DirectoryXMLplusXSLResponseGenerator(p + SoFar, TrueDirURL))
                 };
             }
             else
-                return GenericError(HTTPStatusCode._500_InternalServerError);
+                return ErrorResponse(HTTPStatusCode._500_InternalServerError);
         }
 
         /// <summary>
@@ -241,10 +260,10 @@ namespace RT.Servers
         /// </summary>
         /// <param name="Filepath">Full path and filename of the file to return.</param>
         /// <returns><see cref="HTTPResponse"/> object that encapsulates the return of the specified file.</returns>
-        public HTTPResponse FileHandler(string Filepath)
+        public HTTPResponse FileResponse(string Filepath)
         {
             if (!File.Exists(Filepath))
-                return GenericError(HTTPStatusCode._404_NotFound, "The requested file does not exist.");
+                return ErrorResponse(HTTPStatusCode._404_NotFound, "The requested file does not exist.");
 
             try
             {
@@ -264,7 +283,7 @@ namespace RT.Servers
             }
             catch (IOException e)
             {
-                return GenericError(HTTPStatusCode._500_InternalServerError,
+                return ErrorResponse(HTTPStatusCode._500_InternalServerError,
                     "File could not be opened in the file system: " + e.Message);
             }
         }
@@ -275,7 +294,7 @@ namespace RT.Servers
         /// <param name="LocalPath">Full path of a directory to list the contents of.</param>
         /// <param name="URL">URL (not including a domain) that points at the directory.</param>
         /// <returns>XML that represents the contents of the specified directory.</returns>
-        public static IEnumerable<string> DirectoryHandlerXMLplusXSL(string LocalPath, string URL)
+        public static IEnumerable<string> DirectoryXMLplusXSLResponseGenerator(string LocalPath, string URL)
         {
             if (!Directory.Exists(LocalPath))
                 throw new FileNotFoundException("Directory does not exist.", LocalPath);
@@ -311,7 +330,7 @@ namespace RT.Servers
         /// </summary>
         /// <param name="NewURL">URL to redirect the client to.</param>
         /// <returns><see cref="HTTPResponse"/> encapsulating a redirect to the specified URL, using the HTTP status code 301 Moved Permanently.</returns>
-        public static HTTPResponse GenericRedirect(string NewURL)
+        public static HTTPResponse RedirectResponse(string NewURL)
         {
             return new HTTPResponse
             {
@@ -325,9 +344,9 @@ namespace RT.Servers
         /// </summary>
         /// <param name="StatusCode">HTTP status code to use in the response.</param>
         /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code.</returns>
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode)
+        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode)
         {
-            return GenericError(StatusCode, new HTTPResponseHeaders(), null);
+            return ErrorResponse(StatusCode, new HTTPResponseHeaders(), null);
         }
 
         /// <summary>
@@ -336,9 +355,9 @@ namespace RT.Servers
         /// <param name="StatusCode">HTTP status code to use in the response.</param>
         /// <param name="Message">Message to display along with the HTTP status code.</param>
         /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code and message.</returns>
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, string Message)
+        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode, string Message)
         {
-            return GenericError(StatusCode, new HTTPResponseHeaders(), Message);
+            return ErrorResponse(StatusCode, new HTTPResponseHeaders(), Message);
         }
 
         /// <summary>
@@ -347,9 +366,9 @@ namespace RT.Servers
         /// <param name="StatusCode">HTTP status code to use in the response.</param>
         /// <param name="Headers">Headers to use in the <see cref="HTTPResponse"/>.</param>
         /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code and headers.</returns>
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers)
+        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers)
         {
-            return GenericError(StatusCode, Headers, null);
+            return ErrorResponse(StatusCode, Headers, null);
         }
 
         /// <summary>
@@ -359,7 +378,7 @@ namespace RT.Servers
         /// <param name="Headers">Headers to use in the <see cref="HTTPResponse"/>.</param>
         /// <param name="Message">Message to display along with the HTTP status code.</param>
         /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code, headers and message.</returns>
-        public static HTTPResponse GenericError(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
+        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
         {
             string StatusCodeName = ("" + ((int) StatusCode) + " " + HTTPInternalObjects.GetStatusCodeName(StatusCode)).HTMLEscape();
             Headers.ContentType = "text/html; charset=utf-8";
@@ -824,12 +843,12 @@ namespace RT.Servers
 
             string[] Lines = Headers.Split(new string[] { "\r\n" }, StringSplitOptions.None);
             if (Lines.Length < 2)
-                return GenericError(HTTPStatusCode._400_BadRequest);
+                return ErrorResponse(HTTPStatusCode._400_BadRequest);
 
             // Parse the method line
             Match Match = Regex.Match(Lines[0], @"^(GET|POST|HEAD) ([^ ]+) HTTP/1.1$");
             if (!Match.Success)
-                return GenericError(HTTPStatusCode._501_NotImplemented);
+                return ErrorResponse(HTTPStatusCode._501_NotImplemented);
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before new HTTPRequest()");
             HTTPRequest Req = new HTTPRequest
@@ -855,7 +874,7 @@ namespace RT.Servers
                     {
                         Match = Regex.Match(Lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
                         if (!Match.Success)
-                            return GenericError(HTTPStatusCode._400_BadRequest);
+                            return ErrorResponse(HTTPStatusCode._400_BadRequest);
                         ParseHeader(LastHeader, ValueSoFar, ref Req);
                         LastHeader = Match.Groups[1].Value.ToLowerInvariant();
                         ValueSoFar = Match.Groups[2].Value.Trim();
@@ -871,15 +890,15 @@ namespace RT.Servers
             sw.Log("HandleRequestAfterHeaders() - Parse headers");
 
             if (Req.Handler == null)
-                return GenericError(HTTPStatusCode._404_NotFound);
+                return ErrorResponse(HTTPStatusCode._404_NotFound);
 
             if (Req.Method == HTTPMethod.POST)
             {
                 // Some validity checks
                 if (Req.Headers.ContentLength == null)
-                    return GenericError(HTTPStatusCode._411_LengthRequired);
+                    return ErrorResponse(HTTPStatusCode._411_LengthRequired);
                 if (Req.Headers.ContentLength.Value > Opt.MaxSizePostContent)
-                    return GenericError(HTTPStatusCode._413_RequestEntityTooLarge);
+                    return ErrorResponse(HTTPStatusCode._413_RequestEntityTooLarge);
 
                 // Read the contents of the POST request
                 if (ContentLengthSoFar >= Req.Headers.ContentLength.Value)
@@ -915,7 +934,7 @@ namespace RT.Servers
                     }
                     catch (IOException)
                     {
-                        return GenericError(HTTPStatusCode._500_InternalServerError);
+                        return ErrorResponse(HTTPStatusCode._500_InternalServerError);
                     }
                     try
                     {
@@ -1002,7 +1021,7 @@ namespace RT.Servers
                             Req.Headers.ContentMultipartBoundary = HeaderValue.Substring(m.Length);
                         }
                         else
-                            throw new InvalidRequestException(GenericError(HTTPStatusCode._501_NotImplemented));
+                            throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._501_NotImplemented));
                     }
                 }
             }
@@ -1077,7 +1096,7 @@ namespace RT.Servers
             {
                 // Can't have more than one "Host" header
                 if (Req.Headers.Host != null)
-                    throw new InvalidRequestException(GenericError(HTTPStatusCode._400_BadRequest));
+                    throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._400_BadRequest));
 
                 // For performance reasons, we check if we have a handler for this domain/URL as soon as possible.
                 // If we find out that we don't, stop processing here and immediately output an error
@@ -1102,7 +1121,7 @@ namespace RT.Servers
                             (hk.Domain == null || hk.Domain == Host || (!hk.SpecificDomain && Host.EndsWith("." + hk.Domain))) &&
                             (hk.Path == null || hk.Path == URL || (!hk.SpecificPath && URL.StartsWith(hk.Path + "/"))));
                     if (Hook == null)
-                        throw new InvalidRequestException(GenericError(HTTPStatusCode._404_NotFound));
+                        throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._404_NotFound));
 
                     Req.Handler = Hook.Handler;
                     Req.RestURL = Hook.Path == null ? URL : URL.Substring(Hook.Path.Length);
@@ -1165,7 +1184,7 @@ namespace RT.Servers
                 };
             }
 
-            return GenericError(HTTPStatusCode._404_NotFound);
+            return ErrorResponse(HTTPStatusCode._404_NotFound);
         }
 
         private string[] SplitAndSortByQ(string Value)
