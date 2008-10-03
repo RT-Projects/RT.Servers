@@ -469,7 +469,7 @@ namespace RT.Servers
     public class InvalidRequestException : Exception
     {
         /// <summary>
-        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.GenericError(HTTPStatusCode)"/>() is used to generate an HTTP 500 Internal Server Error.
+        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.ErrorResponse(HTTPStatusCode)"/>() is used to generate an HTTP 500 Internal Server Error.
         /// </summary>
         public HTTPResponse Response;
 
@@ -477,7 +477,7 @@ namespace RT.Servers
         /// Constructor.
         /// </summary>
         /// <param name="Response">Response to return when the exception is caught.
-        /// Usually <see cref="HTTPServer.GenericError(HTTPStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.</param>
+        /// Usually <see cref="HTTPServer.ErrorResponse(HTTPStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.</param>
         public InvalidRequestException(HTTPResponse Response) { this.Response = Response; }
     }
 }

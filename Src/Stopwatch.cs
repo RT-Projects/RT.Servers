@@ -21,7 +21,7 @@ namespace RT.Servers
     /// Abstract base class to encapsulate a stopwatch - an object that remembers events as they happen
     /// and when they happen and outputs a report with timing information at the end.
     /// </summary>
-    public abstract class Stopwatch
+    public abstract class Stopwatch : IDisposable
     {
         /// <summary>
         /// Logs an event.
@@ -34,6 +34,9 @@ namespace RT.Servers
         /// </summary>
         /// <param name="Filepath">File to save stopwatch output to. If the file already exists, it will be overwritten.</param>
         public abstract void SaveToFile(string Filepath);
+
+        /// <summary>No-op.</summary>
+        public void Dispose() { }
     }
 
     /// <summary>
