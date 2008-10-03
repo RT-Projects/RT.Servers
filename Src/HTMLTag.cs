@@ -15,7 +15,7 @@ namespace RT.HTMLTags
         public override bool AllowXHTMLEmpty { get { return false; } }
     }
 
-#pragma warning disable 1591
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
     public class A : HTMLTag
     {
@@ -1704,6 +1704,6 @@ namespace RT.HTMLTags
         public string title;
     }
 
-#pragma warning restore 1591
+#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
 }

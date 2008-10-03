@@ -7,14 +7,14 @@ namespace RT.Servers
     /// </summary>
     public struct Cookie
     {
-#pragma warning disable 1591
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public string Name;
         public string Value;
         public string Path;
         public string Domain;
         public DateTime? Expires;
         public bool HttpOnly;
-#pragma warning restore 1591
+#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
     }
 
     /// <summary>

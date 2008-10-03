@@ -11,7 +11,7 @@ namespace RT.Servers
     public struct HTTPResponseHeaders
     {
 
-#pragma warning disable 1591
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
         public HTTPAcceptRanges AcceptRanges;
         public int? Age; // in seconds
@@ -33,7 +33,7 @@ namespace RT.Servers
         public List<Cookie> SetCookie;
         public HTTPTransferEncoding TransferEncoding;
 
-#pragma warning restore 1591
+#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
         /// <summary>
         /// Returns the HTTP-compliant ASCII representation of all response headers that have been set.

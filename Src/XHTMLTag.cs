@@ -43,7 +43,7 @@ namespace RT.Servers.XHTMLTags
         }
     }
 
-#pragma warning disable 1591
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
     public enum align { _, left, center, right, justify, char_ }
     public enum btype { _, button, submit, reset }
@@ -1834,6 +1834,6 @@ namespace RT.Servers.XHTMLTags
         public string xmlLang;
     }
 
-#pragma warning restore 1591
+#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
 }

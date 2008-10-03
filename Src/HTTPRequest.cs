@@ -20,7 +20,7 @@ namespace RT.Servers
     /// </summary>
     public struct HTTPRequestHeaders
     {
-#pragma warning disable 1591   // missing comment for public member
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public string[] Accept;
         public string[] AcceptCharset;
         public HTTPContentEncoding[] AcceptEncoding;
@@ -35,7 +35,7 @@ namespace RT.Servers
         public string IfNoneMatch;
         public HTTPRange[] Range;
         public string UserAgent;
-#pragma warning restore 1591
+#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
         /// <summary>Stores the header values pertaining to headers not supported by <see cref="HTTPRequestHeaders"/> as raw strings.</summary>
         public Dictionary<string, string> UnrecognisedHeaders;

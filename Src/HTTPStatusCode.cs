@@ -12,7 +12,7 @@ namespace RT.Servers
         /// </summary>
         None = 0,
 
-#pragma warning disable 1591
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
         // Informational 1xx
         _100_Continue = 100,
@@ -65,7 +65,7 @@ namespace RT.Servers
         _504_GatewayTimeout = 504,
         _505_HTTPVersionNotSupported = 505
 
-#pragma warning restore 1591
+#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
     
     }
 }

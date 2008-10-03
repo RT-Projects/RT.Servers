@@ -2,7 +2,7 @@
 namespace RT.Servers
 {
 
-#pragma warning disable 1591
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
     /// <summary>
     /// Contains values for the supported HTTP methods.
@@ -107,6 +107,6 @@ namespace RT.Servers
         MultipartFormData
     }
 
-#pragma warning restore 1591
+#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
 }
