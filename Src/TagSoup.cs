@@ -32,10 +32,12 @@ namespace RT
         /// <remarks>
         ///     <para>Special support exists for the following types:</para>
         ///     <list type="bullet">
-        ///         <item><description><c>TagSoup</c> - outputs that tag and its contents</description></item>
+        ///         <item><description><c>string</c> - outputs that string (HTML-escaped, of course)</description></item>
         ///         <item><description><c>IEnumerable&lt;string&gt;</c> - concatenates all contained strings</description></item>
         ///         <item><description><c>Func&lt;string&gt;</c> - calls the function and outputs the returned string</description></item>
         ///         <item><description><c>Func&lt;IEnumerable&lt;string&gt;&gt;</c> - calls the function and concatenates all strings returned</description></item>
+        ///         <item><description><c>TagSoup</c> - outputs that tag and its contents</description></item>
+        ///         <item><description><c>IEnumerable&lt;TagSoup&gt;</c> - concatenates all contained tags</description></item>
         ///         <item><description><c>Func&lt;TagSoup&gt;</c> - calls the function and outputs the returned tag</description></item>
         ///         <item><description><c>Func&lt;IEnumerable&lt;TagSoup&gt;&gt;</c> - calls the function and concatenates all tags returned</description></item>
         ///     </list>

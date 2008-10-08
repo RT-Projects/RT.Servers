@@ -64,12 +64,31 @@ namespace RT.Servers
         ///     Consider the following example code:
         ///     <code>
         ///         HTTPServer MyServer = new HTTPServer();
-        ///         MyServer["www.mydomain.com/homepages"] = HomepagesHandler;
+        ///         MyServer.AddHandler(new HTTPRequestHandlerHook { Path = "/homepages", Handler = MyHandler });
         ///     </code>
         ///     In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
-        ///     would have the RestURL field set to the value <c>/a/adam</c>.
+        ///     would have the RestURL field set to the value <c>/a/adam</c>. Note the leading slash.
         /// </example>
         public string RestURL;
+
+        /// <summary>
+        /// Stores the domain name from the Host header, without the port number.
+        /// </summary>
+        public string Domain;
+
+        /// <summary>
+        /// Contains the part of the domain that precedes the domain where the request handler is hooked.
+        /// </summary>
+        /// <example>
+        ///     Consider the following example code:
+        ///     <code>
+        ///         HTTPServer MyServer = new HTTPServer();
+        ///         MyServer.AddHandler(new HTTPRequestHandlerHook { Domain = "homepages.mydomain.com", Handler = MyHandler });
+        ///     </code>
+        ///     In the above example, an HTTP request for the URL <c>http://peter.schmidt.homepages.mydomain.com/</c>
+        ///     would have the RestDomain field set to the value <c>peter.schmidt.</c>. Note the trailing dot.
+        /// </example>
+        public string RestDomain;
 
         /// <summary>
         /// The HTTP request method (GET, POST or HEAD).
@@ -123,6 +142,8 @@ namespace RT.Servers
             Handler = null;
             TemporaryFile = null;
             TempDir = null;
+            Domain = null;
+            RestDomain = null;
         }
 
         /// <summary>

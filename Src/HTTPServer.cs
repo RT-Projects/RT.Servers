@@ -256,29 +256,41 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Generates an <see cref="HTTPResponse"/> that causes the server to return the specified file from the local file system.
+        /// Generates an <see cref="HTTPResponse"/> that causes the server to return the specified
+        /// file from the local file system. The content type is inferred from the <see cref="HTTPServerOptions.MIMETypes"/>
+        /// field in <see cref="Options"/>.
         /// </summary>
         /// <param name="Filepath">Full path and filename of the file to return.</param>
         /// <returns><see cref="HTTPResponse"/> object that encapsulates the return of the specified file.</returns>
         public HTTPResponse FileResponse(string Filepath)
+        {
+            FileInfo f = new FileInfo(Filepath);
+            string Extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
+            return FileResponse(Filepath,
+                Opt.MIMETypes.ContainsKey(Extension) ? Opt.MIMETypes[Extension] :
+                Opt.MIMETypes.ContainsKey("*") ? Opt.MIMETypes["*"] : "application/octet-stream");
+        }
+
+        /// <summary>
+        /// Generates an <see cref="HTTPResponse"/> that causes the server to return the specified
+        /// file from the local file system using the specified MIME content type.
+        /// </summary>
+        /// <param name="Filepath">Full path and filename of the file to return.</param>
+        /// <param name="ContentType">MIME type to use in the Content-Type header.</param>
+        /// <returns><see cref="HTTPResponse"/> object that encapsulates the return of the specified file.</returns>
+        public static HTTPResponse FileResponse(string Filepath, string ContentType)
         {
             if (!File.Exists(Filepath))
                 return ErrorResponse(HTTPStatusCode._404_NotFound, "The requested file does not exist.");
 
             try
             {
-                FileInfo f = new FileInfo(Filepath);
-                FileStream FileStream = File.Open(f.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
-                string Extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
+                FileStream FileStream = File.Open(Filepath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 return new HTTPResponse
                 {
                     Status = HTTPStatusCode._200_OK,
                     Content = FileStream,
-                    Headers = new HTTPResponseHeaders
-                    {
-                        ContentType = Opt.MIMETypes.ContainsKey(Extension) ? Opt.MIMETypes[Extension] :
-                            Opt.MIMETypes.ContainsKey("*") ? Opt.MIMETypes["*"] : "application/octet-stream"
-                    }
+                    Headers = new HTTPResponseHeaders { ContentType = ContentType }
                 };
             }
             catch (IOException e)
@@ -1109,11 +1121,10 @@ namespace RT.Servers
                     if (Host.Contains(":"))
                     {
                         int Pos = Host.IndexOf(":");
-                        if (int.TryParse(Host.Substring(Pos + 1), out Port))
-                            Host = Host.Remove(Pos);
+                        int.TryParse(Host.Substring(Pos + 1), out Port);
+                        Host = Host.Remove(Pos);
                     }
-                    if (Host[Host.Length - 1] == '.')
-                        Host = Host.Remove(Host.Length - 1);
+                    Host = Host.TrimEnd('.');
 
                     string URL = Req.URL.Contains('?') ? Req.URL.Remove(Req.URL.IndexOf('?')) : Req.URL;
 
@@ -1125,6 +1136,8 @@ namespace RT.Servers
 
                     Req.Handler = Hook.Handler;
                     Req.RestURL = Hook.Path == null ? URL : URL.Substring(Hook.Path.Length);
+                    Req.Domain = Host;
+                    Req.RestDomain = Hook.Domain == null ? Host : Host.Remove(Host.Length - Hook.Domain.Length);
                 }
                 Req.Headers.Host = ValueLower;
             }
