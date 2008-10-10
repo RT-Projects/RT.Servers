@@ -90,6 +90,8 @@ namespace RT.Servers
         {
             return Req =>
             {
+                if (Req.RestURL == "")
+                    return HTTPServer.RedirectResponse(Req.BaseURL + "/");
                 if (Req.RestURL == "/css")
                     return HTTPServer.StringResponse(CSS, "text/css; charset=utf-8");
                 else

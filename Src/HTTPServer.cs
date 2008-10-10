@@ -469,62 +469,62 @@ namespace RT.Servers
 
             try
             {
-                if (Opt.IdleTimeout != 0)
-                    Socket.ReceiveTimeout = Opt.IdleTimeout;
-                string HeadersSoFar = "";
-                sw.Log("Stuff before while(true) loop");
-                while (true)
+                try
                 {
-                    sw.Log("Start of while(true) loop");
-                    if (NextRead == null)
+                    if (Opt.IdleTimeout != 0)
+                        Socket.ReceiveTimeout = Opt.IdleTimeout;
+                    string HeadersSoFar = "";
+                    sw.Log("Stuff before while(true) loop");
+                    while (true)
                     {
-                        SocketError ErrorCode;
-                        try { NextReadLength = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode); }
-                        catch (SocketException) { Socket.Close(); return; }
-                        sw.Log("Socket.Receive()");
+                        sw.Log("Start of while(true) loop");
+                        if (NextRead == null)
+                        {
+                            SocketError ErrorCode;
+                            try { NextReadLength = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode); }
+                            catch (SocketException) { Socket.Close(); return; }
+                            sw.Log("Socket.Receive()");
 
-                        if (ErrorCode != SocketError.Success)
+                            if (ErrorCode != SocketError.Success)
+                            {
+                                Socket.Close();
+                                return;
+                            }
+
+                            if (NextReadLength == 0)
+                                continue;
+
+                            NextRead = Buffer;
+                            NextReadOffset = 0;
+                            sw.Log("Stuff after Socket.Receive()");
+                        }
+
+                        // Stop soon if the headers become too large.
+                        if (HeadersSoFar.Length + NextReadLength > Opt.MaxSizeHeaders)
                         {
                             Socket.Close();
                             return;
                         }
 
-                        if (NextReadLength == 0)
+                        int PrevHeadersLength = HeadersSoFar.Length;
+                        sw.Log("Stuff before HeadersSoFar += Encoding.ASCII.GetString(...)");
+                        HeadersSoFar += Encoding.ASCII.GetString(NextRead, NextReadOffset, NextReadLength);
+                        sw.Log("HeadersSoFar += Encoding.ASCII.GetString(...)");
+                        bool Cont = HeadersSoFar.Contains("\r\n\r\n");
+                        sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
+                        if (!Cont)
+                        {
+                            NextRead = null;
                             continue;
+                        }
 
-                        NextRead = Buffer;
-                        NextReadOffset = 0;
-                        sw.Log("Stuff after Socket.Receive()");
-                    }
+                        int SepIndex = HeadersSoFar.IndexOf("\r\n\r\n");
+                        sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
+                        HeadersSoFar = HeadersSoFar.Remove(SepIndex);
+                        sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
 
-                    // Stop soon if the headers become too large.
-                    if (HeadersSoFar.Length + NextReadLength > Opt.MaxSizeHeaders)
-                    {
-                        Socket.Close();
-                        return;
-                    }
+                        if (Log != null) Log.Info(HeadersSoFar);
 
-                    int PrevHeadersLength = HeadersSoFar.Length;
-                    sw.Log("Stuff before HeadersSoFar += Encoding.ASCII.GetString(...)");
-                    HeadersSoFar += Encoding.ASCII.GetString(NextRead, NextReadOffset, NextReadLength);
-                    sw.Log("HeadersSoFar += Encoding.ASCII.GetString(...)");
-                    bool Cont = HeadersSoFar.Contains("\r\n\r\n");
-                    sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
-                    if (!Cont)
-                    {
-                        NextRead = null;
-                        continue;
-                    }
-
-                    int SepIndex = HeadersSoFar.IndexOf("\r\n\r\n");
-                    sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
-                    HeadersSoFar = HeadersSoFar.Remove(SepIndex);
-                    sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
-
-                    if (Log != null) Log.Info(HeadersSoFar);
-
-                    try
-                    {
                         NextReadOffset += SepIndex + 4 - PrevHeadersLength;
                         NextReadLength -= SepIndex + 4 - PrevHeadersLength;
                         sw.Log("Stuff before HandleRequestAfterHeaders()");
@@ -554,16 +554,15 @@ namespace RT.Servers
                             sw.Log("Reusing connection");
                             continue;
                         }
+                        sw.Log("Stuff before Socket.Close()");
+                        Socket.Close();
+                        sw.Log("Socket.Close()");
+                        return;
                     }
-                    catch (SocketException)
-                    {
-                        sw.Log("Socket Exception!");
-                    }
-
-                    sw.Log("Stuff before Socket.Close()");
-                    Socket.Close();
-                    sw.Log("Socket.Close()");
-                    return;
+                }
+                catch (SocketException)
+                {
+                    sw.Log("Socket Exception!");
                 }
             }
             finally
@@ -785,13 +784,16 @@ namespace RT.Servers
                 int BufferSize = 65536;
                 byte[] Buffer = new byte[BufferSize];
                 sw.Log("OutputResponse() - Allocate buffer");
-                int BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
+                int BytesRead;
+                try { BytesRead = Response.Content.Read(Buffer, 0, BufferSize); }
+                catch (Exception e) { SendExceptionToClient(Output, Response.Headers.ContentType, e); return false; }
                 sw.Log("OutputResponse() - Response.Content.Read()");
                 while (BytesRead > 0)
                 {
                     Output.Write(Buffer, 0, BytesRead);
                     sw.Log("OutputResponse() - Output.Write()");
-                    BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
+                    try { BytesRead = Response.Content.Read(Buffer, 0, BufferSize); }
+                    catch (Exception e) { SendExceptionToClient(Output, Response.Headers.ContentType, e); return false; }
                     sw.Log("OutputResponse() - Response.Content.Read()");
                 }
                 Output.Close();
@@ -1017,10 +1019,79 @@ namespace RT.Servers
             }
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
-            HTTPResponse Resp = Req.Handler(Req);
-            sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-            Resp.OriginalRequest = Req;
-            return Resp;
+
+            try
+            {
+                HTTPResponse Resp = Req.Handler(Req);
+                sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
+                Resp.OriginalRequest = Req;
+                return Resp;
+            }
+            catch (Exception e)
+            {
+                HTTPResponse Resp = ExceptionResponse(e);
+                sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
+                Resp.OriginalRequest = Req;
+                return Resp;
+            }
+        }
+
+        /// <summary>
+        /// Generates a 500 Internal Server Error response which formats the specified exception as HTML.
+        /// </summary>
+        /// <param name="e">Exception to format.</param>
+        /// <returns>An HTTPResponse to use to respond to a client request which threw the exception.</returns>
+        public static HTTPResponse ExceptionResponse(Exception e)
+        {
+            return new HTTPResponse
+            {
+                Status = HTTPStatusCode._500_InternalServerError,
+                Headers = new HTTPResponseHeaders { ContentType = "text/html; charset=utf-8" },
+                Content = new MemoryStream(ExceptionAsString(e, true).ToUTF8())
+            };
+        }
+
+        private void SendExceptionToClient(Stream Output, string ContentType, Exception e)
+        {
+            if (e is SocketException) throw e;
+
+            byte[] Outp = ExceptionAsString(e,
+                ContentType.StartsWith("text/html") || ContentType.StartsWith("application/xhtml")).ToUTF8();
+            Output.Write(Outp, 0, Outp.Length);
+            Output.Close();
+        }
+
+        private static string ExceptionAsString(Exception e, bool HTML)
+        {
+            string ExceptionText = "";
+            bool first = true;
+            if (HTML)
+            {
+                ExceptionText += "<div class='exception'>";
+                while (e != null)
+                {
+                    ExceptionText += first ? "" : "<hr />";
+                    ExceptionText += "<h3>" + e.GetType().FullName.HTMLEscape() + "</h3>";
+                    ExceptionText += "<p>" + e.Message.HTMLEscape() + "</p>";
+                    ExceptionText += "<pre>" + e.StackTrace.HTMLEscape() + "</pre>";
+                    e = e.InnerException;
+                    first = false;
+                }
+                ExceptionText += "</div>";
+            }
+            else        // Assume plain text
+            {
+                while (e != null)
+                {
+                    ExceptionText += first ? "\n\n\n" : "----------------------------------------------------------------------\n";
+                    ExceptionText += e.GetType().FullName + "\n\n";
+                    ExceptionText += e.Message + "\n\n";
+                    ExceptionText += e.StackTrace + "\n\n";
+                    e = e.InnerException;
+                    first = false;
+                }
+            }
+            return ExceptionText;
         }
 
         // Expects HeaderName in lower-case
