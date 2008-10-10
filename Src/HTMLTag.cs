@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace RT.HTMLTags
+namespace RT.TagSoup.HTMLTags
 {
     /// <summary>Abstract base class for HTML tags.</summary>
     public abstract class HTMLTag : TagSoup

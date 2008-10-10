@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
 
-namespace RT.Servers.XHTMLTags
+namespace RT.TagSoup.XHTMLTags
 {
     /// <summary>Abstract base class for XHTML tags.</summary>
     public abstract class XHTMLTag : TagSoup

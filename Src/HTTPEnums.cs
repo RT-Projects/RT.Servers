@@ -90,7 +90,7 @@ namespace RT.Servers
     }
 
     /// <summary>
-    /// Controls which style of directory listing should be used by the FileSystemHandler() to list the contents of directories.
+    /// Controls which style of directory listing should be used by <see cref="HTTPServer.FileSystemResponse"/> to list the contents of directories.
     /// </summary>
     public enum DirectoryListingStyle
     {

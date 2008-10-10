@@ -4,8 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
+using System.Collections;
 
-namespace RT
+namespace RT.TagSoup
 {
     /// <summary>
     /// Abstract base class for an HTML or XHTML tag.
@@ -32,14 +33,14 @@ namespace RT
         /// <remarks>
         ///     <para>Special support exists for the following types:</para>
         ///     <list type="bullet">
-        ///         <item><description><c>string</c> - outputs that string (HTML-escaped, of course)</description></item>
-        ///         <item><description><c>IEnumerable&lt;string&gt;</c> - concatenates all contained strings</description></item>
-        ///         <item><description><c>Func&lt;string&gt;</c> - calls the function and outputs the returned string</description></item>
-        ///         <item><description><c>Func&lt;IEnumerable&lt;string&gt;&gt;</c> - calls the function and concatenates all strings returned</description></item>
-        ///         <item><description><c>TagSoup</c> - outputs that tag and its contents</description></item>
-        ///         <item><description><c>IEnumerable&lt;TagSoup&gt;</c> - concatenates all contained tags</description></item>
-        ///         <item><description><c>Func&lt;TagSoup&gt;</c> - calls the function and outputs the returned tag</description></item>
-        ///         <item><description><c>Func&lt;IEnumerable&lt;TagSoup&gt;&gt;</c> - calls the function and concatenates all tags returned</description></item>
+        ///         <item><term><c>string</c></term><description>outputs that string (HTML-escaped, of course)</description></item>
+        ///         <item><term><c>IEnumerable&lt;string&gt;</c></term><description>concatenates all contained strings</description></item>
+        ///         <item><term><c>Func&lt;string&gt;</c></term><description>calls the function and outputs the returned string</description></item>
+        ///         <item><term><c>Func&lt;IEnumerable&lt;string&gt;&gt;</c></term><description>calls the function and concatenates all strings returned</description></item>
+        ///         <item><term><c>TagSoup</c></term><description>outputs that tag and its contents</description></item>
+        ///         <item><term><c>IEnumerable&lt;TagSoup&gt;</c></term><description>concatenates all contained tags</description></item>
+        ///         <item><term><c>Func&lt;TagSoup&gt;</c></term><description>calls the function and outputs the returned tag</description></item>
+        ///         <item><term><c>Func&lt;IEnumerable&lt;TagSoup&gt;&gt;</c></term><description>calls the function and concatenates all tags returned</description></item>
         ///     </list>
         ///     <para>Using objects of type <c>Func&lt;...&gt;</c> is a convenient way to defer execution to ensure maximally responsive output.</para>
         /// </remarks>
@@ -105,26 +106,8 @@ namespace RT
             {
                 if (Content == null)
                     continue;
-                if (Content is TagSoup)
-                    foreach (string s in ((TagSoup) Content).ToEnumerable())
-                        yield return s;
-                else if (Content is IEnumerable<string>)
-                    foreach (string s in (IEnumerable<string>) Content)
-                        yield return s;
-                else if (Content is Func<string>)
-                    yield return ((Func<string>) Content)();
-                else if (Content is Func<IEnumerable<string>>)
-                    foreach (string s in ((Func<IEnumerable<string>>) Content)())
-                        yield return s;
-                else if (Content is Func<TagSoup>)
-                    foreach (string s in (((Func<TagSoup>) Content)()).ToEnumerable())
-                        yield return s;
-                else if (Content is Func<IEnumerable<TagSoup>>)
-                    foreach (TagSoup t in ((Func<IEnumerable<TagSoup>>) Content)())
-                        foreach (string s in ((TagSoup) t).ToEnumerable())
-                            yield return s;
-                else
-                    yield return Content.ToString().HTMLEscape();
+                foreach (string s in Stringify(Content))
+                    yield return s;
             }
             if (EndTag)
                 yield return "</" + TagName + ">";
@@ -140,13 +123,49 @@ namespace RT
             return sb.ToString();
         }
 
+        private IEnumerable<string> Stringify(object o)
+        {
+            if (o == null)
+                yield break;
+
+            if (o is string)
+            {
+                yield return (o as string).HTMLEscape();
+                yield break;
+            }
+
+            if (o is TagSoup)
+            {
+                foreach (string str in (o as TagSoup).ToEnumerable())
+                    yield return str;
+                yield break;
+            }
+
+            if (o is IEnumerable)
+            {
+                foreach (object s in (o as IEnumerable))
+                    foreach (string str in Stringify(s))
+                        yield return str;
+                yield break;
+            }
+
+            Type t = o.GetType();
+            if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Func<>))
+            {
+                object Result = t.GetMethod("Invoke").Invoke(o, new object[] { });
+                foreach (string str in Stringify(Result))
+                    yield return str;
+                yield break;
+            }
+        }
+
         /// <summary>Converts a C#-compatible field name into an HTML/XHTML-compatible one.</summary>
         /// <example>
         ///     <list type="bullet">
-        ///         <item><description><c>class_</c> is converted to <c>"class"</c></description></item>
-        ///         <item><description><c>accept_charset</c> is converted to <c>"accept-charset"</c></description></item>
-        ///         <item><description><c>xmlLang</c> is converted to <c>"xml:lang"</c></description></item>
-        ///         <item><description><c>_</c> would be converted to the empty string, but <see cref="ToEnumerable"/>() already skips those.</description></item>
+        ///         <item><c>class_</c> is converted to <c>"class"</c></item>
+        ///         <item><c>accept_charset</c> is converted to <c>"accept-charset"</c></item>
+        ///         <item><c>xmlLang</c> is converted to <c>"xml:lang"</c></item>
+        ///         <item><c>_</c> would be converted to the empty string, but <see cref="ToEnumerable"/>() already skips those.</item>
         ///     </list>
         /// </example>
         /// <param name="fn">Field name to convert.</param>

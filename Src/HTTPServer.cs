@@ -194,7 +194,14 @@ namespace RT.Servers
             return Req => RedirectResponse(NewURL);
         }
 
-        private HTTPResponse FileSystemResponse(string BaseDir, HTTPRequest Req)
+        /// <summary>
+        /// Returns an <see cref="HTTPResponse"/> that returns a file from the local file system,
+        /// which is derived from the specified base directory and the URL of the specified request.
+        /// </summary>
+        /// <param name="BaseDir">Base directory in which to search for the file.</param>
+        /// <param name="Req">HTTP request from the client.</param>
+        /// <returns>An <see cref="HTTPResponse"/> encapsulating the file transfer.</returns>
+        public HTTPResponse FileSystemResponse(string BaseDir, HTTPRequest Req)
         {
             string p = BaseDir.EndsWith("" + Path.DirectorySeparatorChar) ? BaseDir.Remove(BaseDir.Length - 1) : BaseDir;
             string BaseURL = Req.URL.Substring(0, Req.URL.Length - Req.RestURL.Length);
@@ -248,7 +255,7 @@ namespace RT.Servers
                 {
                     Headers = new HTTPResponseHeaders { ContentType = "application/xml; charset=utf-8" },
                     Status = HTTPStatusCode._200_OK,
-                    Content = new DynamicContentStream(DirectoryXMLplusXSLResponseGenerator(p + SoFar, TrueDirURL))
+                    Content = new DynamicContentStream(GenerateDirectoryXML(p + SoFar, TrueDirURL))
                 };
             }
             else
@@ -301,12 +308,43 @@ namespace RT.Servers
         }
 
         /// <summary>
+        /// Returns the specified string to the client, designating it as a specific MIME type.
+        /// </summary>
+        /// <param name="Content">Content to return to the client.</param>
+        /// <param name="ContentType">MIME type of the content.</param>
+        /// <returns>An <see cref="HTTPResponse"/> object encapsulating the return of the string.</returns>
+        public static HTTPResponse StringResponse(string Content, string ContentType)
+        {
+            return new HTTPResponse
+            {
+                Content = new MemoryStream(Content.ToUTF8()),
+                Headers = new HTTPResponseHeaders { ContentType = ContentType },
+                Status = HTTPStatusCode._200_OK
+            };
+        }
+
+        /// <summary>
+        /// Returns the specified string to the client. The MIME type is assumed to be "text/html; charset=utf-8".
+        /// </summary>
+        /// <param name="Content">Content to return to the client.</param>
+        /// <returns>An <see cref="HTTPResponse"/> object encapsulating the return of the string.</returns>
+        public HTTPResponse StringResponse(string Content)
+        {
+            return new HTTPResponse
+            {
+                Content = new MemoryStream(Content.ToUTF8()),
+                Headers = new HTTPResponseHeaders { ContentType = "text/html; charset=utf-8" },
+                Status = HTTPStatusCode._200_OK
+            };
+        }
+
+        /// <summary>
         /// Generates XML that represents the contents of a directory on the local file system.
         /// </summary>
         /// <param name="LocalPath">Full path of a directory to list the contents of.</param>
         /// <param name="URL">URL (not including a domain) that points at the directory.</param>
         /// <returns>XML that represents the contents of the specified directory.</returns>
-        public static IEnumerable<string> DirectoryXMLplusXSLResponseGenerator(string LocalPath, string URL)
+        public static IEnumerable<string> GenerateDirectoryXML(string LocalPath, string URL)
         {
             if (!Directory.Exists(LocalPath))
                 throw new FileNotFoundException("Directory does not exist.", LocalPath);
@@ -1135,8 +1173,10 @@ namespace RT.Servers
                         throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._404_NotFound));
 
                     Req.Handler = Hook.Handler;
+                    Req.BaseURL = Hook.Path == null ? "" : Hook.Path;
                     Req.RestURL = Hook.Path == null ? URL : URL.Substring(Hook.Path.Length);
                     Req.Domain = Host;
+                    Req.BaseDomain = Hook.Domain == null ? "" : Hook.Domain;
                     Req.RestDomain = Hook.Domain == null ? Host : Host.Remove(Host.Length - Hook.Domain.Length);
                 }
                 Req.Headers.Host = ValueLower;

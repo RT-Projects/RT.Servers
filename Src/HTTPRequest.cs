@@ -9,7 +9,7 @@ using RT.Util.ExtensionMethods;
 namespace RT.Servers
 {
     /// <summary>
-    /// An HTTP request handler is a function that takes an HTTP request and returns an HTTP response.
+    /// An HTTP request handler is a function that takes an HTTP request (<see cref="HTTPRequest"/>) and returns an HTTP response (<see cref="HTTPResponse"/>).
     /// </summary>
     /// <param name="Request">The HTTP request to be processed.</param>
     /// <returns>The HTTP response generated from the HTTP request.</returns>
@@ -59,6 +59,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Contains the part of the URL that follows the path where the request handler is hooked.
+        /// <see cref="BaseURL"/> + RestURL is equal to <see cref="URL"/>.
         /// </summary>
         /// <example>
         ///     Consider the following example code:
@@ -72,12 +73,20 @@ namespace RT.Servers
         public string RestURL;
 
         /// <summary>
+        /// Contains the part of the URL to which the request handler is hooked.
+        /// BaseURL + <see cref="RestURL"/> is equal to <see cref="URL"/>.
+        /// For an example, see <see cref="RestURL"/>.
+        /// </summary>
+        public string BaseURL;
+
+        /// <summary>
         /// Stores the domain name from the Host header, without the port number.
         /// </summary>
         public string Domain;
 
         /// <summary>
         /// Contains the part of the domain that precedes the domain where the request handler is hooked.
+        /// RestDomain + <see cref="BaseDomain"/> is equal to <see cref="Domain"/>.
         /// </summary>
         /// <example>
         ///     Consider the following example code:
@@ -89,6 +98,13 @@ namespace RT.Servers
         ///     would have the RestDomain field set to the value <c>peter.schmidt.</c>. Note the trailing dot.
         /// </example>
         public string RestDomain;
+
+        /// <summary>
+        /// Contains the part of the domain to which the request handler is hooked.
+        /// <see cref="RestDomain"/> + BaseDomain is equal to <see cref="Domain"/>.
+        /// For an example see <see cref="RestDomain"/>.
+        /// </summary>
+        public string BaseDomain;
 
         /// <summary>
         /// The HTTP request method (GET, POST or HEAD).
@@ -136,6 +152,7 @@ namespace RT.Servers
             _URL = null;
             GETFieldsCache = new FieldsCache();
             POSTFieldsCache = new FieldsCache();
+            BaseURL = null;
             RestURL = null;
             Method = HTTPMethod.GET;
             Headers = new HTTPRequestHeaders();
@@ -143,6 +160,7 @@ namespace RT.Servers
             TemporaryFile = null;
             TempDir = null;
             Domain = null;
+            BaseDomain = null;
             RestDomain = null;
         }
 
@@ -383,12 +401,10 @@ namespace RT.Servers
                             // If it is a FileStream, then the relevant entry to fc.FileCache has already been made.
                             // Only if it is a MemoryStream, we need to process the stuff here.
                             if (CurrentWritingStream is MemoryStream && CurrentFieldName.EndsWith("[]"))
-                            {
-                                string ArrName = CurrentFieldName.Remove(CurrentFieldName.Length - 2);
-                                if (!fc.ArrayCache.ContainsKey(ArrName))
-                                    fc.ArrayCache[ArrName] = new List<string>();
-                                fc.ArrayCache[ArrName].Add(Encoding.UTF8.GetString(((MemoryStream) CurrentWritingStream).ToArray()));
-                            }
+                                fc.ArrayCache.AddSafe(
+                                    CurrentFieldName.Remove(CurrentFieldName.Length - 2),
+                                    Encoding.UTF8.GetString(((MemoryStream) CurrentWritingStream).ToArray())
+                                );
                             else if (CurrentWritingStream is MemoryStream)
                                 fc.ValueCache[CurrentFieldName] = Encoding.UTF8.GetString(((MemoryStream) CurrentWritingStream).ToArray());
 
@@ -453,23 +469,22 @@ namespace RT.Servers
             int b = s.ReadByte();
             string CurKey = "";
             string CurValue = null;
+            var LocalAdd = new Action<string, string>((string Key, string Value) =>
+            {
+                Key = Key.URLUnescape();
+                Value = Value.URLUnescape();
+                if (Key.EndsWith("[]"))
+                    fc.ArrayCache.AddSafe(Key.Remove(Key.Length - 2), Value);
+                else
+                    fc.ValueCache[Key] = Value;
+            });
             while (b != -1)
             {
                 if (b == (int) '=')
                     CurValue = "";
                 else if (b == (int) '&')
                 {
-                    CurKey = CurKey.URLUnescape();
-                    CurValue = CurValue.URLUnescape();
-                    if (CurKey.EndsWith("[]"))
-                    {
-                        CurKey = CurKey.Remove(CurKey.Length - 2);
-                        if (!fc.ArrayCache.ContainsKey(CurKey))
-                            fc.ArrayCache[CurKey] = new List<string>();
-                        fc.ArrayCache[CurKey].Add(CurValue);
-                    }
-                    else
-                        fc.ValueCache[CurKey] = CurValue;
+                    LocalAdd(CurKey, CurValue);
                     CurKey = "";
                     CurValue = null;
                 }
@@ -479,6 +494,8 @@ namespace RT.Servers
                     CurKey += (char) b;
                 b = s.ReadByte();
             }
+            if (CurValue != null)
+                LocalAdd(CurKey, CurValue);
             s.Close();
             return fc;
         }
