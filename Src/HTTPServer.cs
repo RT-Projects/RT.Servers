@@ -114,7 +114,7 @@ namespace RT.Servers
         public LoggerBase Log;
 
         /// <summary>
-        /// Shuts the HTTP server down. This method is only useful if <see cref="StartListening"/>() 
+        /// Shuts the HTTP server down. This method is only useful if <see cref="StartListening"/>
         /// was called with the Blocking parameter set to false.
         /// </summary>
         public void StopListening()
@@ -176,7 +176,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Creates a handler which will serve the file specified in <see pref="Filepath"/>.
+        /// Creates a handler which will serve the file specified in <paramref name="Filepath"/>.
         /// To be used in conjunction with <see cref="AddHandler"/>.
         /// See also: <see cref="CreateFileSystemHandler"/>.
         /// </summary>
@@ -186,7 +186,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Creates a handler which will redirect the browser to <see pref="NewURL"/>.
+        /// Creates a handler which will redirect the browser to <paramref name="NewURL"/>.
         /// To be used in conjunction with <see cref="AddHandler"/>.
         /// </summary>
         public HTTPRequestHandler CreateRedirectHandler(string NewURL)
@@ -785,16 +785,23 @@ namespace RT.Servers
                 byte[] Buffer = new byte[BufferSize];
                 sw.Log("OutputResponse() - Allocate buffer");
                 int BytesRead;
-                try { BytesRead = Response.Content.Read(Buffer, 0, BufferSize); }
-                catch (Exception e) { SendExceptionToClient(Output, Response.Headers.ContentType, e); return false; }
-                sw.Log("OutputResponse() - Response.Content.Read()");
-                while (BytesRead > 0)
+                while (true)
                 {
+                    if (Opt.ReturnExceptionsToClient)
+                    {
+                        try { BytesRead = Response.Content.Read(Buffer, 0, BufferSize); }
+                        catch (Exception e)
+                        {
+                            SendExceptionToClient(Output, Response.Headers.ContentType, e);
+                            return false;
+                        }
+                    }
+                    else
+                        BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
+                    sw.Log("OutputResponse() - Response.Content.Read()");
+                    if (BytesRead == 0) break;
                     Output.Write(Buffer, 0, BytesRead);
                     sw.Log("OutputResponse() - Output.Write()");
-                    try { BytesRead = Response.Content.Read(Buffer, 0, BufferSize); }
-                    catch (Exception e) { SendExceptionToClient(Output, Response.Headers.ContentType, e); return false; }
-                    sw.Log("OutputResponse() - Response.Content.Read()");
                 }
                 Output.Close();
                 sw.Log("OutputResponse() - Output.Close()");
@@ -1020,17 +1027,27 @@ namespace RT.Servers
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
 
-            try
+            if (Opt.ReturnExceptionsToClient)
+            {
+                try
+                {
+                    HTTPResponse Resp = Req.Handler(Req);
+                    sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
+                    Resp.OriginalRequest = Req;
+                    return Resp;
+                }
+                catch (Exception e)
+                {
+                    HTTPResponse Resp = ExceptionResponse(e);
+                    sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
+                    Resp.OriginalRequest = Req;
+                    return Resp;
+                }
+            }
+            else
             {
                 HTTPResponse Resp = Req.Handler(Req);
                 sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                Resp.OriginalRequest = Req;
-                return Resp;
-            }
-            catch (Exception e)
-            {
-                HTTPResponse Resp = ExceptionResponse(e);
-                sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
                 Resp.OriginalRequest = Req;
                 return Resp;
             }

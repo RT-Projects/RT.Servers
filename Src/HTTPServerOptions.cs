@@ -45,6 +45,11 @@ namespace RT.Servers
         public string TempDir = Path.GetTempPath();
 
         /// <summary>
+        /// Determines whether exceptions thrown by content handlers are caught and output to the client. If false, exceptions thrown by content handler are not caught by <see cref="HTTPServer"/>.
+        /// </summary>
+        public bool ReturnExceptionsToClient = true;
+
+        /// <summary>
         /// Maps from file extension to MIME type. Used by FileSystemHandler().
         /// Use the key "*" for the default MIME type. Otherwise the default is "application/octet-stream".
         /// </summary>

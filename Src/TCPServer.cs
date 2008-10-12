@@ -11,7 +11,7 @@ namespace RT.Servers
     /// </summary>
     public class TCPServer
     {
-        /// <summary>Constructs a <see cref="TCPServer"/>. Use <see cref="StartListening"/>() to activate the server.</summary>
+        /// <summary>Constructs a <see cref="TCPServer"/>. Use <see cref="StartListening"/> to activate the server.</summary>
         public TCPServer() { }
 
         /// <summary>Determines whether the server is currently listening for incoming connections.</summary>

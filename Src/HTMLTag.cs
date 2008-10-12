@@ -1492,6 +1492,7 @@ namespace RT.TagSoup.HTMLTags
         public string style;
         public string title;
         public string valign;
+        public string width;
     }
     public class TEXTAREA : HTMLTag
     {
@@ -1702,6 +1703,12 @@ namespace RT.TagSoup.HTMLTags
         public string onmouseup;
         public string style;
         public string title;
+    }
+    public class WBR : HTMLTag
+    {
+        public WBR(params object[] Contents) : base(Contents) { }
+        public override string TagName { get { return "WBR"; } }
+        public override bool EndTag { get { return false; } }
     }
 
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member

@@ -165,7 +165,7 @@ namespace RT.TagSoup
         ///         <item><c>class_</c> is converted to <c>"class"</c></item>
         ///         <item><c>accept_charset</c> is converted to <c>"accept-charset"</c></item>
         ///         <item><c>xmlLang</c> is converted to <c>"xml:lang"</c></item>
-        ///         <item><c>_</c> would be converted to the empty string, but <see cref="ToEnumerable"/>() already skips those.</item>
+        ///         <item><c>_</c> would be converted to the empty string, but <see cref="ToEnumerable"/> already skips those.</item>
         ///     </list>
         /// </example>
         /// <param name="fn">Field name to convert.</param>

@@ -507,7 +507,7 @@ namespace RT.Servers
     public class InvalidRequestException : Exception
     {
         /// <summary>
-        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.ErrorResponse(HTTPStatusCode)"/>() is used to generate an HTTP 500 Internal Server Error.
+        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.ErrorResponse(HTTPStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.
         /// </summary>
         public HTTPResponse Response;
 
