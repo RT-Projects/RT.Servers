@@ -1,9 +1,7 @@
-﻿using System.IO;
-using System.Text;
-using System.Xml;
-using System.Globalization;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.IO;
+using RT.Util;
+using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
@@ -18,33 +16,29 @@ namespace RT.Servers
         /// </summary>
         private static string DirectoryListingXSLString = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 
-            <xsl:stylesheet version=""1.0""
-                xmlns:xsl=""http://www.w3.org/1999/XSL/Transform""
-                xmlns=""http://www.w3.org/1999/xhtml"">
-
+            <xsl:stylesheet version=""1.0"" xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" xmlns=""http://www.w3.org/1999/xhtml"">
                 <xsl:output method=""html""/>
-
                 <xsl:template match=""/directory"">
                     <html>
                     <head>
                         <title>Directory listing</title>
-                        <style type=""text/css"">" +
-                            @"body{margin:10pt;font-family:""Verdana"",sans-serif;font-size:10pt}" +
-                            @"table{border-collapse:collapse}" +
-                            @".l{border-top:2px solid #339}" +
-                            @".h th{padding:3pt 0}" +
-                            @".n{padding-right:5pt;border-right:1px solid #ccc}" +
-                            @".s{padding:0 5pt}" +
-                            @".s.d{text-align:center;font-style:italic}" +
-                            @".s.f{text-align:right}" +
-                            @".r:hover{background:#eef}" +
-                            @".r .n a{display:block}" +
-                            @".t{font-size:80%;font-style:italic;color:#888}" +
-                        @"</style>
+                        <style type=""text/css"">
+                            body { margin: 10pt; font-family: ""Verdana"", sans-serif; font-size: 10pt; }
+                            table { border-collapse: collapse; }
+                            .line { border-top: 2px solid #339; }
+                            th { padding: 3pt 0; }
+                            .filename { padding-right: 5pt; border-right: 1px solid #ccc; }
+                            .size { padding: 0 5pt; }
+                            .size.dir { text-align: center; font-style: italic; }
+                            .size.file { text-align: right; }
+                            .filerow:hover { background: #eef; }
+                            .filerow .filename a { display: block; }
+                            .summary { font-size: 80%; font-style: italic; color: #888; }
+                        </style>
                     </head>
                     <body>
                         <table>
-                            <tr class=""l"">
+                            <tr class=""line"">
                                 <table>
                                     <tr>
                                         <td rowspan=""2""><img src=""{@img}"" alt=""folder""/></td>
@@ -56,19 +50,19 @@ namespace RT.Servers
                                 </table>
                             </tr>
 
-                            <tr class=""l""><td colspan=""2"">
+                            <tr class=""line""><td colspan=""2"">
                                 <table style=""width: 100%"">
-                                    <tr class=""h""><th class=""n"" colspan=""2"">Name</th><th>Size</th></tr>
+                                    <tr><th class=""filename"" colspan=""2"">Name</th><th>Size</th></tr>
                                     <xsl:if test=""@url!='/'"">
-                                        <tr><td></td><td class=""n""><a href="".."">..</a></td><td class=""s d"">Folder</td></tr>
+                                        <tr class=""filerow""><td></td><td class=""filename""><a href="".."">..</a></td><td class=""size dir"">Folder</td></tr>
                                     </xsl:if>
                                     <xsl:apply-templates select=""dir"" />
                                     <xsl:apply-templates select=""file"" />
-                                    <tr style=""height: 3pt""><td class=""n"" colspan=""2""/><td/></tr>
+                                    <tr style=""height: 3pt""><td colspan=""2""/><td/></tr>
                                 </table>
                             </td></tr>
 
-                            <tr class=""l t"">
+                            <tr class=""line summary"">
                                 <td colspan=""2"">Folder contains <xsl:value-of select=""@numdirs""/> sub-folders and <xsl:value-of select=""@numfiles""/> files.</td>
                             </tr>
                         </table>
@@ -77,18 +71,18 @@ namespace RT.Servers
                 </xsl:template>
 
                 <xsl:template match=""dir"">
-                    <tr>
+                    <tr class=""filerow"">
                         <td><img src=""{@img}"" alt=""folder""/></td>
-                        <td class=""n""><a href=""{@link}""><xsl:value-of select="".""/></a></td>
-                        <td class=""s d"">Folder</td>
+                        <td class=""filename""><a href=""{@link}""><xsl:value-of select="".""/></a></td>
+                        <td class=""size dir"">Folder</td>
                     </tr>
                 </xsl:template>
 
                 <xsl:template match=""file"">
-                    <tr class=""r"">
+                    <tr class=""filerow"">
                         <td><img src=""{@img}"" alt=""file""/></td>
-                        <td class=""n"" style=""min-width: 150pt;""><a href=""{@link}""><xsl:value-of select="".""/></a></td>
-                        <td class=""s f""><xsl:value-of select=""@nicesize""/></td>
+                        <td class=""filename""><a href=""{@link}""><xsl:value-of select="".""/></a></td>
+                        <td class=""size file""><xsl:value-of select=""@nicesize""/></td>
                     </tr>
                 </xsl:template>
 
@@ -159,24 +153,6 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// A random number generator used throughout the core server code.
-        /// </summary>
-        public static Random Rnd = new Random();
-
-        /// <summary>
-        /// Produces a single random hexadecimal digit and returns it as a byte.
-        /// </summary>
-        /// <returns>A single random hexadecimal digit as a byte.</returns>
-        public static byte RandomHexDigit()
-        {
-            lock (Rnd)
-            {
-                int r = Rnd.Next(16);
-                return r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
-            }
-        }
-
-        /// <summary>
         /// Generates a random filename for a temporary file in the specified directory.
         /// </summary>
         /// <param name="TempDir">Directory to generate a temporary file in.</param>
@@ -185,9 +161,9 @@ namespace RT.Servers
         public static string RandomTempFilepath(string TempDir, out Stream FStream)
         {
             string Dir = TempDir + (TempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
-            lock (HTTPInternalObjects.Rnd)
+            lock (Ut.Rnd)
             {
-                int Counter = HTTPInternalObjects.Rnd.Next(1000);
+                int Counter = Ut.Rnd.Next(1000);
                 // This seemingly bizarre construct tries to prevent race conditions between several threads/processes trying to create the same file.
                 while (true)
                 {
@@ -202,7 +178,7 @@ namespace RT.Servers
                     }
                     catch (IOException)
                     {
-                        Counter += HTTPInternalObjects.Rnd.Next(1000);
+                        Counter += Ut.Rnd.Next(1000);
                     }
                 }
             }
@@ -214,22 +190,10 @@ namespace RT.Servers
         /// <returns>A byte array containing the UTF-8-encoded directory-listing XSL.</returns>
         public static byte[] DirectoryListingXSL()
         {
-            if (DirectoryListingXSLByteArray != null)
-                return DirectoryListingXSLByteArray;
-
-            // This removes all the unnecessary whitespace from the XML and outputs it as UTF-8
-            XmlDocument x = new XmlDocument();
-            x.LoadXml(DirectoryListingXSLString);
-            DirectoryListingXSLString = null; // free some memory?
-            using (MemoryStream m = new MemoryStream())
+            if (DirectoryListingXSLByteArray == null)
             {
-                using (XmlWriter w = new XmlTextWriter(m, Encoding.UTF8))
-                {
-                    x.WriteTo(w);
-                    w.Close();
-                }
-                m.Close();
-                DirectoryListingXSLByteArray = m.ToArray();
+                DirectoryListingXSLByteArray = DirectoryListingXSLString.ToUTF8();
+                DirectoryListingXSLString = null; // free some memory?
             }
             return DirectoryListingXSLByteArray;
         }

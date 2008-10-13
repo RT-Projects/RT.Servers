@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using RT.Util.ExtensionMethods;
 using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+using RT.Util.ExtensionMethods;
 
 namespace RT.TagSoup
 {
@@ -157,6 +155,8 @@ namespace RT.TagSoup
                     yield return str;
                 yield break;
             }
+
+            yield return "Unrecognised object: " + o.ToString();
         }
 
         /// <summary>Converts a C#-compatible field name into an HTML/XHTML-compatible one.</summary>
@@ -172,13 +172,15 @@ namespace RT.TagSoup
         /// <returns>Converted field name.</returns>
         private static string FixFieldName(string fn)
         {
-            Match m;
-            while ((m = Regex.Match(fn, @"^(.*)([A-Z])(.*)$")).Success)
-                fn = m.Groups[1].Value + ":" + m.Groups[2].Value.ToLowerInvariant() + m.Groups[3].Value;
-            if (fn.EndsWith("_"))
-                fn = fn.Remove(fn.Length - 1);
-            fn = fn.Replace('_', '-');
-            return fn;
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < fn.Length; i++)
+                if (fn[i] >= 'A' && fn[i] <= 'Z')
+                    sb.Append(":" + char.ToLowerInvariant(fn[i]));
+                else if (fn[i] == '_' && i < fn.Length - 1)
+                    sb.Append('-');
+                else if (fn[i] != '_')
+                    sb.Append(fn[i]);
+            return sb.ToString();
         }
     }
 }

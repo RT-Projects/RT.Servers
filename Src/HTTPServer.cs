@@ -853,7 +853,14 @@ namespace RT.Servers
 
             // Generate a random boundary token
             byte[] Boundary = new byte[64];
-            lock (HTTPInternalObjects.Rnd) { for (int i = 0; i < 64; i++) Boundary[i] = HTTPInternalObjects.RandomHexDigit(); }
+            lock (Ut.Rnd)
+            {
+                for (int i = 0; i < 64; i++)
+                {
+                    int r = Ut.Rnd.Next(16);
+                    Boundary[i] = r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
+                }
+            }
 
             // Calculate the total content length
             long CLength = 0;

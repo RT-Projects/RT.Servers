@@ -159,7 +159,7 @@ namespace RT.Servers
             Ret +=
                 (t.IsGenericType
                     ? t.Name.Remove(t.Name.IndexOf('`')) + "<" +
-                        string.Join(", ", t.GetGenericArguments().Select(s => FriendlyTypeName(s, false)).ToArray()) + ">"
+                        string.Join(", ", t.GetGenericArguments().Select(s => FriendlyTypeName(s, IncludeNamespaces)).ToArray()) + ">"
                     : t.Name.TrimEnd('&'));
 
             if (t.Name.EndsWith("&"))
@@ -463,7 +463,9 @@ namespace RT.Servers
             yield return new H1(
                 Member.MemberType == MemberTypes.Constructor ? "Constructor: " :
                 Member.MemberType == MemberTypes.Event ? "Event: " :
+                Member.MemberType == MemberTypes.Field && (Member as FieldInfo).IsStatic ? "Static field: " :
                 Member.MemberType == MemberTypes.Field ? "Field: " :
+                Member.MemberType == MemberTypes.Method && (Member as MethodInfo).IsStatic ? "Static method: " :
                 Member.MemberType == MemberTypes.Method ? "Method: " :
                 Member.MemberType == MemberTypes.Property ? "Property: " : "Member: ",
                 FriendlyMemberName(Member, true, true, true, true, true)
@@ -575,6 +577,8 @@ namespace RT.Servers
                             string Namespace = ClassName.Remove(ClassName.LastIndexOf('.'));
                             yield return new A(FriendlyMemberName(MemberDocumentation[Token].E1, false, false, true, false, false)) { href = Req.BaseURL + "/" + Token.URLEscape() };
                         }
+                        else
+                            yield return new CODE(Token);
                     }
                     else if (InElem.Name == "c")
                         yield return new CODE(InterpretInline(InElem, Req));

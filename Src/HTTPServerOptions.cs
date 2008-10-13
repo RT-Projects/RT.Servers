@@ -40,17 +40,19 @@ namespace RT.Servers
         public long GzipInMemoryUpToSize = 1024 * 1024;
 
         /// <summary>
-        /// The temporary directory to use for POST requests and file uploads. Default is Path.GetTempPath().
+        /// The temporary directory to use for POST requests and file uploads. Default is <see cref="Path.GetTempPath"/>.
         /// </summary>
         public string TempDir = Path.GetTempPath();
 
         /// <summary>
-        /// Determines whether exceptions thrown by content handlers are caught and output to the client. If false, exceptions thrown by content handler are not caught by <see cref="HTTPServer"/>.
+        /// Determines whether exceptions thrown by content handlers are caught and output to the client.
+        /// If false, exceptions thrown by content handlers are not caught by <see cref="HTTPServer"/>.
         /// </summary>
         public bool ReturnExceptionsToClient = true;
 
         /// <summary>
-        /// Maps from file extension to MIME type. Used by FileSystemHandler().
+        /// Maps from file extension to MIME type. Used by <see cref="HTTPServer.FileSystemResponse"/>
+        /// (and hence by <see cref="HTTPServer.CreateFileSystemHandler"/>).
         /// Use the key "*" for the default MIME type. Otherwise the default is "application/octet-stream".
         /// </summary>
         public Dictionary<string, string> MIMETypes = new Dictionary<string, string>
@@ -88,7 +90,7 @@ namespace RT.Servers
         public string DefaultContentType = "text/html; charset=utf-8";
 
         /// <summary>
-        /// Enum specifying which way directory listings should be generated. Default is DirectoryListingStyle.XMLplusXSL.
+        /// Enum specifying which way directory listings should be generated. Default is <see cref="RT.Servers.DirectoryListingStyle.XMLplusXSL"/>.
         /// </summary>
         public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XMLplusXSL;
     }
