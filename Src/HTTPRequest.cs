@@ -462,14 +462,18 @@ namespace RT.Servers
         {
             FieldsCache fc = new FieldsCache
             {
-                ArrayCache = new Dictionary<string, List<string>>(),
                 ValueCache = new Dictionary<string, string>(),
+                ArrayCache = new Dictionary<string, List<string>>(),
                 FileCache = new Dictionary<string, FileUpload>()
             };
-            int b = s.ReadByte();
+
+            byte[] Buffer = new byte[65536];
+            int BytesRead = s.Read(Buffer, 0, Buffer.Length);
+            int BufferIndex = 0;
             string CurKey = "";
             string CurValue = null;
-            var LocalAdd = new Action<string, string>((string Key, string Value) =>
+
+            var LocalAdd = new Action<string, string>((Key, Value) =>
             {
                 Key = Key.URLUnescape();
                 Value = Value.URLUnescape();
@@ -478,24 +482,44 @@ namespace RT.Servers
                 else
                     fc.ValueCache[Key] = Value;
             });
-            while (b != -1)
+
+            while (BytesRead > 0)
             {
-                if (b == (int) '=')
-                    CurValue = "";
-                else if (b == (int) '&')
+                while (BufferIndex < BytesRead)
                 {
-                    LocalAdd(CurKey, CurValue);
-                    CurKey = "";
-                    CurValue = null;
+                    int i = BufferIndex;
+                    while (i < BytesRead && Buffer[i] != '&' && Buffer[i] != '=')
+                        i++;
+                    if (i == BytesRead)
+                    {
+                        if (CurValue != null)
+                            CurValue += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
+                        else
+                            CurKey += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
+                        BufferIndex = i;
+                    }
+                    else if (Buffer[i] == (byte) '=')
+                    {
+                        CurKey += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
+                        CurValue = "";
+                        BufferIndex = i + 1;
+                    }
+                    else if (Buffer[i] == (byte) '&')
+                    {
+                        CurValue += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
+                        LocalAdd(CurKey, CurValue);
+                        CurKey = "";
+                        CurValue = null;
+                        BufferIndex = i + 1;
+                    }
                 }
-                else if (CurValue != null)
-                    CurValue += (char) b;
-                else
-                    CurKey += (char) b;
-                b = s.ReadByte();
+                BytesRead = s.Read(Buffer, 0, Buffer.Length);
+                BufferIndex = 0;
             }
+
             if (CurValue != null)
                 LocalAdd(CurKey, CurValue);
+
             s.Close();
             return fc;
         }
