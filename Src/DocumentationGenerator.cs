@@ -28,6 +28,7 @@ namespace RT.Servers
             .namespace a { font-weight: bold; }
             .sidebar li.type { font-weight: bold; }
             .sidebar li.type > ul { font-weight: normal; }
+            .sidebar li { padding-left: 1em; text-indent: -1em; }
             .sidebar .Constructor { background: #dfd; }
             .sidebar .Method { background: #ddf; }
             .sidebar .Property { background: #fdf; }
@@ -51,6 +52,7 @@ namespace RT.Servers
             td p:first-child { margin-top: 0; }
             td p:last-child { margin-bottom: 0; }
             span.parameter, span.member { white-space: nowrap; }
+            h1 span.parameter, h1 span.member { white-space: normal; }
         ";
 
         private class MemberComparer : IComparer<string>
@@ -89,7 +91,7 @@ namespace RT.Servers
             {
                 Assembly a = Assembly.LoadFile(f.FullName);
                 XElement e = XElement.Load(f.FullName.Remove(f.FullName.Length - 3) + "docs.xml");
-                foreach (var t in a.GetExportedTypes().Where(t => !t.IsNested || t.IsNestedPublic))
+                foreach (var t in a.GetExportedTypes().Where(t => ShouldTypeBeDisplayed(t)))
                 {
                     XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == "T:" + t.FullName);
                     TypeDocumentation.Add(t.FullName, new Tuple<Type, XElement>(t, doc));
@@ -99,12 +101,11 @@ namespace RT.Servers
                     Tree[t.Namespace][t.FullName] = new Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>(t,
                         doc, new SortedDictionary<string, Tuple<MemberInfo, XElement>>(new MemberComparer()));
                     foreach (var mem in t.GetMembers(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
-                        .Where(m => m.DeclaringType == t && ShouldBeDisplayed(m)))
+                        .Where(m => m.DeclaringType == t && ShouldMemberBeDisplayed(m)))
                     {
                         var dcmn = DocumentationCompatibleMemberName(mem);
                         XElement mdoc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == dcmn);
-                        while (MemberDocumentation.ContainsKey(dcmn))
-                            dcmn += "|";
+                        while (MemberDocumentation.ContainsKey(dcmn)) dcmn += "|";
                         Tree[t.Namespace][t.FullName].E3[dcmn] = new Tuple<MemberInfo, XElement>(mem, mdoc);
                         MemberDocumentation.Add(dcmn, new Tuple<MemberInfo, XElement>(mem, mdoc));
                     }
@@ -143,7 +144,7 @@ namespace RT.Servers
 
             string Ret = (IncludeNamespaces && !t.IsGenericParameter ? t.Namespace + "." : "");
 
-            if (IncludeNamespaces)
+            if (IncludeNamespaces && !t.IsGenericParameter)
             {
                 string Prefix = "";
                 Type OutT = t;
@@ -158,7 +159,7 @@ namespace RT.Servers
             Ret +=
                 (t.IsGenericType
                     ? t.Name.Remove(t.Name.IndexOf('`')) + "<" +
-                        string.Join(", ", t.GetGenericArguments().Select(s => FriendlyTypeName(s, IncludeNamespaces)).ToArray()) + ">"
+                        string.Join(", ", t.GetGenericArguments().Select(s => FriendlyTypeName(s, false)).ToArray()) + ">"
                     : t.Name.TrimEnd('&'));
 
             if (t.Name.EndsWith("&"))
@@ -217,7 +218,7 @@ namespace RT.Servers
             );
         }
 
-        private bool ShouldBeDisplayed(MemberInfo m)
+        private bool ShouldMemberBeDisplayed(MemberInfo m)
         {
             if (m.ReflectedType.IsEnum && m.Name == "value__")
                 return false;
@@ -230,9 +231,14 @@ namespace RT.Servers
             if (m.MemberType == MemberTypes.Field)
                 return !(m as FieldInfo).IsPrivate && !IsEventField(m);
             if (m.MemberType == MemberTypes.NestedType)
-                return false;
+                return ShouldTypeBeDisplayed((Type) m);
 
             return true;
+        }
+
+        private bool ShouldTypeBeDisplayed(Type t)
+        {
+            return !t.IsNested || !t.IsNestedPrivate;
         }
 
         private string DocumentationCompatibleMemberName(MemberInfo m)
@@ -264,6 +270,10 @@ namespace RT.Servers
                 sb.Append(m.DeclaringType.FullName);
                 sb.Append(".");
                 sb.Append(m.Name);
+            }
+            else if (m.MemberType == MemberTypes.NestedType)
+            {
+                sb.Append(m.ToString());
             }
             else
             {
@@ -386,22 +396,7 @@ namespace RT.Servers
                                 ),
                                 new UL(Tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = Req.BaseURL + "/" + nkvp.Key.URLEscape() },
                                     Namespace == null || Namespace != nkvp.Key ? (object) "" :
-                                    new UL(nkvp.Value.Select(tkvp =>
-                                    {
-                                        string cssclass = "type";
-                                        if (tkvp.Value.E2 == null) cssclass += " missing";
-                                        return new LI { class_ = cssclass }._(new A(FriendlyTypeName(tkvp.Value.E1, false)) { href = Req.BaseURL + "/" + tkvp.Key.URLEscape() },
-                                            Class == null || Class.FullName != tkvp.Key ? (object) "" :
-                                            new UL(tkvp.Value.E3.Select(mkvp =>
-                                            {
-                                                string css = mkvp.Value.E1.MemberType.ToString() + " member";
-                                                if (mkvp.Value.E2 == null) css += " missing";
-                                                return new LI { class_ = css }._(
-                                                    new A(FriendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = Req.BaseURL + "/" + mkvp.Key.URLEscape() }
-                                                );
-                                            }))
-                                        );
-                                    }))
+                                    new UL(nkvp.Value.Where(tkvp => !tkvp.Value.E1.IsNested).Select(tkvp => GenerateTypeBullet(tkvp, Class, Req)))
                                 )))
                             ),
                             new TD { class_ = "content" }._(
@@ -419,6 +414,30 @@ namespace RT.Servers
             ).ToEnumerable();
 
             return ret;
+        }
+
+        private object GenerateTypeBullet(KeyValuePair<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> tkvp, Type Class, HTTPRequest Req)
+        {
+            string cssclass = "type";
+            if (tkvp.Value.E2 == null) cssclass += " missing";
+            return new LI { class_ = cssclass }._(new A(FriendlyTypeName(tkvp.Value.E1, false)) { href = Req.BaseURL + "/" + tkvp.Key.URLEscape() },
+                Class == null || !IsNestedTypeOf(Class, tkvp.Value.E1) ? (object) "" :
+                new UL(tkvp.Value.E3.Select(mkvp =>
+                {
+                    string css = mkvp.Value.E1.MemberType.ToString() + " member";
+                    if (mkvp.Value.E2 == null) css += " missing";
+                    return mkvp.Value.E1.MemberType != MemberTypes.NestedType
+                        ? new LI { class_ = css }._(new A(FriendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = Req.BaseURL + "/" + mkvp.Key.URLEscape() })
+                        : GenerateTypeBullet(Tree[tkvp.Value.E1.Namespace].First(kvp => kvp.Key == ((Type) mkvp.Value.E1).FullName), Class, Req);
+                }))
+            );
+        }
+
+        private bool IsNestedTypeOf(Type NestedType, Type ContainingType)
+        {
+            if (NestedType == ContainingType) return true;
+            if (!NestedType.IsNested) return false;
+            return IsNestedTypeOf(NestedType.DeclaringType, ContainingType);
         }
 
         private IEnumerable<object> GenerateNamespaceDocumentation(string NSName, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> NamespaceInfo, HTTPRequest Req)
