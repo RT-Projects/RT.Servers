@@ -433,10 +433,10 @@ namespace RT.Servers
             string StatusCodeName = ("" + ((int) StatusCode) + " " + HTTPInternalObjects.GetStatusCodeName(StatusCode)).HTMLEscape();
             Headers.ContentType = "text/html; charset=utf-8";
 
-            // var x = new HTML(new HEAD(new TITLE("HTTP " + StatusCodeName)), new BODY(new H1(StatusCodeName), Message != null ? new P(Message) : null));
-            string ContentStr = // x.ToEnumerable();
-                "<html><head><title>HTTP " + StatusCodeName + "</title></head><body><h1>" + StatusCodeName + "</h1>" +
-                (Message != null ? "<p>" + Message.HTMLEscape() + "</p>" : "") + "</body></html>";
+            string ContentStr =
+                "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n" +
+                "<html>\n <head>\n  <title>HTTP " + StatusCodeName + "</title>\n </head>\n <body>\n  <h1>" + StatusCodeName + "</h1>\n" +
+                (Message != null ? "  <p>" + Message.HTMLEscape() + "</p>" : "") + "\n </body>\n</html>";
             return new HTTPResponse
             {
                 Status = StatusCode,
