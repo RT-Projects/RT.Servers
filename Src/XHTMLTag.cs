@@ -1481,7 +1481,11 @@ namespace RT.TagSoup.XHTMLTags
         public string media;
         public override IEnumerable<string> ToEnumerable()
         {
-            yield return @"<style type=""text/css"" media=""" + media.HTMLEscape() + @""">/*<![CDATA[*/ @import """ + ImportFrom + @"""; /*]]>*/</style>";
+            yield return @"<style type=""text/css"" media=""";
+            yield return media.HTMLEscape();
+            yield return @""">/*<![CDATA[*/ @import """;
+            yield return ImportFrom;
+            yield return @"""; /*]]>*/</style>";
         }
     }
     public class sub : XHTMLTag

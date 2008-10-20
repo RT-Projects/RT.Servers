@@ -29,11 +29,11 @@ namespace RT.Servers
             .sidebar li.type { font-weight: bold; }
             .sidebar li.type > ul { font-weight: normal; }
             .sidebar li { padding-left: 1em; text-indent: -1em; }
-            .sidebar .Constructor { background: #dfd; }
-            .sidebar .Method { background: #ddf; }
-            .sidebar .Property { background: #fdf; }
-            .sidebar .Event { background: #fdd; }
-            .sidebar .Field { background: #ffd; }
+            .sidebar li.Constructor { background: #dfd; }
+            .sidebar li.Method { background: #ddf; }
+            .sidebar li.Property { background: #fdf; }
+            .sidebar li.Event { background: #fdd; }
+            .sidebar li.Field { background: #ffd; }
             .legend { white-space: nowrap; padding: 0.3em 0; }
             .legend span { padding: 0.3em 0.7em; font-weight: bold; }
             .sidebar > ul { clear: left; padding-left: 2em; padding-top: 1em; }
@@ -162,40 +162,52 @@ namespace RT.Servers
             if (t.IsByRef && InclRef)
                 yield return "ref ";
 
-            if (t.Name == "MemoryStatus")
-                Console.WriteLine(1);
-
-            if (IncludeNamespaces && !t.IsGenericParameter)
-            {
-                yield return t.Namespace + ".";
-                var OuterClasses = new List<object>();
-                Type OutT = t;
-                while (OutT.IsNested)
-                {
-                    OuterClasses.Insert(0, ".");
-                    OuterClasses.Insert(0, FriendlyTypeName(OutT.DeclaringType, false, BaseURL, false));
-                    OutT = OutT.DeclaringType;
-                }
-                yield return OuterClasses;
-            }
-
-            string Ret = t.IsGenericType ? t.Name.Remove(t.Name.IndexOf('`')) : t.Name.TrimEnd('&');
-            if (BaseURL != null && !t.IsGenericParameter && TypeDocumentation.ContainsKey(GetTypeFullName(t).TrimEnd('&')))
-                yield return new A(Ret) { href = BaseURL + "/" + GetTypeFullName(t).TrimEnd('&').URLEscape() };
+            // Use the C# identifier for built-in types
+            if (t == typeof(int)) yield return "int";
+            else if (t == typeof(uint)) yield return "uint";
+            else if (t == typeof(long)) yield return "long";
+            else if (t == typeof(ulong)) yield return "ulong";
+            else if (t == typeof(byte)) yield return "byte";
+            else if (t == typeof(string)) yield return "string";
+            else if (t == typeof(char)) yield return "char";
+            else if (t == typeof(float)) yield return "float";
+            else if (t == typeof(double)) yield return "double";
+            else if (t == typeof(bool)) yield return "bool";
+            else if (t == typeof(void)) yield return "void";
             else
-                yield return Ret;
-
-            if (t.IsGenericType)
             {
-                yield return "<";
-                bool First = true;
-                foreach (var ga in t.GetGenericArguments())
+                if (IncludeNamespaces && !t.IsGenericParameter)
                 {
-                    if (!First) yield return ", ";
-                    First = false;
-                    yield return FriendlyTypeName(ga, IncludeNamespaces, BaseURL, InclRef);
+                    yield return t.Namespace + ".";
+                    var OuterClasses = new List<object>();
+                    Type OutT = t;
+                    while (OutT.IsNested)
+                    {
+                        OuterClasses.Insert(0, ".");
+                        OuterClasses.Insert(0, FriendlyTypeName(OutT.DeclaringType, false, BaseURL, false));
+                        OutT = OutT.DeclaringType;
+                    }
+                    yield return OuterClasses;
                 }
-                yield return ">";
+
+                string Ret = t.IsGenericType ? t.Name.Remove(t.Name.IndexOf('`')) : t.Name.TrimEnd('&');
+                if (BaseURL != null && !t.IsGenericParameter && TypeDocumentation.ContainsKey(GetTypeFullName(t).TrimEnd('&')))
+                    yield return new A(Ret) { href = BaseURL + "/" + GetTypeFullName(t).TrimEnd('&').URLEscape() };
+                else
+                    yield return Ret;
+
+                if (t.IsGenericType)
+                {
+                    yield return "<";
+                    bool First = true;
+                    foreach (var ga in t.GetGenericArguments())
+                    {
+                        if (!First) yield return ", ";
+                        First = false;
+                        yield return FriendlyTypeName(ga, IncludeNamespaces, BaseURL, InclRef);
+                    }
+                    yield return ">";
+                }
             }
         }
 
@@ -213,7 +225,7 @@ namespace RT.Servers
             {
                 MethodBase mi = m as MethodBase;
 
-                return new SPAN { class_ = "method" }._(
+                return new SPAN { class_ = m.MemberType.ToString() }._(
                     ReturnType && m.MemberType != MemberTypes.Constructor ? new object[] { FriendlyTypeName(((MethodInfo) m).ReturnType, Namespaces, BaseURL, false), " " } : null,
                     m.MemberType == MemberTypes.Constructor && URL != null ? (object) new STRONG(new A(FriendlyTypeName(mi.DeclaringType, Namespaces)) { href = URL }) :
                         ContainingType || m.MemberType == MemberTypes.Constructor ? FriendlyTypeName(mi.DeclaringType, Namespaces, BaseURL, false) : null,
@@ -227,6 +239,7 @@ namespace RT.Servers
                         if (!ParameterTypes && !ParameterNames) return null;
                         List<object> Lst = new List<object>();
                         Lst.Add(Indent && mi.GetParameters().Any() ? "(\n    " : "(");
+                        if (!Indent) Lst.Add(new WBR());
                         bool First = true;
                         foreach (var p in mi.GetParameters())
                         {
@@ -245,14 +258,42 @@ namespace RT.Servers
                 );
             }
 
-            return new SPAN { class_ = "member" }._(
+            return new SPAN { class_ = m.MemberType.ToString() }._(
                 ReturnType && m.MemberType == MemberTypes.Property ? new object[] { FriendlyTypeName(((PropertyInfo) m).PropertyType, Namespaces, BaseURL, false), " " } :
                 ReturnType && m.MemberType == MemberTypes.Event ? new object[] { FriendlyTypeName(((EventInfo) m).EventHandlerType, Namespaces, BaseURL, false), " " } :
                 ReturnType && m.MemberType == MemberTypes.Field ? new object[] { FriendlyTypeName(((FieldInfo) m).FieldType, Namespaces, BaseURL, false), " " } : null,
                 ContainingType ? FriendlyTypeName(m.DeclaringType, Namespaces, BaseURL, false) : null,
                 ContainingType ? "." : null,
-                new STRONG(URL == null ? (object) m.Name : new A(m.Name) { href = URL })
+                m.MemberType == MemberTypes.Property
+                    ? (object) FriendlyPropertyName((PropertyInfo) m, ParameterTypes, ParameterNames, Namespaces, Indent, URL, BaseURL)
+                    : new STRONG(URL == null ? (object) m.Name : new A(m.Name) { href = URL })
             );
+        }
+
+        private IEnumerable<object> FriendlyPropertyName(PropertyInfo Property, bool ParameterTypes, bool ParameterNames, bool Namespaces, bool Indent, string URL, string BaseURL)
+        {
+            var Params = Property.GetIndexParameters();
+            if (Params.Length > 0)
+            {
+                yield return new STRONG(URL == null ? (object) "this" : new A("this") { href = URL });
+                yield return Indent ? "[\n    " : "[";
+                if (!Indent) yield return new WBR();
+                bool First = true;
+                foreach (var p in Params)
+                {
+                    if (!First) yield return Indent ? ",\n    " : ", ";
+                    First = false;
+                    yield return new SPAN { class_ = "parameter" }._(
+                        ParameterTypes && p.IsOut ? "out " : null,
+                        ParameterTypes ? FriendlyTypeName(p.ParameterType, Namespaces, BaseURL, !p.IsOut) : null,
+                        ParameterTypes && ParameterNames ? " " : null,
+                        ParameterNames ? new STRONG(p.Name) : null
+                    );
+                }
+                yield return Indent ? "\n]" : "]";
+            }
+            else
+                yield return Property.Name;
         }
 
         private bool ShouldMemberBeDisplayed(MemberInfo m)
@@ -417,7 +458,22 @@ namespace RT.Servers
 
             var ret = new HTML(
                 new HEAD(
-                    new TITLE("XML documentation"),
+                    new TITLE(
+                        Member != null ? (
+                            Member.MemberType == MemberTypes.Constructor ? "Constructor: " :
+                            Member.MemberType == MemberTypes.Event ? "Event: " :
+                            Member.MemberType == MemberTypes.Field && (Member as FieldInfo).IsStatic ? "Static field: " :
+                            Member.MemberType == MemberTypes.Field ? "Field: " :
+                            Member.MemberType == MemberTypes.Method && (Member as MethodInfo).IsStatic ? "Static method: " :
+                            Member.MemberType == MemberTypes.Method ? "Method: " :
+                            Member.MemberType == MemberTypes.Property ? "Property: " : "Member: "
+                        ) : Class != null ? (
+                            Class.IsEnum ? "Enum: " : Class.IsValueType ? "Struct: " : "Class: "
+                        ) : Namespace != null ? "Namespace: " : null,
+                        Member != null ? Member.Name : Class != null ? Class.Name : Namespace != null ? Namespace : null,
+                        Member != null || Class != null || Namespace != null ? " – " : null,
+                        "XML documentation"
+                    ),
                     new LINK { href = Req.BaseURL + "/css", rel = "stylesheet", type = "text/css" }
                 ),
                 new BODY(
