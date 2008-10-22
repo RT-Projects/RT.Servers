@@ -34,8 +34,8 @@ namespace RT.Servers
             .sidebar li.Property { background: #fdf; }
             .sidebar li.Event { background: #fdd; }
             .sidebar li.Field { background: #ffd; }
-            .legend { white-space: nowrap; padding: 0.3em 0; }
-            .legend span { padding: 0.3em 0.7em; font-weight: bold; }
+            .sidebar ul.legend { display: block; margin: 0; padding: 0.3em 0; }
+            .sidebar ul.legend li { display: inline; font-weight: bold; padding: 0.3em 0.7em; }
             .sidebar > ul { clear: left; padding-left: 2em; padding-top: 1em; }
             ul { padding-left: 1.5em; margin-bottom: 1em; }
             li.member { padding-right: 1em; }
@@ -47,12 +47,12 @@ namespace RT.Servers
             table.layout td.sidebar { padding: 0; }
             table.layout td.content { width: 100%; padding: 1em 1em 5em 1.5em; }
             textarea { width: 100%; height: 100%; }
-            table.doclist { border: 1px solid #888; }
             table.doclist td { border: 1px solid #ccc; padding: 1em 2em; background: #eee; }
             td p:first-child { margin-top: 0; }
             td p:last-child { margin-bottom: 0; }
             span.parameter, span.member { white-space: nowrap; }
             h1 span.parameter, h1 span.member { white-space: normal; }
+            pre { background: #eee; border: 1px solid #ccc; padding: 1em 2em; }
         ";
 
         private class MemberComparer : IComparer<string>
@@ -135,12 +135,83 @@ namespace RT.Servers
                     return HTTPServer.StringResponse(CSS, "text/css; charset=utf-8");
                 else
                 {
+                    string Namespace = null;
+                    Type Class = null;
+                    MemberInfo Member = null;
+
+                    string Token = Req.RestURL.Substring(1).URLUnescape();
+                    if (Tree.ContainsKey(Token))
+                        Namespace = Token;
+                    else if (TypeDocumentation.ContainsKey(Token))
+                    {
+                        Class = TypeDocumentation[Token].E1;
+                        Namespace = Class.Namespace;
+                    }
+                    else if (MemberDocumentation.ContainsKey(Token))
+                    {
+                        Member = MemberDocumentation[Token].E1;
+                        Class = Member.DeclaringType;
+                        Namespace = Class.Namespace;
+                    }
+
+                    HTTPStatusCode Status = Namespace == null && Req.RestURL.Length > 1 ? HTTPStatusCode._404_NotFound : HTTPStatusCode._200_OK;
+
+                    var html = new HTML(
+                        new HEAD(
+                            new TITLE(
+                                Member != null ? (
+                                    Member.MemberType == MemberTypes.Constructor ? "Constructor: " :
+                                    Member.MemberType == MemberTypes.Event ? "Event: " :
+                                    Member.MemberType == MemberTypes.Field && (Member as FieldInfo).IsStatic ? "Static field: " :
+                                    Member.MemberType == MemberTypes.Field ? "Field: " :
+                                    Member.MemberType == MemberTypes.Method && (Member as MethodInfo).IsStatic ? "Static method: " :
+                                    Member.MemberType == MemberTypes.Method ? "Method: " :
+                                    Member.MemberType == MemberTypes.Property ? "Property: " : "Member: "
+                                ) : Class != null ? (
+                                    Class.IsEnum ? "Enum: " : Class.IsValueType ? "Struct: " : typeof(Delegate).IsAssignableFrom(Class) ? "Delegate: " : "Class: "
+                                ) : Namespace != null ? "Namespace: " : null,
+                                Member != null && Member.MemberType == MemberTypes.Constructor ? (object) FriendlyTypeName(Class, false) :
+                                    Member != null ? Member.Name : Class != null ? (object) FriendlyTypeName(Class, false) : Namespace != null ? Namespace : null,
+                                Member != null || Class != null || Namespace != null ? " – " : null,
+                                "XML documentation"
+                            ),
+                            new LINK { href = Req.BaseURL + "/css", rel = "stylesheet", type = "text/css" }
+                        ),
+                        new BODY(
+                            new TABLE { class_ = "layout" }._(
+                                new TR(
+                                    new TD { class_ = "sidebar" }._(
+                                        new UL { class_ = "legend" }._(
+                                            new LI("Constructor") { class_ = "Constructor" },
+                                            new LI("Method") { class_ = "Method" },
+                                            new LI("Property") { class_ = "Property" },
+                                            new LI("Event") { class_ = "Event" },
+                                            new LI("Field") { class_ = "Field" }
+                                        ),
+                                        new UL(Tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = Req.BaseURL + "/" + nkvp.Key.URLEscape() },
+                                            Namespace == null || Namespace != nkvp.Key ? (object) "" :
+                                            new UL(nkvp.Value.Where(tkvp => !tkvp.Value.E1.IsNested).Select(tkvp => GenerateTypeBullet(tkvp, Class, Req)))
+                                        )))
+                                    ),
+                                    new TD { class_ = "content" }._(
+                                        Member != null && MemberDocumentation.ContainsKey(Token) ?
+                                            (object) GenerateMemberDocumentation(MemberDocumentation[Token].E1, MemberDocumentation[Token].E2, Req) :
+                                        Class != null && TypeDocumentation.ContainsKey(Token) ?
+                                            (object) GenerateTypeDocumentation(TypeDocumentation[Token].E1, TypeDocumentation[Token].E2, Req) :
+                                        Namespace != null && Tree.ContainsKey(Namespace) ?
+                                            (object) GenerateNamespaceDocumentation(Namespace, Tree[Namespace], Req) :
+                                        new DIV("No documentation available for this item.") { class_ = "warning" }
+                                    )
+                                )
+                            )
+                        )
+                    );
+
                     return new HTTPResponse
                     {
-                        Status = Tree.ContainsKey(Req.RestURL.Substring(1)) || TypeDocumentation.ContainsKey(Req.RestURL.Substring(1)) || MemberDocumentation.ContainsKey(Req.RestURL.Substring(1))
-                            ? HTTPStatusCode._200_OK : HTTPStatusCode._404_NotFound,
+                        Status = Status,
                         Headers = new HTTPResponseHeaders { ContentType = "text/html; charset=utf-8" },
-                        Content = new DynamicContentStream(HandleRequest(Req), true)
+                        Content = new DynamicContentStream(html.ToEnumerable(), true)
                     };
                 }
             };
@@ -174,6 +245,7 @@ namespace RT.Servers
             else if (t == typeof(double)) yield return "double";
             else if (t == typeof(bool)) yield return "bool";
             else if (t == typeof(void)) yield return "void";
+            else if (t == typeof(object)) yield return "object";
             else
             {
                 if (IncludeNamespaces && !t.IsGenericParameter)
@@ -222,41 +294,9 @@ namespace RT.Servers
         private object FriendlyMemberName(MemberInfo m, bool ReturnType, bool ContainingType, bool ParameterTypes, bool ParameterNames, bool Namespaces, bool Indent, string URL, string BaseURL)
         {
             if (m.MemberType == MemberTypes.Constructor || m.MemberType == MemberTypes.Method)
-            {
-                MethodBase mi = m as MethodBase;
-
                 return new SPAN { class_ = m.MemberType.ToString() }._(
-                    ReturnType && m.MemberType != MemberTypes.Constructor ? new object[] { FriendlyTypeName(((MethodInfo) m).ReturnType, Namespaces, BaseURL, false), " " } : null,
-                    m.MemberType == MemberTypes.Constructor && URL != null ? (object) new STRONG(new A(FriendlyTypeName(mi.DeclaringType, Namespaces)) { href = URL }) :
-                        ContainingType || m.MemberType == MemberTypes.Constructor ? FriendlyTypeName(mi.DeclaringType, Namespaces, BaseURL, false) : null,
-                    new WBR(),
-                    m.MemberType != MemberTypes.Constructor && ContainingType ? "." : null,
-                    m.MemberType != MemberTypes.Constructor ? new STRONG(URL == null ? (object) m.Name : new A(m.Name) { href = URL }) : null,
-                    mi.IsGenericMethod ? new WBR() : null,
-                    mi.IsGenericMethod ? "<" + string.Join(", ", mi.GetGenericArguments().Select(ga => ga.Name).ToArray()) + ">" : null,
-                    new Func<IEnumerable<object>>(() =>
-                    {
-                        if (!ParameterTypes && !ParameterNames) return null;
-                        List<object> Lst = new List<object>();
-                        Lst.Add(Indent && mi.GetParameters().Any() ? "(\n    " : "(");
-                        if (!Indent) Lst.Add(new WBR());
-                        bool First = true;
-                        foreach (var p in mi.GetParameters())
-                        {
-                            if (!First) Lst.Add(Indent ? ",\n    " : ", ");
-                            First = false;
-                            Lst.Add(new SPAN { class_ = "parameter" }._(
-                                ParameterTypes && p.IsOut ? "out " : null,
-                                ParameterTypes ? FriendlyTypeName(p.ParameterType, Namespaces, BaseURL, !p.IsOut) : null,
-                                ParameterTypes && ParameterNames ? " " : null,
-                                ParameterNames ? new STRONG(p.Name) : null
-                            ));
-                        }
-                        Lst.Add(Indent && mi.GetParameters().Any() ? "\n)" : ")");
-                        return Lst;
-                    })
+                    FriendlyMethodName(m, ReturnType, ContainingType, ParameterTypes, ParameterNames, Namespaces, Indent, URL, BaseURL, false)
                 );
-            }
 
             return new SPAN { class_ = m.MemberType.ToString() }._(
                 ReturnType && m.MemberType == MemberTypes.Property ? new object[] { FriendlyTypeName(((PropertyInfo) m).PropertyType, Namespaces, BaseURL, false), " " } :
@@ -268,6 +308,52 @@ namespace RT.Servers
                     ? (object) FriendlyPropertyName((PropertyInfo) m, ParameterTypes, ParameterNames, Namespaces, Indent, URL, BaseURL)
                     : new STRONG(URL == null ? (object) m.Name : new A(m.Name) { href = URL })
             );
+        }
+
+        private IEnumerable<object> FriendlyMethodName(MemberInfo m, bool ReturnType, bool ContainingType, bool ParameterTypes, bool ParameterNames, bool Namespaces, bool Indent, string URL, string BaseURL, bool IsDelegate)
+        {
+            MethodBase mi = m as MethodBase;
+            if (IsDelegate) yield return "delegate ";
+            if (ReturnType && m.MemberType != MemberTypes.Constructor)
+            {
+                yield return FriendlyTypeName(((MethodInfo) m).ReturnType, Namespaces, BaseURL, false);
+                yield return " ";
+            }
+            if ((m.MemberType == MemberTypes.Constructor || IsDelegate) && URL != null)
+                yield return new STRONG(new A(FriendlyTypeName(mi.DeclaringType, Namespaces)) { href = URL });
+            else if (IsDelegate)
+                yield return new STRONG(FriendlyTypeName(mi.DeclaringType, Namespaces, BaseURL, false));
+            else if (ContainingType || m.MemberType == MemberTypes.Constructor)
+                yield return FriendlyTypeName(mi.DeclaringType, Namespaces, BaseURL, false);
+            if (!Indent) yield return new WBR();
+            if (m.MemberType != MemberTypes.Constructor && !IsDelegate)
+            {
+                if (ContainingType) yield return ".";
+                yield return new STRONG(URL == null ? (object) m.Name : new A(m.Name) { href = URL });
+            }
+            if (mi.IsGenericMethod)
+            {
+                if (!Indent) yield return new WBR();
+                yield return "<" + ", ".Join(mi.GetGenericArguments().Select(ga => ga.Name)) + ">";
+            }
+            if (ParameterTypes || ParameterNames)
+            {
+                yield return Indent && mi.GetParameters().Any() ? "(\n    " : "(";
+                if (!Indent) yield return new WBR();
+                bool First = true;
+                foreach (var p in mi.GetParameters())
+                {
+                    if (!First) yield return Indent ? ",\n    " : ", ";
+                    First = false;
+                    yield return new SPAN { class_ = "parameter" }._(
+                       ParameterTypes && p.IsOut ? "out " : null,
+                       ParameterTypes ? FriendlyTypeName(p.ParameterType, Namespaces, BaseURL, !p.IsOut) : null,
+                       ParameterTypes && ParameterNames ? " " : null,
+                       ParameterNames ? new STRONG(p.Name) : null
+                   );
+                }
+                yield return Indent && mi.GetParameters().Any() ? "\n)" : ")";
+            }
         }
 
         private IEnumerable<object> FriendlyPropertyName(PropertyInfo Property, bool ParameterTypes, bool ParameterNames, bool Namespaces, bool Indent, string URL, string BaseURL)
@@ -435,86 +521,12 @@ namespace RT.Servers
             return Member.ReflectedType.GetMembers().Any(m => m.MemberType == MemberTypes.Event && m.Name == Member.Name);
         }
 
-        private IEnumerable<string> HandleRequest(HTTPRequest Req)
-        {
-            string Namespace = null;
-            Type Class = null;
-            MemberInfo Member = null;
-
-            string Token = Req.RestURL.Substring(1).URLUnescape();
-            if (Tree.ContainsKey(Token))
-                Namespace = Token;
-            else if (TypeDocumentation.ContainsKey(Token))
-            {
-                Class = TypeDocumentation[Token].E1;
-                Namespace = Class.Namespace;
-            }
-            else if (MemberDocumentation.ContainsKey(Token))
-            {
-                Member = MemberDocumentation[Token].E1;
-                Class = Member.DeclaringType;
-                Namespace = Class.Namespace;
-            }
-
-            var ret = new HTML(
-                new HEAD(
-                    new TITLE(
-                        Member != null ? (
-                            Member.MemberType == MemberTypes.Constructor ? "Constructor: " :
-                            Member.MemberType == MemberTypes.Event ? "Event: " :
-                            Member.MemberType == MemberTypes.Field && (Member as FieldInfo).IsStatic ? "Static field: " :
-                            Member.MemberType == MemberTypes.Field ? "Field: " :
-                            Member.MemberType == MemberTypes.Method && (Member as MethodInfo).IsStatic ? "Static method: " :
-                            Member.MemberType == MemberTypes.Method ? "Method: " :
-                            Member.MemberType == MemberTypes.Property ? "Property: " : "Member: "
-                        ) : Class != null ? (
-                            Class.IsEnum ? "Enum: " : Class.IsValueType ? "Struct: " : "Class: "
-                        ) : Namespace != null ? "Namespace: " : null,
-                        Member != null ? Member.Name : Class != null ? Class.Name : Namespace != null ? Namespace : null,
-                        Member != null || Class != null || Namespace != null ? " – " : null,
-                        "XML documentation"
-                    ),
-                    new LINK { href = Req.BaseURL + "/css", rel = "stylesheet", type = "text/css" }
-                ),
-                new BODY(
-                    new TABLE { class_ = "layout" }._(
-                        new TR(
-                            new TD { class_ = "sidebar" }._(
-                                new DIV { class_ = "legend" }._(
-                                    new SPAN("Constructor") { class_ = "Constructor" },
-                                    new SPAN("Method") { class_ = "Method" },
-                                    new SPAN("Property") { class_ = "Property" },
-                                    new SPAN("Event") { class_ = "Event" },
-                                    new SPAN("Field") { class_ = "Field" }
-                                ),
-                                new UL(Tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = Req.BaseURL + "/" + nkvp.Key.URLEscape() },
-                                    Namespace == null || Namespace != nkvp.Key ? (object) "" :
-                                    new UL(nkvp.Value.Where(tkvp => !tkvp.Value.E1.IsNested).Select(tkvp => GenerateTypeBullet(tkvp, Class, Req)))
-                                )))
-                            ),
-                            new TD { class_ = "content" }._(
-                                Member != null && MemberDocumentation.ContainsKey(Token) ?
-                                    (object) GenerateMemberDocumentation(MemberDocumentation[Token].E1, MemberDocumentation[Token].E2, Req) :
-                                Class != null && TypeDocumentation.ContainsKey(Token) ?
-                                    (object) GenerateTypeDocumentation(TypeDocumentation[Token].E1, TypeDocumentation[Token].E2, Req) :
-                                Namespace != null && Tree.ContainsKey(Namespace) ?
-                                    (object) GenerateNamespaceDocumentation(Namespace, Tree[Namespace], Req) :
-                                new DIV("No documentation available for this item.") { class_ = "warning" }
-                            )
-                        )
-                    )
-                )
-            ).ToEnumerable();
-
-            return ret;
-        }
-
         private object GenerateTypeBullet(KeyValuePair<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> tkvp, Type Class, HTTPRequest Req)
         {
             string cssclass = "type";
             if (tkvp.Value.E2 == null) cssclass += " missing";
             return new LI { class_ = cssclass }._(new A(FriendlyTypeName(tkvp.Value.E1, false)) { href = Req.BaseURL + "/" + tkvp.Key.URLEscape() },
-                Class == null || !IsNestedTypeOf(Class, tkvp.Value.E1) ? (object) "" :
+                Class == null || !IsNestedTypeOf(Class, tkvp.Value.E1) || typeof(Delegate).IsAssignableFrom(tkvp.Value.E1) ? (object) null :
                 new UL(tkvp.Value.E3.Select(mkvp =>
                 {
                     string css = mkvp.Value.E1.MemberType.ToString() + " member";
@@ -564,7 +576,7 @@ namespace RT.Servers
                 FriendlyMemberName(Member, true, false, true, false, false)
             );
             yield return new H2("Full definition");
-            yield return new P(new PRE(FriendlyMemberName(Member, true, true, true, true, true, true, null, Req.BaseURL)));
+            yield return new PRE(FriendlyMemberName(Member, true, true, true, true, true, true, null, Req.BaseURL));
 
             var Summary = Document == null ? null : Document.Element("summary");
             if (Summary != null)
@@ -600,6 +612,12 @@ namespace RT.Servers
 
         private IEnumerable<object> GenerateTypeDocumentation(Type Class, XElement Document, HTTPRequest Req)
         {
+            if (typeof(Delegate).IsAssignableFrom(Class))
+            {
+                yield return GenerateDelegateDocumentation(Class, Document, Req);
+                yield break;
+            }
+
             yield return new H1(
                 Class.IsEnum ? "Enum: " : Class.IsValueType ? "Struct: " : "Class: ",
                 FriendlyTypeName(Class, true)
@@ -636,6 +654,15 @@ namespace RT.Servers
                     ))
                 );
             }
+        }
+
+        private IEnumerable<object> GenerateDelegateDocumentation(Type Class, XElement Document, HTTPRequest Req)
+        {
+            yield return new H1("Delegate: ", FriendlyTypeName(Class, true));
+
+            MethodInfo m = Class.GetMethod("Invoke");
+            yield return new H2("Full definition");
+            yield return new PRE(FriendlyMethodName(m, true, false, true, true, true, true, null, Req.BaseURL, true));
         }
 
         private IEnumerable<object> InterpretBlock(IEnumerable<XNode> Nodes, HTTPRequest Req)
