@@ -7,7 +7,7 @@ using RT.Servers.TCPEvents;
 namespace RT.Servers
 {
     /// <summary>
-    /// Provides a TCP client that can monitor an existing TCP connection (<see cref="Socket"/>)
+    /// Provides a TCP client that can monitor an existing TCP connection (<see cref="System.Net.Sockets.Socket"/>)
     /// for incoming data and will raise events (callback functions) when data is received or the 
     /// connection is closed.
     /// </summary>
