@@ -11,6 +11,7 @@ using RT.Servers;
 using RT.Util.Streams;
 using RT.TagSoup.HTMLTags;
 using RT.TagSoup;
+using RT.Util.Collections;
 
 namespace RT.Servers
 {
