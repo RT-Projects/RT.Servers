@@ -223,6 +223,9 @@ namespace RT.Servers
         }
         private IEnumerable<object> FriendlyTypeName(Type t, bool IncludeNamespaces, string BaseURL, bool InclRef)
         {
+            if (t.IsByRef && InclRef)
+                yield return "ref ";
+
             if (t.IsArray)
             {
                 yield return FriendlyTypeName(t.GetElementType(), IncludeNamespaces);
@@ -230,19 +233,27 @@ namespace RT.Servers
                 yield break;
             }
 
-            if (t.IsByRef && InclRef)
-                yield return "ref ";
+            if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                yield return FriendlyTypeName(t.GetGenericArguments()[0], IncludeNamespaces);
+                yield return "?";
+                yield break;
+            }
 
             // Use the C# identifier for built-in types
             if (t == typeof(int)) yield return "int";
             else if (t == typeof(uint)) yield return "uint";
             else if (t == typeof(long)) yield return "long";
             else if (t == typeof(ulong)) yield return "ulong";
+            else if (t == typeof(short)) yield return "short";
+            else if (t == typeof(ushort)) yield return "ushort";
             else if (t == typeof(byte)) yield return "byte";
+            else if (t == typeof(sbyte)) yield return "sbyte";
             else if (t == typeof(string)) yield return "string";
             else if (t == typeof(char)) yield return "char";
             else if (t == typeof(float)) yield return "float";
             else if (t == typeof(double)) yield return "double";
+            else if (t == typeof(decimal)) yield return "decimal";
             else if (t == typeof(bool)) yield return "bool";
             else if (t == typeof(void)) yield return "void";
             else if (t == typeof(object)) yield return "object";
