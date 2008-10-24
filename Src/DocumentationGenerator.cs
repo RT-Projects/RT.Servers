@@ -1,17 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.IO;
+using System.Linq;
 using System.Reflection;
-using RT.Util;
+using System.Text;
 using System.Xml.Linq;
-using RT.Util.ExtensionMethods;
-using RT.Servers;
-using RT.Util.Streams;
 using RT.TagSoup.HTMLTags;
-using RT.TagSoup;
 using RT.Util.Collections;
+using RT.Util.ExtensionMethods;
+using RT.Util.Streams;
 
 namespace RT.Servers
 {
@@ -201,7 +198,9 @@ namespace RT.Servers
                                             (object) GenerateTypeDocumentation(TypeDocumentation[Token].E1, TypeDocumentation[Token].E2, Req) :
                                         Namespace != null && Tree.ContainsKey(Namespace) ?
                                             (object) GenerateNamespaceDocumentation(Namespace, Tree[Namespace], Req) :
-                                        new DIV("No documentation available for this item.") { class_ = "warning" }
+                                        Req.RestURL == "/"
+                                            ? new DIV("Select an item from the list on the left.") { class_ = "warning" }
+                                            : new DIV("No documentation available for this item.") { class_ = "warning" }
                                     )
                                 )
                             )
@@ -380,7 +379,7 @@ namespace RT.Servers
                 yield return Indent ? "\n]" : "]";
             }
             else
-                yield return Property.Name;
+                yield return new STRONG(URL == null ? (object) Property.Name : new A(Property.Name) { href = URL });
         }
 
         private bool ShouldMemberBeDisplayed(MemberInfo m)
