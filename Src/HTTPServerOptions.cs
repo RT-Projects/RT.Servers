@@ -1,11 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System;
 
 namespace RT.Servers
 {
     /// <summary>
     /// Contains configuration settings for an <see cref="HTTPServer"/>.
     /// </summary>
+    [Serializable]
     public class HTTPServerOptions
     {
         /// <summary>

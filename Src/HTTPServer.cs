@@ -101,7 +101,7 @@ namespace RT.Servers
         }
 
         /// <summary>Initialises a request handler to be hooked to a specific path (URL fragment) and all sub-paths, but any domain or port.</summary>
-        /// <param name="path">See <see cref="Path"/>.</param>
+        /// <param name="path">Path (URL fragment) for which this handler should be used (for example, "/users").</param>
         /// <param name="handler">The request handler to hook.</param>
         public HTTPRequestHandlerHook(string path, HTTPRequestHandler handler)
         {
@@ -112,7 +112,7 @@ namespace RT.Servers
 
         /// <summary>Initialises a request handler to be hooked to a specific domain and all sub-domains, but any path or port.</summary>
         /// <param name="handler">The request handler to hook.</param>
-        /// <param name="path">See <see cref="Domain"/>.</param>
+        /// <param name="domain">Domain name for which this handler should be used (for example, "example.com").</param>
         public HTTPRequestHandlerHook(HTTPRequestHandler handler, string domain)
         {
             if (domain == null)
@@ -153,6 +153,11 @@ namespace RT.Servers
         private TcpListener Listener;
         private Thread ListeningThread;
         private HTTPServerOptions Opt;
+
+        /// <summary>
+        /// Returns the number of currently active threads that are processing a request.
+        /// </summary>
+        public int ActiveHandlers { get; private set; }
 
         /// <summary>Add request handlers here. See the documentation for <see cref="HTTPRequestHandlerHook"/> for more information.
         /// If you wish to make changes to this list while the server is running, use a lock around it.</summary>
@@ -498,25 +503,27 @@ namespace RT.Servers
             while (true)
             {
                 Socket Socket = Listener.AcceptSocket();
-                new Thread(() => ReadingThreadFunction(Socket)).Start();
+                HandleRequest(Socket, false);
             }
         }
 
         private void ReadingThreadFunction(Socket Socket)
         {
-            Stopwatch sw = new StopwatchDummy();
             string StopWatchFilename = Socket.RemoteEndPoint.ToString().Replace(':', '_');
-            sw.Log("Start ReadingThreadFunction()");
-
-            byte[] NextRead = null;
-            int NextReadOffset = 0;
-            int NextReadLength = 0;
-
-            byte[] Buffer = new byte[65536];
-            sw.Log("Allocate buffer");
+            Stopwatch sw = new StopwatchDummy();
+            ActiveHandlers++;
 
             try
             {
+                sw.Log("Start ReadingThreadFunction()");
+
+                byte[] NextRead = null;
+                int NextReadOffset = 0;
+                int NextReadLength = 0;
+
+                byte[] Buffer = new byte[65536];
+                sw.Log("Allocate buffer");
+
                 try
                 {
                     if (Opt.IdleTimeout != 0)
@@ -616,6 +623,7 @@ namespace RT.Servers
             finally
             {
                 sw.SaveToFile(@"C:\temp\log\log_" + StopWatchFilename);
+                ActiveHandlers--;
             }
         }
 
@@ -1424,6 +1432,18 @@ namespace RT.Servers
             if (Size >= (1L << 20))
                 return string.Format("{0:0.00} MB", (double) Size / (1L << 20));
             return string.Format("{0:0.00} KB", (double) Size / (1L << 10));
+        }
+
+        /// <summary>
+        /// Handles an incoming connection. This function can be used to let the server handle a TCP connection
+        /// that was received by some other component outside the HTTPServer class.
+        /// </summary>
+        /// <param name="IncomingConnection">The incoming connection to process.</param>
+        /// <param name="Blocking">If true, returns after the request has been processed and the connection closed.
+        /// If false, spawns a new thread and returns immediately.</param>
+        public void HandleRequest(Socket IncomingConnection, bool Blocking)
+        {
+            new Thread(() => ReadingThreadFunction(IncomingConnection)).Start();
         }
     }
 }
