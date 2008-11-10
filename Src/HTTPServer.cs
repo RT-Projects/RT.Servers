@@ -340,18 +340,20 @@ namespace RT.Servers
         /// <returns><see cref="HTTPResponse"/> object that encapsulates the return of the specified file.</returns>
         public static HTTPResponse FileResponse(string Filepath, string ContentType)
         {
-            if (!File.Exists(Filepath))
-                return ErrorResponse(HTTPStatusCode._404_NotFound, "The requested file does not exist.");
-
             try
             {
-                FileStream FileStream = File.Open(Filepath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                FileStream FileStream = File.Open(Filepath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 return new HTTPResponse
                 {
                     Status = HTTPStatusCode._200_OK,
                     Content = FileStream,
                     Headers = new HTTPResponseHeaders { ContentType = ContentType }
                 };
+            }
+            catch (FileNotFoundException)
+            {
+                return ErrorResponse(HTTPStatusCode._404_NotFound,
+                    "The requested file does not exist.");
             }
             catch (IOException e)
             {
