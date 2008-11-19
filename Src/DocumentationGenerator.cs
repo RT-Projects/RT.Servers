@@ -120,7 +120,9 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Returns the <see cref="HTTPRequestHandler"/> to be hooked to an instance of <see cref="HTTPServer"/> using <see cref="HTTPServer.AddHandler"/>.
+        /// Returns the <see cref="HTTPRequestHandler"/> that handles HTTP requests for the documentation.
+        /// Instantiate a <see cref="HTTPRequestHandlerHook"/> with this and add it to an instance of
+        /// <see cref="HTTPServer"/> using <see cref="HTTPServer.RequestHandlerHooks"/>.
         /// </summary>
         /// <returns>An <see cref="HTTPRequestHandler"/> that can be hooked to an instance of <see cref="HTTPServer"/></returns>
         public HTTPRequestHandler GetRequestHandler()

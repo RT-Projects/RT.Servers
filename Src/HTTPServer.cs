@@ -212,16 +212,19 @@ namespace RT.Servers
         /// The MIME type used for the returned files is determined from <see cref="HTTPServerOptions.MIMETypes"/>.
         /// </summary>
         /// <param name="BaseDir">The base directory from which to serve files.</param>
-        /// <returns>An <see cref="HTTPRequestHandler"/> that can be assigned to the indexing property of this <see cref="HTTPServer"/>.</returns>
+        /// <returns>An <see cref="HTTPRequestHandler"/> that can be used to create an <see cref="HTTPRequestHandlerHook"/>
+        /// and then added to <see cref="RequestHandlerHooks"/>.</returns>
         /// <example>
-        ///     <code>
-        ///         HTTPServer MyServer = new HTTPServer();
-        ///         MyServer["www.mydomain.com/users"] = MyServer.FileSystemHandler(@"D:\UserFiles");
-        ///     </code>
-        ///     The above code will instantiate an <see cref="HTTPServer"/> which will serve files from the <c>D:\UserFiles</c> directory
+        ///     The following code will instantiate an <see cref="HTTPServer"/> which will serve files from the <c>D:\UserFiles</c> directory
         ///     on the local file system. For example, a request for the URL <c>http://www.mydomain.com/users/adam/report.txt</c>
         ///     will serve the file stored at the location <c>D:\UserFiles\adam\report.txt</c>. A request for the URL
         ///     <c>http://www.mydomain.com/users/adam/</c> will list all the files in the directory <c>D:\UserFiles\adam</c>.
+        ///     <code>
+        ///         HTTPServer MyServer = new HTTPServer();
+        ///         var handler = MyServer.CreateFileSystemHandler(@"D:\UserFiles");
+        ///         var hook = new HTTPRequestHandlerHook("/users", handler);
+        ///         MyServer.RequestHandlerHooks.Add(hook);
+        ///     </code>
         /// </example>
         public HTTPRequestHandler CreateFileSystemHandler(string BaseDir)
         {
@@ -230,7 +233,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Creates a handler which will serve the file specified in <paramref name="Filepath"/>.
-        /// To be used in conjunction with <see cref="AddHandler"/>.
+        /// Use in a <see cref="HTTPRequestHandlerHook"/> and add to <see cref="RequestHandlerHooks"/>.
         /// See also: <see cref="CreateFileSystemHandler"/>.
         /// </summary>
         public HTTPRequestHandler CreateFileHandler(string Filepath)
@@ -240,7 +243,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Creates a handler which will redirect the browser to <paramref name="NewURL"/>.
-        /// To be used in conjunction with <see cref="AddHandler"/>.
+        /// To be used in conjunction with <see cref="HTTPRequestHandlerHook"/> to add to <see cref="RequestHandlerHooks"/>.
         /// </summary>
         public HTTPRequestHandler CreateRedirectHandler(string NewURL)
         {
