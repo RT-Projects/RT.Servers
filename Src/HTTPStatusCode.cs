@@ -68,4 +68,22 @@ namespace RT.Servers
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
     
     }
+
+    /// <summary>
+    /// Extension methods for <see cref="HTTPStatusCode"/>.
+    /// </summary>
+    public static class HTTPStatusCodeExtensions
+    {
+        /// <summary>
+        /// Returns a string representation of the specified HTTP status code.
+        /// </summary>
+        /// <param name="code">The status code to return a string representation for.</param>
+        /// <returns>A string representation of the specified HTTP status code.</returns>
+        public static string ToText(this HTTPStatusCode code)
+        {
+            return HTTPInternalObjects.StatusCodeNames.ContainsKey(code)
+                ? HTTPInternalObjects.StatusCodeNames[code]
+                : "Unknown status code";
+        }
+    }
 }

@@ -143,16 +143,6 @@ namespace RT.Servers
         };
 
         /// <summary>
-        /// Returns a string representation of the specified HTTP status code.
-        /// </summary>
-        /// <param name="StatusCode">The status code to return a string representation for.</param>
-        /// <returns>A string representation of the specified HTTP status code.</returns>
-        public static string GetStatusCodeName(HTTPStatusCode StatusCode)
-        {
-            return StatusCodeNames.ContainsKey(StatusCode) ? StatusCodeNames[StatusCode] : "Unknown status code";
-        }
-
-        /// <summary>
         /// Generates a random filename for a temporary file in the specified directory.
         /// </summary>
         /// <param name="TempDir">Directory to generate a temporary file in.</param>

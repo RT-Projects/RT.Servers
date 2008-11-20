@@ -488,7 +488,7 @@ namespace RT.Servers
         /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code, headers and message.</returns>
         public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
         {
-            string StatusCodeName = ("" + ((int) StatusCode) + " " + HTTPInternalObjects.GetStatusCodeName(StatusCode)).HTMLEscape();
+            string StatusCodeName = ("" + ((int) StatusCode) + " " + StatusCode.ToText()).HTMLEscape();
             Headers.ContentType = "text/html; charset=utf-8";
 
             string ContentStr =
@@ -634,7 +634,7 @@ namespace RT.Servers
 
         private void SendHeaders(Socket Socket, HTTPResponse Response)
         {
-            string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + HTTPInternalObjects.GetStatusCodeName(Response.Status) + "\r\n" +
+            string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + Response.Status.ToText() + "\r\n" +
                 Response.Headers.ToString() + "\r\n";
             if (Log != null) Log.Info(HeadersStr);
             Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
