@@ -890,9 +890,8 @@ namespace RT.Servers
             foreach (var r in Ranges)
             {
                 Response.Status = HTTPStatusCode._206_PartialContent;
-                // Note: this is the length of just the range
+                // Note: this is the length of just the range, not the complete file (that's TotalFileSize)
                 Response.Headers.ContentLength = r.Value - r.Key + 1;
-                // Note: here "ContentLength" is the length of the complete file
                 Response.Headers.ContentRange = new HTTPContentRange { From = r.Key, To = r.Value, Total = TotalFileSize };
                 SendHeaders(Socket, Response);
                 if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
@@ -1214,10 +1213,14 @@ namespace RT.Servers
             }
             else if (HeaderName == "accept-language")
                 Req.Headers.AcceptLanguage = SplitAndSortByQ(HeaderValue);
-            else if (HeaderName == "connection" && ValueLower == "close")
-                Req.Headers.Connection = HTTPConnection.Close;
-            else if (HeaderName == "connection" && (ValueLower == "keep-alive" || ValueLower == "keepalive"))
-                Req.Headers.Connection = HTTPConnection.KeepAlive;
+            else if (HeaderName == "connection")
+            {
+                var values = SplitAndSortByQ(ValueLower);
+                if (values.Contains("close"))
+                    Req.Headers.Connection = HTTPConnection.Close;
+                else if (values.Contains("keep-alive") || values.Contains("keepalive"))
+                    Req.Headers.Connection = HTTPConnection.KeepAlive;
+            }
             else if (HeaderName == "content-length" && int.TryParse(HeaderValue, out IntOutput))
                 Req.Headers.ContentLength = IntOutput;
             else if (HeaderName == "content-type")
