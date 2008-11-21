@@ -30,6 +30,7 @@ namespace RT.Servers
         public HTTPPOSTContentType ContentType;     // required only for POST
         public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HTTPPOSTContentType.MultipartFormData
         public Dictionary<string, Cookie> Cookie;
+        public Dictionary<string, string> Expect;
         public string Host;
         public DateTime? IfModifiedSince;
         public string IfNoneMatch;

@@ -491,6 +491,10 @@ namespace RT.Servers
             string StatusCodeName = ("" + ((int) StatusCode) + " " + StatusCode.ToText()).HTMLEscape();
             Headers.ContentType = "text/html; charset=utf-8";
 
+            // We sometimes output error messages as soon as possible, even if we should normally wait for more data, esp. the POST content.
+            // This would interfere with Connection: keep-alive, so the best solution here is to close the connection in such an error condition.
+            Headers.Connection = HTTPConnection.Close;
+
             string ContentStr =
                 "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n" +
                 "<html>\n <head>\n  <title>HTTP " + StatusCodeName + "</title>\n </head>\n <body>\n  <h1>" + StatusCodeName + "</h1>\n" +
@@ -1027,6 +1031,10 @@ namespace RT.Servers
                 if (Req.Headers.ContentLength.Value > Opt.MaxSizePostContent)
                     return ErrorResponse(HTTPStatusCode._413_RequestEntityTooLarge);
 
+                // If "Expect: 100-continue" was specified, send a 100 Continue here
+                if (Req.Headers.Expect != null && Req.Headers.Expect.ContainsKey("100-continue"))
+                    Socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToASCII());
+
                 // Read the contents of the POST request
                 if (ContentLengthSoFar >= Req.Headers.ContentLength.Value)
                 {
@@ -1339,6 +1347,47 @@ namespace RT.Servers
                     }
                 }
                 Req.Headers.Host = ValueLower;
+            }
+            else if (HeaderName == "expect")
+            {
+                string HV = HeaderValue;
+                var Expect = new Dictionary<string, string>();
+                while (HV.Length > 0)
+                {
+                    Match m = Regex.Match(HV, @"(^[^;=""]*?)\s*(;\s*|$)");
+                    if (m.Success)
+                    {
+                        Expect.Add(m.Groups[1].Value.ToLowerInvariant(), "1");
+                        HV = HV.Substring(m.Length);
+                    }
+                    else
+                    {
+                        m = Regex.Match(HV, @"^([^;=""]*?)\s*=\s*([^;=""]*?)\s*(;\s*|$)");
+                        if (m.Success)
+                        {
+                            Expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value.ToLowerInvariant());
+                            HV = HV.Substring(m.Length);
+                        }
+                        else
+                        {
+                            m = Regex.Match(HV, @"^([^;=""]*?)\s*=\s*""([^""]*)""\s*(;\s*|$)");
+                            if (m.Success)
+                            {
+                                Expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value);
+                                HV = HV.Substring(m.Length);
+                            }
+                            else
+                            {
+                                Expect.Add(HV, "1");
+                                HV = "";
+                            }
+                        }
+                    }
+                }
+                Req.Headers.Expect = Expect;
+                foreach (var kvp in Expect)
+                    if (kvp.Key != "100-continue")
+                        throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._417_ExpectationFailed));
             }
             else if (HeaderName == "if-modified-since")
             {
