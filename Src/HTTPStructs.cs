@@ -5,7 +5,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates an HTTP cookie.
     /// </summary>
-    public struct Cookie
+    public class Cookie
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public string Name;

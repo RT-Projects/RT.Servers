@@ -18,7 +18,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
     /// </summary>
-    public struct HTTPRequestHeaders
+    public class HTTPRequestHeaders
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public string[] Accept;
@@ -46,7 +46,7 @@ namespace RT.Servers
     /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HTTPServer"/> generates this when it receives an 
     /// HTTP request and passes it to the relevant <see cref="HTTPRequestHandler"/>.
     /// </summary>
-    public struct HTTPRequest
+    public class HTTPRequest
     {
         private struct FieldsCache
         {
@@ -115,7 +115,7 @@ namespace RT.Servers
         /// <summary>
         /// The HTTP request headers that were received and understood by <see cref="HTTPServer"/>.
         /// </summary>
-        public HTTPRequestHeaders Headers;
+        public HTTPRequestHeaders Headers = new HTTPRequestHeaders();
 
         /// <summary>
         /// The directory to use for temporary files if the request is a POST request and contains a file upload.
@@ -140,6 +140,13 @@ namespace RT.Servers
         /// <see cref="HTTPServer"/> uses this field to keep track of it and delete the file when it is no longer needed.
         /// </summary>
         internal string TemporaryFile;
+
+        /// <summary>
+        /// A default constructor that initialises all fields to their defaults.
+        /// </summary>
+        public HTTPRequest()
+        {
+        }
 
         /// <summary>
         /// DO NOT USE THIS CONSTRUCTOR except in unit testing.

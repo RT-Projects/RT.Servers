@@ -8,7 +8,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates all supported HTTP response headers. A request handler can set these appropriately to cause the server to emit the required headers.
     /// </summary>
-    public struct HTTPResponseHeaders
+    public class HTTPResponseHeaders
     {
 
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
@@ -134,7 +134,7 @@ namespace RT.Servers
     /// Encapsulates an HTTP response, to be sent by <see cref="HTTPServer"/> to the HTTP client that sent the original request.
     /// A request handler must return an HTTPResponse object to the <see cref="HTTPServer"/> when handling a request.
     /// </summary>
-    public struct HTTPResponse
+    public class HTTPResponse
     {
         /// <summary>
         /// The HTTP status code. For example, HTTP 200 OK, HTTP 404 Not Found, HTTP 500 Internal Server Error.
@@ -145,7 +145,7 @@ namespace RT.Servers
         /// <summary>
         /// The HTTP response headers which are to be sent back to the HTTP client as part of this HTTP response.
         /// </summary>
-        public HTTPResponseHeaders Headers;
+        public HTTPResponseHeaders Headers = new HTTPResponseHeaders();
 
         /// <summary>
         /// A stream object providing read access to the content returned. For static files, use <see cref="FileStream"/>.
