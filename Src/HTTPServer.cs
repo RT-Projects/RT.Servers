@@ -1110,6 +1110,11 @@ namespace RT.Servers
                     sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                     return Resp;
                 }
+                catch (InvalidRequestException e)
+                {
+                    sw.Log("HandleRequestAfterHeaders() - InvalidRequestException()");
+                    return e.Response;
+                }
                 catch (Exception e)
                 {
                     HTTPResponse Resp = ExceptionResponse(e);
@@ -1119,9 +1124,17 @@ namespace RT.Servers
             }
             else
             {
-                HTTPResponse Resp = Req.Handler(Req);
-                sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                return Resp;
+                try
+                {
+                    HTTPResponse Resp = Req.Handler(Req);
+                    sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
+                    return Resp;
+                }
+                catch (InvalidRequestException e)
+                {
+                    sw.Log("HandleRequestAfterHeaders() - InvalidRequestException()");
+                    return e.Response;
+                }
             }
         }
 
