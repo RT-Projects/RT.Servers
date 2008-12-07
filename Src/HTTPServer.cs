@@ -592,7 +592,9 @@ namespace RT.Servers
                         NextReadOffset += SepIndex + 4 - PrevHeadersLength;
                         NextReadLength -= SepIndex + 4 - PrevHeadersLength;
                         sw.Log("Stuff before HandleRequestAfterHeaders()");
-                        HTTPResponse Response = HandleRequestAfterHeaders(Socket, HeadersSoFar, NextRead, ref NextReadOffset, ref NextReadLength, sw);
+                        HTTPRequest OriginalRequest;
+                        HTTPResponse Response = HandleRequestAfterHeaders(Socket, HeadersSoFar, NextRead, ref NextReadOffset, ref NextReadLength, sw, out OriginalRequest);
+                        Response.OriginalRequest = OriginalRequest;
                         sw.Log("Returned from HandleRequestAfterHeaders()");
                         if (NextReadLength == 0)
                             NextRead = null;
@@ -967,11 +969,12 @@ namespace RT.Servers
             Socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
         }
 
-        private HTTPResponse HandleRequestAfterHeaders(Socket Socket, string Headers, byte[] BufferWithContentSoFar, ref int ContentOffset, ref int ContentLengthSoFar, Stopwatch sw)
+        private HTTPResponse HandleRequestAfterHeaders(Socket Socket, string Headers, byte[] BufferWithContentSoFar, ref int ContentOffset, ref int ContentLengthSoFar, Stopwatch sw, out HTTPRequest Req)
         {
             sw.Log("HandleRequestAfterHeaders() - enter");
 
             string[] Lines = Headers.Split(new string[] { "\r\n" }, StringSplitOptions.None);
+            Req = new HTTPRequest();
             if (Lines.Length < 2)
                 return ErrorResponse(HTTPStatusCode._400_BadRequest);
 
@@ -981,13 +984,10 @@ namespace RT.Servers
                 return ErrorResponse(HTTPStatusCode._501_NotImplemented);
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before new HTTPRequest()");
-            HTTPRequest Req = new HTTPRequest
-            {
-                Method = Match.Groups[1].Value == "HEAD" ? HTTPMethod.HEAD :
-                         Match.Groups[1].Value == "POST" ? HTTPMethod.POST : HTTPMethod.GET,
-                URL = Match.Groups[2].Value,
-                TempDir = Opt.TempDir   // this will only be used if there is a file upload in a POST request.
-            };
+            Req.Method = Match.Groups[1].Value == "HEAD" ? HTTPMethod.HEAD :
+                         Match.Groups[1].Value == "POST" ? HTTPMethod.POST : HTTPMethod.GET;
+            Req.URL = Match.Groups[2].Value;
+            Req.TempDir = Opt.TempDir;   // this will only be used if there is a file upload in a POST request.
 
             sw.Log("HandleRequestAfterHeaders() - new HTTPRequest()");
 
@@ -1108,14 +1108,12 @@ namespace RT.Servers
                 {
                     HTTPResponse Resp = Req.Handler(Req);
                     sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                    Resp.OriginalRequest = Req;
                     return Resp;
                 }
                 catch (Exception e)
                 {
                     HTTPResponse Resp = ExceptionResponse(e);
                     sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
-                    Resp.OriginalRequest = Req;
                     return Resp;
                 }
             }
@@ -1123,7 +1121,6 @@ namespace RT.Servers
             {
                 HTTPResponse Resp = Req.Handler(Req);
                 sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                Resp.OriginalRequest = Req;
                 return Resp;
             }
         }
