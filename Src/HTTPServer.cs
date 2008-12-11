@@ -311,7 +311,7 @@ namespace RT.Servers
                 {
                     Headers = new HTTPResponseHeaders { ContentType = "application/xml; charset=utf-8" },
                     Status = HTTPStatusCode._200_OK,
-                    Content = new DynamicContentStream(GenerateDirectoryXML(p + SoFar, TrueDirURL))
+                    Content = new DynamicContentStream(GenerateDirectoryXml(p + SoFar, TrueDirURL))
                 };
             }
             else
@@ -402,7 +402,7 @@ namespace RT.Servers
         /// <param name="LocalPath">Full path of a directory to list the contents of.</param>
         /// <param name="URL">URL (not including a domain) that points at the directory.</param>
         /// <returns>XML that represents the contents of the specified directory.</returns>
-        public static IEnumerable<string> GenerateDirectoryXML(string LocalPath, string URL)
+        public static IEnumerable<string> GenerateDirectoryXml(string LocalPath, string URL)
         {
             if (!Directory.Exists(LocalPath))
                 throw new FileNotFoundException("Directory does not exist.", LocalPath);
