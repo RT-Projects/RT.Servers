@@ -10,11 +10,11 @@ using RT.Servers;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 using System.Globalization;
+using System.IO.Compression;
 
 namespace ServersTests
 {
     // Things this doesn't yet test:
-    // * Content-Encoding: gzip
     // * Expect: 100-continue / 100 Continue
 
     [TestFixture]
@@ -227,6 +227,17 @@ Content-Type: text/html
                 Assert.AreEqual(expectedContent.Length, resp.Content.Length);
                 for (int i = 0; i < expectedContent.Length; i++)
                     Assert.AreEqual(expectedContent[i], resp.Content[i]);
+
+                resp = GetTestResponse("GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n");
+                Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
+                Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
+                Assert.IsTrue(resp.Headers.Contains("Content-Type: application/octet-stream"));
+                Assert.IsTrue(resp.Headers.Contains("Content-Encoding: gzip"));
+                Assert.IsTrue(resp.Headers.Contains("Content-Length: 1222"));
+                GZipStream gz = new GZipStream(new MemoryStream(resp.Content), CompressionMode.Decompress);
+                for (int i = 0; i < 65536; i++)
+                    Assert.AreEqual(i % 256, gz.ReadByte());
+                Assert.AreEqual(-1, gz.ReadByte());
 
                 resp = GetTestResponse("GET /dynamic HTTP/1.1\r\n\r\n");
                 Assert.AreEqual("HTTP/1.1 400 Bad Request", resp.Headers[0]);
