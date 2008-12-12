@@ -153,11 +153,12 @@ namespace RT.Servers
         private TcpListener Listener;
         private Thread ListeningThread;
         private HTTPServerOptions Opt;
+        private List<Thread> ActiveReadingThreads = new List<Thread>();
 
         /// <summary>
         /// Returns the number of currently active threads that are processing a request.
         /// </summary>
-        public int ActiveHandlers { get; private set; }
+        public int ActiveHandlers { get { lock (ActiveReadingThreads) { return ActiveReadingThreads.Count; } } }
 
         /// <summary>Add request handlers here. See the documentation for <see cref="HTTPRequestHandlerHook"/> for more information.
         /// If you wish to make changes to this list while the server is running, use a lock around it.</summary>
@@ -167,10 +168,11 @@ namespace RT.Servers
         public LoggerBase Log;
 
         /// <summary>
-        /// Shuts the HTTP server down. This method is only useful if <see cref="StartListening"/>
-        /// was called with the Blocking parameter set to false.
+        /// Shuts the HTTP server down, optionally either gracefully (allowing still-running requests to complete)
+        /// or brutally (aborting requests no matter where they are in their processing).
         /// </summary>
-        public void StopListening()
+        /// <param name="brutal">If true, requests currently executing in separate threads are aborted brutally.</param>
+        public void StopListening(bool brutal)
         {
             if (!IsListening)
                 return;
@@ -178,6 +180,23 @@ namespace RT.Servers
             ListeningThread = null;
             Listener.Stop();
             Listener = null;
+
+            lock (ActiveReadingThreads)
+            {
+                if (brutal)
+                    foreach (var thr in ActiveReadingThreads)
+                        thr.Abort();
+                ActiveReadingThreads = new List<Thread>();
+            }
+        }
+
+        /// <summary>
+        /// Shuts the HTTP server down gracefully, allowing still-running requests to complete.
+        /// Use this method only if <see cref="StartListening"/> was called with the Blocking parameter set to false.
+        /// </summary>
+        public void StopListening()
+        {
+            StopListening(false);
         }
 
         /// <summary>
@@ -516,11 +535,10 @@ namespace RT.Servers
             }
         }
 
-        private void ReadingThreadFunction(Socket Socket)
+        private void ReadingThreadFunction(Socket Socket, Thread ThisThread)
         {
             string StopWatchFilename = Socket.RemoteEndPoint.ToString().Replace(':', '_');
             Stopwatch sw = new StopwatchDummy();
-            ActiveHandlers++;
 
             try
             {
@@ -549,14 +567,11 @@ namespace RT.Servers
                             catch (SocketException) { Socket.Close(); return; }
                             sw.Log("Socket.Receive()");
 
-                            if (ErrorCode != SocketError.Success)
+                            if (ErrorCode != SocketError.Success || NextReadLength == 0)
                             {
                                 Socket.Close();
                                 return;
                             }
-
-                            if (NextReadLength == 0)
-                                continue;
 
                             NextRead = Buffer;
                             NextReadOffset = 0;
@@ -634,7 +649,8 @@ namespace RT.Servers
             finally
             {
                 sw.SaveToFile(@"C:\temp\log\log_" + StopWatchFilename);
-                ActiveHandlers--;
+                lock (ActiveReadingThreads)
+                    ActiveReadingThreads.Remove(ThisThread);
             }
         }
 
@@ -1510,7 +1526,11 @@ namespace RT.Servers
         /// If false, spawns a new thread and returns immediately.</param>
         public void HandleRequest(Socket IncomingConnection, bool Blocking)
         {
-            new Thread(() => ReadingThreadFunction(IncomingConnection)).Start();
+            Thread readThread = null;
+            readThread = new Thread(() => ReadingThreadFunction(IncomingConnection, readThread));
+            lock (ActiveReadingThreads)
+                ActiveReadingThreads.Add(readThread);
+            readThread.Start();
         }
     }
 }
