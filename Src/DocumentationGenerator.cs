@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Xml.Linq;
-using RT.TagSoup.HTMLTags;
+using RT.TagSoup.HtmlTags;
 using RT.Util.Collections;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
@@ -13,7 +13,7 @@ using RT.Util.Streams;
 namespace RT.Servers
 {
     /// <summary>
-    /// Provides an <see cref="HTTPRequestHandler"/> that generates web pages from C# XML documentation.
+    /// Provides an <see cref="HttpRequestHandler"/> that generates web pages from C# XML documentation.
     /// </summary>
     public class DocumentationGenerator
     {
@@ -78,7 +78,7 @@ namespace RT.Servers
         /// All pairs of matching <c>*.dll</c> and <c>*.docs.xml</c> files are considered for documentation. The classes are extracted
         /// from the DLLs and grouped by namespaces.
         /// </summary>
-        /// <param name="Path">Path containing DLL and XML files.</param>
+        /// <param name="path">Path containing DLL and XML files.</param>
         public DocumentationGenerator(string path)
         {
             _tree = new SortedDictionary<string, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>>();
@@ -120,26 +120,26 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Returns the <see cref="HTTPRequestHandler"/> that handles HTTP requests for the documentation.
-        /// Instantiate a <see cref="HTTPRequestHandlerHook"/> with this and add it to an instance of
-        /// <see cref="HTTPServer"/> using <see cref="HTTPServer.RequestHandlerHooks"/>.
+        /// Returns the <see cref="HttpRequestHandler"/> that handles HTTP requests for the documentation.
+        /// Instantiate a <see cref="HttpRequestHandlerHook"/> with this and add it to an instance of
+        /// <see cref="HttpServer"/> using <see cref="HttpServer.RequestHandlerHooks"/>.
         /// </summary>
-        /// <returns>An <see cref="HTTPRequestHandler"/> that can be hooked to an instance of <see cref="HTTPServer"/></returns>
-        public HTTPRequestHandler GetRequestHandler()
+        /// <returns>An <see cref="HttpRequestHandler"/> that can be hooked to an instance of <see cref="HttpServer"/></returns>
+        public HttpRequestHandler GetRequestHandler()
         {
             return req =>
             {
-                if (req.RestURL == "")
-                    return HTTPServer.RedirectResponse(req.BaseURL + "/");
-                if (req.RestURL == "/css")
-                    return HTTPServer.StringResponse(_css, "text/css; charset=utf-8");
+                if (req.RestUrl == "")
+                    return HttpServer.RedirectResponse(req.BaseUrl + "/");
+                if (req.RestUrl == "/css")
+                    return HttpServer.StringResponse(_css, "text/css; charset=utf-8");
                 else
                 {
                     string ns = null;
                     Type type = null;
                     MemberInfo member = null;
 
-                    string token = req.RestURL.Substring(1).URLUnescape();
+                    string token = req.RestUrl.Substring(1).URLUnescape();
                     if (_tree.ContainsKey(token))
                         ns = token;
                     else if (_typeDocumentation.ContainsKey(token))
@@ -154,7 +154,7 @@ namespace RT.Servers
                         ns = type.Namespace;
                     }
 
-                    HTTPStatusCode status = ns == null && req.RestURL.Length > 1 ? HTTPStatusCode._404_NotFound : HTTPStatusCode._200_OK;
+                    HttpStatusCode status = ns == null && req.RestUrl.Length > 1 ? HttpStatusCode._404_NotFound : HttpStatusCode._200_OK;
 
                     var html = new HTML(
                         new HEAD(
@@ -175,7 +175,7 @@ namespace RT.Servers
                                 member != null || type != null || ns != null ? " – " : null,
                                 "XML documentation"
                             ),
-                            new LINK { href = req.BaseURL + "/css", rel = "stylesheet", type = "text/css" }
+                            new LINK { href = req.BaseUrl + "/css", rel = "stylesheet", type = "text/css" }
                         ),
                         new BODY(
                             new TABLE { class_ = "layout" }._(
@@ -188,7 +188,7 @@ namespace RT.Servers
                                             new LI("Event") { class_ = "Event" },
                                             new LI("Field") { class_ = "Field" }
                                         ),
-                                        new UL(_tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = req.BaseURL + "/" + nkvp.Key.URLEscape() },
+                                        new UL(_tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = req.BaseUrl + "/" + nkvp.Key.URLEscape() },
                                             ns == null || ns != nkvp.Key ? (object) "" :
                                             new UL(nkvp.Value.Where(tkvp => !tkvp.Value.E1.IsNested).Select(tkvp => generateTypeBullet(tkvp, type, req)))
                                         )))
@@ -200,7 +200,7 @@ namespace RT.Servers
                                             (object) generateTypeDocumentation(_typeDocumentation[token].E1, _typeDocumentation[token].E2, req) :
                                         ns != null && _tree.ContainsKey(ns) ?
                                             (object) generateNamespaceDocumentation(ns, _tree[ns], req) :
-                                        req.RestURL == "/"
+                                        req.RestUrl == "/"
                                             ? new DIV("Select an item from the list on the left.") { class_ = "warning" }
                                             : new DIV("No documentation available for this item.") { class_ = "warning" }
                                     )
@@ -209,10 +209,10 @@ namespace RT.Servers
                         )
                     );
 
-                    return new HTTPResponse
+                    return new HttpResponse
                     {
                         Status = status,
-                        Headers = new HTTPResponseHeaders { ContentType = "text/html; charset=utf-8" },
+                        Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
                         Content = new DynamicContentStream(html.ToEnumerable(), true)
                     };
                 }
@@ -534,18 +534,18 @@ namespace RT.Servers
             return member.ReflectedType.GetMembers().Any(m => m.MemberType == MemberTypes.Event && m.Name == member.Name);
         }
 
-        private object generateTypeBullet(KeyValuePair<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> tkvp, Type type, HTTPRequest req)
+        private object generateTypeBullet(KeyValuePair<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> tkvp, Type type, HttpRequest req)
         {
             string cssClass = "type";
             if (tkvp.Value.E2 == null) cssClass += " missing";
-            return new LI { class_ = cssClass }._(new A(friendlyTypeName(tkvp.Value.E1, false)) { href = req.BaseURL + "/" + tkvp.Key.URLEscape() },
+            return new LI { class_ = cssClass }._(new A(friendlyTypeName(tkvp.Value.E1, false)) { href = req.BaseUrl + "/" + tkvp.Key.URLEscape() },
                 type == null || !isNestedTypeOf(type, tkvp.Value.E1) || typeof(Delegate).IsAssignableFrom(tkvp.Value.E1) ? (object) null :
                 new UL(tkvp.Value.E3.Select(mkvp =>
                 {
                     string css = mkvp.Value.E1.MemberType.ToString() + " member";
                     if (mkvp.Value.E2 == null) css += " missing";
                     return mkvp.Value.E1.MemberType != MemberTypes.NestedType
-                        ? new LI { class_ = css }._(new A(friendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = req.BaseURL + "/" + mkvp.Key.URLEscape() })
+                        ? new LI { class_ = css }._(new A(friendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + mkvp.Key.URLEscape() })
                         : generateTypeBullet(_tree[tkvp.Value.E1.Namespace].First(kvp => kvp.Key == ((Type) mkvp.Value.E1).FullName), type, req);
                 }))
             );
@@ -558,7 +558,7 @@ namespace RT.Servers
             return isNestedTypeOf(nestedType.DeclaringType, containingType);
         }
 
-        private IEnumerable<object> generateNamespaceDocumentation(string namespaceName, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> namespaceInfo, HTTPRequest req)
+        private IEnumerable<object> generateNamespaceDocumentation(string namespaceName, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> namespaceInfo, HttpRequest req)
         {
             yield return new H1("Namespace: ", namespaceName);
 
@@ -567,7 +567,7 @@ namespace RT.Servers
                 yield return new H2(gr.Key ? "Enums in this namespace" : "Classes and structs in this namespace");
                 yield return new TABLE { class_ = "doclist" }._(
                     gr.Select(kvp => new TR(
-                        new TD(new A(friendlyTypeName(kvp.Value.E1, false)) { href = req.BaseURL + "/" + kvp.Value.E1.FullName.URLEscape() }),
+                        new TD(new A(friendlyTypeName(kvp.Value.E1, false)) { href = req.BaseUrl + "/" + kvp.Value.E1.FullName.URLEscape() }),
                         new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
                             ? (object) new EM("No documentation available.")
                             : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
@@ -576,7 +576,7 @@ namespace RT.Servers
             }
         }
 
-        private IEnumerable<object> generateMemberDocumentation(MemberInfo member, XElement document, HTTPRequest req)
+        private IEnumerable<object> generateMemberDocumentation(MemberInfo member, XElement document, HttpRequest req)
         {
             yield return new H1(
                 member.MemberType == MemberTypes.Constructor ? "Constructor: " :
@@ -589,7 +589,7 @@ namespace RT.Servers
                 friendlyMemberName(member, true, false, true, false, false)
             );
             yield return new H2("Full definition");
-            yield return new PRE(friendlyMemberName(member, true, true, true, true, true, true, null, req.BaseURL));
+            yield return new PRE(friendlyMemberName(member, true, true, true, true, true, true, null, req.BaseUrl));
 
             var summary = document == null ? null : document.Element("summary");
             if (summary != null)
@@ -610,7 +610,7 @@ namespace RT.Servers
                         return new TR(
                             new TD { class_ = "item" }._(
                                 pi.IsOut ? "out " : null,
-                                friendlyTypeName(pi.ParameterType, false, req.BaseURL, !pi.IsOut),
+                                friendlyTypeName(pi.ParameterType, false, req.BaseUrl, !pi.IsOut),
                                 " ",
                                 new STRONG(pi.Name)
                             ),
@@ -623,7 +623,7 @@ namespace RT.Servers
             }
         }
 
-        private IEnumerable<object> generateTypeDocumentation(Type type, XElement document, HTTPRequest req)
+        private IEnumerable<object> generateTypeDocumentation(Type type, XElement document, HttpRequest req)
         {
             if (typeof(Delegate).IsAssignableFrom(type))
             {
@@ -660,7 +660,7 @@ namespace RT.Servers
                 );
                 yield return new TABLE { class_ = "doclist" }._(
                     gr.Select(kvp => new TR(
-                        new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.E1, true, false, true, true, false, false, req.BaseURL + "/" + kvp.Key.URLEscape(), req.BaseURL)),
+                        new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.E1, true, false, true, true, false, false, req.BaseUrl + "/" + kvp.Key.URLEscape(), req.BaseUrl)),
                         new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
                             ? (object) new EM("No documentation available.")
                             : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
@@ -669,16 +669,16 @@ namespace RT.Servers
             }
         }
 
-        private IEnumerable<object> generateDelegateDocumentation(Type type, XElement document, HTTPRequest req)
+        private IEnumerable<object> generateDelegateDocumentation(Type type, XElement document, HttpRequest req)
         {
             yield return new H1("Delegate: ", friendlyTypeName(type, true));
 
             MethodInfo m = type.GetMethod("Invoke");
             yield return new H2("Full definition");
-            yield return new PRE(friendlyMethodName(m, true, false, true, true, true, true, null, req.BaseURL, true));
+            yield return new PRE(friendlyMethodName(m, true, false, true, true, true, true, null, req.BaseUrl, true));
         }
 
-        private IEnumerable<object> interpretBlock(IEnumerable<XNode> nodes, HTTPRequest req)
+        private IEnumerable<object> interpretBlock(IEnumerable<XNode> nodes, HttpRequest req)
         {
             var en = nodes.GetEnumerator();
             if (!en.MoveNext()) yield break;
@@ -712,7 +712,7 @@ namespace RT.Servers
             }
         }
 
-        private IEnumerable<object> interpretInline(XElement elem, HTTPRequest req)
+        private IEnumerable<object> interpretInline(XElement elem, HttpRequest req)
         {
             foreach (var node in elem.Nodes())
             {
@@ -727,10 +727,10 @@ namespace RT.Servers
                         if (token.StartsWith("T:") && _typeDocumentation.ContainsKey(token.Substring(2)))
                         {
                             token = token.Substring(2);
-                            yield return new A(friendlyTypeName(_typeDocumentation[token].E1, false)) { href = req.BaseURL + "/" + token.URLEscape() };
+                            yield return new A(friendlyTypeName(_typeDocumentation[token].E1, false)) { href = req.BaseUrl + "/" + token.URLEscape() };
                         }
                         else if (_memberDocumentation.ContainsKey(token))
-                            yield return new A(friendlyMemberName(_memberDocumentation[token].E1, false, false, true, false, false)) { href = req.BaseURL + "/" + token.URLEscape() };
+                            yield return new A(friendlyMemberName(_memberDocumentation[token].E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + token.URLEscape() };
                         else
                             yield return new CODE(token);
                     }

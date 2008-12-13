@@ -5,10 +5,10 @@ using System;
 namespace RT.Servers
 {
     /// <summary>
-    /// Contains configuration settings for an <see cref="HTTPServer"/>.
+    /// Contains configuration settings for an <see cref="HttpServer"/>.
     /// </summary>
     [Serializable]
-    public class HTTPServerOptions
+    public class HttpServerOptions
     {
         /// <summary>
         /// The port on which the HTTP server should listen. Default is 80.
@@ -48,16 +48,16 @@ namespace RT.Servers
 
         /// <summary>
         /// Determines whether exceptions thrown by content handlers are caught and output to the client.
-        /// If false, exceptions thrown by content handlers are not caught by <see cref="HTTPServer"/>.
+        /// If false, exceptions thrown by content handlers are not caught by <see cref="HttpServer"/>.
         /// </summary>
         public bool ReturnExceptionsToClient = true;
 
         /// <summary>
-        /// Maps from file extension to MIME type. Used by <see cref="HTTPServer.FileSystemResponse"/>
-        /// (and hence by <see cref="HTTPServer.CreateFileSystemHandler"/>).
+        /// Maps from file extension to MIME type. Used by <see cref="HttpServer.FileSystemResponse"/>
+        /// (and hence by <see cref="HttpServer.CreateFileSystemHandler"/>).
         /// Use the key "*" for the default MIME type. Otherwise the default is "application/octet-stream".
         /// </summary>
-        public Dictionary<string, string> MIMETypes = new Dictionary<string, string>
+        public Dictionary<string, string> MimeTypes = new Dictionary<string, string>
         {
             // Plain text
             { "txt", "text/plain; charset=utf-8" },
@@ -92,8 +92,8 @@ namespace RT.Servers
         public string DefaultContentType = "text/html; charset=utf-8";
 
         /// <summary>
-        /// Enum specifying which way directory listings should be generated. Default is <see cref="RT.Servers.DirectoryListingStyle.XMLplusXSL"/>.
+        /// Enum specifying which way directory listings should be generated. Default is <see cref="RT.Servers.DirectoryListingStyle.XmlPlusXsl"/>.
         /// </summary>
-        public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XMLplusXSL;
+        public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XmlPlusXsl;
     }
 }

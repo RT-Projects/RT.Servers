@@ -5,41 +5,41 @@ using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
 
-namespace RT.TagSoup.XHTMLTags
+namespace RT.TagSoup.XhtmlTags
 {
     /// <summary>Abstract base class for XHTML tags.</summary>
-    public abstract class XHTMLTag : TagSoup
+    public abstract class XhtmlTag : TagSoup
     {
         /// <summary>Constructs an XHTML tag.</summary>
-        /// <param name="Contents">Contents of the tag.</param>
-        public XHTMLTag(params object[] Contents) { TagContents = new List<object>(Contents); }
+        /// <param name="contents">Contents of the tag.</param>
+        public XhtmlTag(params object[] contents) { TagContents = new List<object>(contents); }
         /// <summary>Returns true.</summary>
-        public override bool AllowXHTMLEmpty { get { return true; } }
+        public override bool AllowXhtmlEmpty { get { return true; } }
     }
 
     /// <summary>Special class to help construct an XHTML <c>&lt;table&gt;</c> element
     /// without needing to instantiate all intermediate row and cell tags.</summary>
-    public class XHTMLTable : table
+    public class XhtmlTable : table
     {
         /// <summary>If set to a value other than null, causes all rows and cells within the generated table to have the specified CSS class.</summary>
         public string _AllClasses;
 
         /// <summary>Constructs an XHTML table in which all rows and cells have the same CSS class.</summary>
-        /// <param name="ClassOnAllTags">Optional. If non-null, all rows and cells within the generated table have the specified CSS class.</param>
-        /// <param name="Rows">Rows (arrays of cell contents).</param>
-        public XHTMLTable(string ClassOnAllTags, params object[][] Rows)
+        /// <param name="classOnAllTags">Optional. If non-null, all rows and cells within the generated table have the specified CSS class.</param>
+        /// <param name="rows">Rows (arrays of cell contents).</param>
+        public XhtmlTable(string classOnAllTags, params object[][] rows)
         {
-            if (ClassOnAllTags != null)
-                class_ = ClassOnAllTags;
-            List<object> RowTags = new List<object>();
-            foreach (object[] Row in Rows)
+            if (classOnAllTags != null)
+                class_ = classOnAllTags;
+            List<object> rowTags = new List<object>();
+            foreach (object[] row in rows)
             {
-                List<object> CellTags = new List<object>();
-                foreach (object Cell in Row)
-                    CellTags.Add(ClassOnAllTags == null ? new td(Cell) : new td(Cell) { class_ = ClassOnAllTags });
-                RowTags.Add(ClassOnAllTags == null ? new tr(CellTags.ToArray()) : new tr(CellTags.ToArray()) { class_ = ClassOnAllTags });
+                List<object> cellTags = new List<object>();
+                foreach (object cell in row)
+                    cellTags.Add(classOnAllTags == null ? new td(cell) : new td(cell) { class_ = classOnAllTags });
+                rowTags.Add(classOnAllTags == null ? new tr(cellTags.ToArray()) : new tr(cellTags.ToArray()) { class_ = classOnAllTags });
             }
-            TagContents = RowTags;
+            TagContents = rowTags;
         }
     }
 
@@ -57,9 +57,9 @@ namespace RT.TagSoup.XHTMLTags
     public enum valign { _, top, middle, bottom, baseline }
     public enum valuetype { _, data, ref_, object_ }
 
-    public class a : XHTMLTag
+    public class a : XhtmlTag
     {
-        public a(params object[] Contents) : base(Contents) { }
+        public a(params object[] contents) : base(contents) { }
         public override string TagName { get { return "a"; } }
         public string accesskey;
         public string charset;
@@ -92,9 +92,9 @@ namespace RT.TagSoup.XHTMLTags
         public string type;
         public string xmlLang;
     }
-    public class abbr : XHTMLTag
+    public class abbr : XhtmlTag
     {
-        public abbr(params object[] Contents) : base(Contents) { }
+        public abbr(params object[] contents) : base(contents) { }
         public override string TagName { get { return "abbr"; } }
         public string class_;
         public dir dir;
@@ -114,9 +114,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class acronym : XHTMLTag
+    public class acronym : XhtmlTag
     {
-        public acronym(params object[] Contents) : base(Contents) { }
+        public acronym(params object[] contents) : base(contents) { }
         public override string TagName { get { return "acronym"; } }
         public string class_;
         public dir dir;
@@ -136,9 +136,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class address : XHTMLTag
+    public class address : XhtmlTag
     {
-        public address(params object[] Contents) : base(Contents) { }
+        public address(params object[] contents) : base(contents) { }
         public override string TagName { get { return "address"; } }
         public string class_;
         public dir dir;
@@ -158,9 +158,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class area : XHTMLTag
+    public class area : XhtmlTag
     {
-        public area(params object[] Contents) : base(Contents) { }
+        public area(params object[] contents) : base(contents) { }
         public override string TagName { get { return "area"; } }
         public string accesskey;
         public string alt;
@@ -189,9 +189,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class b : XHTMLTag
+    public class b : XhtmlTag
     {
-        public b(params object[] Contents) : base(Contents) { }
+        public b(params object[] contents) : base(contents) { }
         public override string TagName { get { return "b"; } }
         public string class_;
         public dir dir;
@@ -211,16 +211,16 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class base_ : XHTMLTag
+    public class base_ : XhtmlTag
     {
-        public base_(params object[] Contents) : base(Contents) { }
+        public base_(params object[] contents) : base(contents) { }
         public override string TagName { get { return "base"; } }
         public string href;
         public string id;
     }
-    public class bdo : XHTMLTag
+    public class bdo : XhtmlTag
     {
-        public bdo(params object[] Contents) : base(Contents) { }
+        public bdo(params object[] contents) : base(contents) { }
         public override string TagName { get { return "bdo"; } }
         public string class_;
         public dir dir;
@@ -240,9 +240,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class big : XHTMLTag
+    public class big : XhtmlTag
     {
-        public big(params object[] Contents) : base(Contents) { }
+        public big(params object[] contents) : base(contents) { }
         public override string TagName { get { return "big"; } }
         public string class_;
         public dir dir;
@@ -262,9 +262,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class blockquote : XHTMLTag
+    public class blockquote : XhtmlTag
     {
-        public blockquote(params object[] Contents) : base(Contents) { }
+        public blockquote(params object[] contents) : base(contents) { }
         public override string TagName { get { return "blockquote"; } }
         public string cite;
         public string class_;
@@ -285,9 +285,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class body : XHTMLTag
+    public class body : XhtmlTag
     {
-        public body(params object[] Contents) : base(Contents) { }
+        public body(params object[] contents) : base(contents) { }
         public override string TagName { get { return "body"; } }
         public string class_;
         public dir dir;
@@ -309,18 +309,18 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class br : XHTMLTag
+    public class br : XhtmlTag
     {
-        public br(params object[] Contents) : base(Contents) { }
+        public br(params object[] contents) : base(contents) { }
         public override string TagName { get { return "br"; } }
         public string class_;
         public string id;
         public string style;
         public string title;
     }
-    public class button : XHTMLTag
+    public class button : XhtmlTag
     {
-        public button(params object[] Contents) : base(Contents) { }
+        public button(params object[] contents) : base(contents) { }
         public override string TagName { get { return "button"; } }
         public string accesskey;
         public string class_;
@@ -348,9 +348,9 @@ namespace RT.TagSoup.XHTMLTags
         public string value;
         public string xmlLang;
     }
-    public class caption : XHTMLTag
+    public class caption : XhtmlTag
     {
-        public caption(params object[] Contents) : base(Contents) { }
+        public caption(params object[] contents) : base(contents) { }
         public override string TagName { get { return "caption"; } }
         public string class_;
         public dir dir;
@@ -370,9 +370,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class cite : XHTMLTag
+    public class cite : XhtmlTag
     {
-        public cite(params object[] Contents) : base(Contents) { }
+        public cite(params object[] contents) : base(contents) { }
         public override string TagName { get { return "cite"; } }
         public string class_;
         public dir dir;
@@ -392,9 +392,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class code : XHTMLTag
+    public class code : XhtmlTag
     {
-        public code(params object[] Contents) : base(Contents) { }
+        public code(params object[] contents) : base(contents) { }
         public override string TagName { get { return "code"; } }
         public string class_;
         public dir dir;
@@ -414,9 +414,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class col : XHTMLTag
+    public class col : XhtmlTag
     {
-        public col(params object[] Contents) : base(Contents) { }
+        public col(params object[] contents) : base(contents) { }
         public override string TagName { get { return "col"; } }
         public align align;
         public string char_;
@@ -442,9 +442,9 @@ namespace RT.TagSoup.XHTMLTags
         public string width;
         public string xmlLang;
     }
-    public class colgroup : XHTMLTag
+    public class colgroup : XhtmlTag
     {
-        public colgroup(params object[] Contents) : base(Contents) { }
+        public colgroup(params object[] contents) : base(contents) { }
         public override string TagName { get { return "colgroup"; } }
         public align align;
         public string char_;
@@ -470,9 +470,9 @@ namespace RT.TagSoup.XHTMLTags
         public string width;
         public string xmlLang;
     }
-    public class dd : XHTMLTag
+    public class dd : XhtmlTag
     {
-        public dd(params object[] Contents) : base(Contents) { }
+        public dd(params object[] contents) : base(contents) { }
         public override string TagName { get { return "dd"; } }
         public string class_;
         public dir dir;
@@ -492,9 +492,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class del : XHTMLTag
+    public class del : XhtmlTag
     {
-        public del(params object[] Contents) : base(Contents) { }
+        public del(params object[] contents) : base(contents) { }
         public override string TagName { get { return "del"; } }
         public string cite;
         public string class_;
@@ -516,9 +516,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class dfn : XHTMLTag
+    public class dfn : XhtmlTag
     {
-        public dfn(params object[] Contents) : base(Contents) { }
+        public dfn(params object[] contents) : base(contents) { }
         public override string TagName { get { return "dfn"; } }
         public string class_;
         public dir dir;
@@ -538,9 +538,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class div : XHTMLTag
+    public class div : XhtmlTag
     {
-        public div(params object[] Contents) : base(Contents) { }
+        public div(params object[] contents) : base(contents) { }
         public override string TagName { get { return "div"; } }
         public string class_;
         public dir dir;
@@ -560,9 +560,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class dl : XHTMLTag
+    public class dl : XhtmlTag
     {
-        public dl(params object[] Contents) : base(Contents) { }
+        public dl(params object[] contents) : base(contents) { }
         public override string TagName { get { return "dl"; } }
         public string class_;
         public dir dir;
@@ -582,9 +582,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class dt : XHTMLTag
+    public class dt : XhtmlTag
     {
-        public dt(params object[] Contents) : base(Contents) { }
+        public dt(params object[] contents) : base(contents) { }
         public override string TagName { get { return "dt"; } }
         public string class_;
         public dir dir;
@@ -604,9 +604,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class em : XHTMLTag
+    public class em : XhtmlTag
     {
-        public em(params object[] Contents) : base(Contents) { }
+        public em(params object[] contents) : base(contents) { }
         public override string TagName { get { return "em"; } }
         public string class_;
         public dir dir;
@@ -626,9 +626,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class fieldset : XHTMLTag
+    public class fieldset : XhtmlTag
     {
-        public fieldset(params object[] Contents) : base(Contents) { }
+        public fieldset(params object[] contents) : base(contents) { }
         public override string TagName { get { return "fieldset"; } }
         public string class_;
         public dir dir;
@@ -648,9 +648,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class form : XHTMLTag
+    public class form : XhtmlTag
     {
-        public form(params object[] Contents) : base(Contents) { }
+        public form(params object[] contents) : base(contents) { }
         public override string TagName { get { return "form"; } }
         public string accept;
         public string accept_charset;
@@ -677,9 +677,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class h1 : XHTMLTag
+    public class h1 : XhtmlTag
     {
-        public h1(params object[] Contents) : base(Contents) { }
+        public h1(params object[] contents) : base(contents) { }
         public override string TagName { get { return "h1"; } }
         public string class_;
         public dir dir;
@@ -699,9 +699,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class h2 : XHTMLTag
+    public class h2 : XhtmlTag
     {
-        public h2(params object[] Contents) : base(Contents) { }
+        public h2(params object[] contents) : base(contents) { }
         public override string TagName { get { return "h2"; } }
         public string class_;
         public dir dir;
@@ -721,9 +721,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class h3 : XHTMLTag
+    public class h3 : XhtmlTag
     {
-        public h3(params object[] Contents) : base(Contents) { }
+        public h3(params object[] contents) : base(contents) { }
         public override string TagName { get { return "h3"; } }
         public string class_;
         public dir dir;
@@ -743,9 +743,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class h4 : XHTMLTag
+    public class h4 : XhtmlTag
     {
-        public h4(params object[] Contents) : base(Contents) { }
+        public h4(params object[] contents) : base(contents) { }
         public override string TagName { get { return "h4"; } }
         public string class_;
         public dir dir;
@@ -765,9 +765,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class h5 : XHTMLTag
+    public class h5 : XhtmlTag
     {
-        public h5(params object[] Contents) : base(Contents) { }
+        public h5(params object[] contents) : base(contents) { }
         public override string TagName { get { return "h5"; } }
         public string class_;
         public dir dir;
@@ -787,9 +787,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class h6 : XHTMLTag
+    public class h6 : XhtmlTag
     {
-        public h6(params object[] Contents) : base(Contents) { }
+        public h6(params object[] contents) : base(contents) { }
         public override string TagName { get { return "h6"; } }
         public string class_;
         public dir dir;
@@ -809,9 +809,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class head : XHTMLTag
+    public class head : XhtmlTag
     {
-        public head(params object[] Contents) : base(Contents) { }
+        public head(params object[] contents) : base(contents) { }
         public override string TagName { get { return "head"; } }
         public dir dir;
         public string id;
@@ -819,9 +819,9 @@ namespace RT.TagSoup.XHTMLTags
         public string profile;
         public string xmlLang;
     }
-    public class hr : XHTMLTag
+    public class hr : XhtmlTag
     {
-        public hr(params object[] Contents) : base(Contents) { }
+        public hr(params object[] contents) : base(contents) { }
         public override string TagName { get { return "hr"; } }
         public string class_;
         public dir dir;
@@ -841,9 +841,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class html : XHTMLTag
+    public class html : XhtmlTag
     {
-        public html(params object[] Contents) : base(Contents) { }
+        public html(params object[] contents) : base(contents) { }
         public override string TagName { get { return "html"; } }
         public override string DocType { get { return @"<!DOCTYPE html PUBLIC ""-//W3C//DTD XHTML 1.0 Strict//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"">"; } }
         public dir dir;
@@ -852,9 +852,9 @@ namespace RT.TagSoup.XHTMLTags
         public string xmlLang;
         public string xmlns = "http://www.w3.org/1999/xhtml";
     }
-    public class i : XHTMLTag
+    public class i : XhtmlTag
     {
-        public i(params object[] Contents) : base(Contents) { }
+        public i(params object[] contents) : base(contents) { }
         public override string TagName { get { return "i"; } }
         public string class_;
         public dir dir;
@@ -874,9 +874,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class img : XHTMLTag
+    public class img : XhtmlTag
     {
-        public img(params object[] Contents) : base(Contents) { }
+        public img(params object[] contents) : base(contents) { }
         public override string TagName { get { return "img"; } }
         public string alt;
         public string class_;
@@ -903,9 +903,9 @@ namespace RT.TagSoup.XHTMLTags
         public string width;
         public string xmlLang;
     }
-    public class input : XHTMLTag
+    public class input : XhtmlTag
     {
-        public input(params object[] Contents) : base(Contents) { }
+        public input(params object[] contents) : base(contents) { }
         public override string TagName { get { return "input"; } }
         public string accept;
         public string accesskey;
@@ -945,9 +945,9 @@ namespace RT.TagSoup.XHTMLTags
         public string value;
         public string xmlLang;
     }
-    public class ins : XHTMLTag
+    public class ins : XhtmlTag
     {
-        public ins(params object[] Contents) : base(Contents) { }
+        public ins(params object[] contents) : base(contents) { }
         public override string TagName { get { return "ins"; } }
         public string cite;
         public string class_;
@@ -969,9 +969,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class kbd : XHTMLTag
+    public class kbd : XhtmlTag
     {
-        public kbd(params object[] Contents) : base(Contents) { }
+        public kbd(params object[] contents) : base(contents) { }
         public override string TagName { get { return "kbd"; } }
         public string class_;
         public dir dir;
@@ -991,9 +991,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class label : XHTMLTag
+    public class label : XhtmlTag
     {
-        public label(params object[] Contents) : base(Contents) { }
+        public label(params object[] contents) : base(contents) { }
         public override string TagName { get { return "label"; } }
         public string accesskey;
         public string class_;
@@ -1017,9 +1017,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class legend : XHTMLTag
+    public class legend : XhtmlTag
     {
-        public legend(params object[] Contents) : base(Contents) { }
+        public legend(params object[] contents) : base(contents) { }
         public override string TagName { get { return "legend"; } }
         public string accesskey;
         public string class_;
@@ -1040,9 +1040,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class li : XHTMLTag
+    public class li : XhtmlTag
     {
-        public li(params object[] Contents) : base(Contents) { }
+        public li(params object[] contents) : base(contents) { }
         public override string TagName { get { return "li"; } }
         public string class_;
         public dir dir;
@@ -1062,9 +1062,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class link : XHTMLTag
+    public class link : XhtmlTag
     {
-        public link(params object[] Contents) : base(Contents) { }
+        public link(params object[] contents) : base(contents) { }
         public override string TagName { get { return "link"; } }
         public string charset;
         public string class_;
@@ -1091,9 +1091,9 @@ namespace RT.TagSoup.XHTMLTags
         public string type;
         public string xmlLang;
     }
-    public class map : XHTMLTag
+    public class map : XhtmlTag
     {
-        public map(params object[] Contents) : base(Contents) { }
+        public map(params object[] contents) : base(contents) { }
         public override string TagName { get { return "map"; } }
         public string class_;
         public dir dir;
@@ -1114,9 +1114,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class meta : XHTMLTag
+    public class meta : XhtmlTag
     {
-        public meta(params object[] Contents) : base(Contents) { }
+        public meta(params object[] contents) : base(contents) { }
         public override string TagName { get { return "meta"; } }
         public string content;
         public dir dir;
@@ -1127,9 +1127,9 @@ namespace RT.TagSoup.XHTMLTags
         public string scheme;
         public string xmlLang;
     }
-    public class noscript : XHTMLTag
+    public class noscript : XhtmlTag
     {
-        public noscript(params object[] Contents) : base(Contents) { }
+        public noscript(params object[] contents) : base(contents) { }
         public override string TagName { get { return "noscript"; } }
         public string class_;
         public dir dir;
@@ -1149,9 +1149,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class object_ : XHTMLTag
+    public class object_ : XhtmlTag
     {
-        public object_(params object[] Contents) : base(Contents) { }
+        public object_(params object[] contents) : base(contents) { }
         public override string TagName { get { return "object"; } }
         public string archive;
         public string class_;
@@ -1184,9 +1184,9 @@ namespace RT.TagSoup.XHTMLTags
         public string width;
         public string xmlLang;
     }
-    public class ol : XHTMLTag
+    public class ol : XhtmlTag
     {
-        public ol(params object[] Contents) : base(Contents) { }
+        public ol(params object[] contents) : base(contents) { }
         public override string TagName { get { return "ol"; } }
         public string class_;
         public dir dir;
@@ -1206,9 +1206,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class optgroup : XHTMLTag
+    public class optgroup : XhtmlTag
     {
-        public optgroup(params object[] Contents) : base(Contents) { }
+        public optgroup(params object[] contents) : base(contents) { }
         public override string TagName { get { return "optgroup"; } }
         public string class_;
         public dir dir;
@@ -1230,9 +1230,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class option : XHTMLTag
+    public class option : XhtmlTag
     {
-        public option(params object[] Contents) : base(Contents) { }
+        public option(params object[] contents) : base(contents) { }
         public override string TagName { get { return "option"; } }
         public string class_;
         public dir dir;
@@ -1256,9 +1256,9 @@ namespace RT.TagSoup.XHTMLTags
         public string value;
         public string xmlLang;
     }
-    public class p : XHTMLTag
+    public class p : XhtmlTag
     {
-        public p(params object[] Contents) : base(Contents) { }
+        public p(params object[] contents) : base(contents) { }
         public override string TagName { get { return "p"; } }
         public string class_;
         public dir dir;
@@ -1278,9 +1278,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class param : XHTMLTag
+    public class param : XhtmlTag
     {
-        public param(params object[] Contents) : base(Contents) { }
+        public param(params object[] contents) : base(contents) { }
         public override string TagName { get { return "param"; } }
         public string id;
         public string name;
@@ -1288,9 +1288,9 @@ namespace RT.TagSoup.XHTMLTags
         public string value;
         public valuetype valuetype;
     }
-    public class pre : XHTMLTag
+    public class pre : XhtmlTag
     {
-        public pre(params object[] Contents) : base(Contents) { }
+        public pre(params object[] contents) : base(contents) { }
         public override string TagName { get { return "pre"; } }
         public string class_;
         public dir dir;
@@ -1310,9 +1310,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class q : XHTMLTag
+    public class q : XhtmlTag
     {
-        public q(params object[] Contents) : base(Contents) { }
+        public q(params object[] contents) : base(contents) { }
         public override string TagName { get { return "q"; } }
         public string cite;
         public string class_;
@@ -1333,9 +1333,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class samp : XHTMLTag
+    public class samp : XhtmlTag
     {
-        public samp(params object[] Contents) : base(Contents) { }
+        public samp(params object[] contents) : base(contents) { }
         public override string TagName { get { return "samp"; } }
         public string class_;
         public dir dir;
@@ -1355,9 +1355,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class script : XHTMLTag
+    public class script : XhtmlTag
     {
-        public script(params object[] Contents) : base(Contents) { }
+        public script(params object[] contents) : base(contents) { }
         public override string TagName { get { return "script"; } }
         public string charset;
         public bool defer;
@@ -1365,9 +1365,9 @@ namespace RT.TagSoup.XHTMLTags
         public string src;
         public string type;
     }
-    public class select : XHTMLTag
+    public class select : XhtmlTag
     {
-        public select(params object[] Contents) : base(Contents) { }
+        public select(params object[] contents) : base(contents) { }
         public override string TagName { get { return "select"; } }
         public string class_;
         public dir dir;
@@ -1395,9 +1395,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class small : XHTMLTag
+    public class small : XhtmlTag
     {
-        public small(params object[] Contents) : base(Contents) { }
+        public small(params object[] contents) : base(contents) { }
         public override string TagName { get { return "small"; } }
         public string class_;
         public dir dir;
@@ -1417,9 +1417,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class span : XHTMLTag
+    public class span : XhtmlTag
     {
-        public span(params object[] Contents) : base(Contents) { }
+        public span(params object[] contents) : base(contents) { }
         public override string TagName { get { return "span"; } }
         public string class_;
         public dir dir;
@@ -1439,9 +1439,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class strong : XHTMLTag
+    public class strong : XhtmlTag
     {
-        public strong(params object[] Contents) : base(Contents) { }
+        public strong(params object[] contents) : base(contents) { }
         public override string TagName { get { return "strong"; } }
         public string class_;
         public dir dir;
@@ -1461,9 +1461,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class style : XHTMLTag
+    public class style : XhtmlTag
     {
-        public style(params object[] Contents) : base(Contents) { }
+        public style(params object[] contents) : base(contents) { }
         public override string TagName { get { return "style"; } }
         public dir dir;
         public string id;
@@ -1473,9 +1473,9 @@ namespace RT.TagSoup.XHTMLTags
         public string type;
         public string xmlLang;
     }
-    public class styleImport : XHTMLTag
+    public class styleImport : XhtmlTag
     {
-        public styleImport(params object[] Contents) : base(Contents) { }
+        public styleImport(params object[] contents) : base(contents) { }
         public override string TagName { get { return "style"; } }
         public string ImportFrom;
         public string media;
@@ -1488,9 +1488,9 @@ namespace RT.TagSoup.XHTMLTags
             yield return @"""; /*]]>*/</style>";
         }
     }
-    public class sub : XHTMLTag
+    public class sub : XhtmlTag
     {
-        public sub(params object[] Contents) : base(Contents) { }
+        public sub(params object[] contents) : base(contents) { }
         public override string TagName { get { return "sub"; } }
         public string class_;
         public dir dir;
@@ -1510,9 +1510,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class sup : XHTMLTag
+    public class sup : XhtmlTag
     {
-        public sup(params object[] Contents) : base(Contents) { }
+        public sup(params object[] contents) : base(contents) { }
         public override string TagName { get { return "sup"; } }
         public string class_;
         public dir dir;
@@ -1532,9 +1532,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class table : XHTMLTag
+    public class table : XhtmlTag
     {
-        public table(params object[] Contents) : base(Contents) { }
+        public table(params object[] contents) : base(contents) { }
         public override string TagName { get { return "table"; } }
         public string border;
         public string cellpadding;
@@ -1561,9 +1561,9 @@ namespace RT.TagSoup.XHTMLTags
         public string width;
         public string xmlLang;
     }
-    public class tbody : XHTMLTag
+    public class tbody : XhtmlTag
     {
-        public tbody(params object[] Contents) : base(Contents) { }
+        public tbody(params object[] contents) : base(contents) { }
         public override string TagName { get { return "tbody"; } }
         public align align;
         public string char_;
@@ -1587,9 +1587,9 @@ namespace RT.TagSoup.XHTMLTags
         public valign valign;
         public string xmlLang;
     }
-    public class td : XHTMLTag
+    public class td : XhtmlTag
     {
-        public td(params object[] Contents) : base(Contents) { }
+        public td(params object[] contents) : base(contents) { }
         public override string TagName { get { return "td"; } }
         public string abbr;
         public align align;
@@ -1619,9 +1619,9 @@ namespace RT.TagSoup.XHTMLTags
         public valign valign;
         public string xmlLang;
     }
-    public class textarea : XHTMLTag
+    public class textarea : XhtmlTag
     {
-        public textarea(params object[] Contents) : base(Contents) { }
+        public textarea(params object[] contents) : base(contents) { }
         public override string TagName { get { return "textarea"; } }
         public string accesskey;
         public string class_;
@@ -1652,9 +1652,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class tfoot : XHTMLTag
+    public class tfoot : XhtmlTag
     {
-        public tfoot(params object[] Contents) : base(Contents) { }
+        public tfoot(params object[] contents) : base(contents) { }
         public override string TagName { get { return "tfoot"; } }
         public align align;
         public string char_;
@@ -1678,9 +1678,9 @@ namespace RT.TagSoup.XHTMLTags
         public valign valign;
         public string xmlLang;
     }
-    public class th : XHTMLTag
+    public class th : XhtmlTag
     {
-        public th(params object[] Contents) : base(Contents) { }
+        public th(params object[] contents) : base(contents) { }
         public override string TagName { get { return "th"; } }
         public string abbr;
         public align align;
@@ -1710,9 +1710,9 @@ namespace RT.TagSoup.XHTMLTags
         public valign valign;
         public string xmlLang;
     }
-    public class thead : XHTMLTag
+    public class thead : XhtmlTag
     {
-        public thead(params object[] Contents) : base(Contents) { }
+        public thead(params object[] contents) : base(contents) { }
         public override string TagName { get { return "thead"; } }
         public align align;
         public string char_;
@@ -1736,18 +1736,18 @@ namespace RT.TagSoup.XHTMLTags
         public valign valign;
         public string xmlLang;
     }
-    public class title : XHTMLTag
+    public class title : XhtmlTag
     {
-        public title(params object[] Contents) : base(Contents) { }
+        public title(params object[] contents) : base(contents) { }
         public override string TagName { get { return "title"; } }
         public dir dir;
         public string id;
         public string lang;
         public string xmlLang;
     }
-    public class tr : XHTMLTag
+    public class tr : XhtmlTag
     {
-        public tr(params object[] Contents) : base(Contents) { }
+        public tr(params object[] contents) : base(contents) { }
         public override string TagName { get { return "tr"; } }
         public align align;
         public string char_;
@@ -1771,9 +1771,9 @@ namespace RT.TagSoup.XHTMLTags
         public valign valign;
         public string xmlLang;
     }
-    public class tt : XHTMLTag
+    public class tt : XhtmlTag
     {
-        public tt(params object[] Contents) : base(Contents) { }
+        public tt(params object[] contents) : base(contents) { }
         public override string TagName { get { return "tt"; } }
         public string class_;
         public dir dir;
@@ -1793,9 +1793,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class ul : XHTMLTag
+    public class ul : XhtmlTag
     {
-        public ul(params object[] Contents) : base(Contents) { }
+        public ul(params object[] contents) : base(contents) { }
         public override string TagName { get { return "ul"; } }
         public string class_;
         public dir dir;
@@ -1815,9 +1815,9 @@ namespace RT.TagSoup.XHTMLTags
         public string title;
         public string xmlLang;
     }
-    public class var_ : XHTMLTag
+    public class var_ : XhtmlTag
     {
-        public var_(params object[] Contents) : base(Contents) { }
+        public var_(params object[] contents) : base(contents) { }
         public override string TagName { get { return "var"; } }
         public string class_;
         public dir dir;

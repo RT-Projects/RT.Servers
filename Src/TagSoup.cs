@@ -23,10 +23,10 @@ namespace RT.TagSoup
         /// <summary>Whether the end tag should be printed.</summary>
         public virtual bool EndTag { get { return true; } }
         /// <summary>Whether XHTML-style &lt;/&gt; empty-tag markers are allowed.</summary>
-        public abstract bool AllowXHTMLEmpty { get; }
+        public abstract bool AllowXhtmlEmpty { get; }
 
         /// <summary>Sets the contents of the tag. Any objects are allowed.</summary>
-        /// <param name="Contents"></param>
+        /// <param name="contents"></param>
         /// <returns></returns>
         /// <remarks>
         ///     <para>Special support exists for the following types:</para>
@@ -42,18 +42,18 @@ namespace RT.TagSoup
         ///     </list>
         ///     <para>Using objects of type <c>Func&lt;...&gt;</c> is a convenient way to defer execution to ensure maximally responsive output.</para>
         /// </remarks>
-        public TagSoup _(params object[] Contents)
+        public TagSoup _(params object[] contents)
         {
             if (TagContents == null)
-                TagContents = new List<object>(Contents);
+                TagContents = new List<object>(contents);
             else
-                TagContents.AddRange(Contents);
+                TagContents.AddRange(contents);
             return this;
         }
 
         /// <summary>Adds stuff at the end of the contents of this tag (a string, a tag, a collection of strings or of tags).</summary>
-        /// <param name="Content">The stuff to add.</param>
-        public void Add(object Content) { TagContents.Add(Content); }
+        /// <param name="content">The stuff to add.</param>
+        public void Add(object content) { TagContents.Add(content); }
 
         /// <summary>Outputs this tag and all its contents.</summary>
         /// <returns>A collection of strings which, when concatenated, represent this tag and all its contents.</returns>
@@ -64,47 +64,47 @@ namespace RT.TagSoup
 
             if (StartTag)
                 yield return "<" + TagName;
-            bool TagPrinted = StartTag;
+            bool tagPrinted = StartTag;
 
-            foreach (var Field in this.GetType().GetFields())
+            foreach (var field in this.GetType().GetFields())
             {
-                if (Field.Name.StartsWith("_"))
+                if (field.Name.StartsWith("_"))
                     continue;
-                object Val = Field.GetValue(this);
-                if (Val == null) continue;
-                if (Field.FieldType.IsEnum && Val.ToString() == "_")
+                object val = field.GetValue(this);
+                if (val == null) continue;
+                if (field.FieldType.IsEnum && val.ToString() == "_")
                     continue;
-                if (Val is bool && !((bool) Val))
+                if (val is bool && !((bool) val))
                     continue;
 
-                if (!TagPrinted)
+                if (!tagPrinted)
                 {
                     yield return "<" + TagName;
-                    TagPrinted = true;
+                    tagPrinted = true;
                 }
 
-                if (Field.FieldType.IsEnum)
-                    yield return " " + FixFieldName(Field.Name) + "=\"" + FixFieldName(Val.ToString()) + "\"";
-                else if (Val is bool)
+                if (field.FieldType.IsEnum)
+                    yield return " " + fixFieldName(field.Name) + "=\"" + fixFieldName(val.ToString()) + "\"";
+                else if (val is bool)
                 {
-                    string s = FixFieldName(Field.Name);
+                    string s = fixFieldName(field.Name);
                     yield return " " + s + "=\"" + s + "\"";
                 }
                 else
-                    yield return " " + FixFieldName(Field.Name) + "=\"" + Val.ToString().HTMLEscape() + "\"";
+                    yield return " " + fixFieldName(field.Name) + "=\"" + val.ToString().HTMLEscape() + "\"";
             }
-            if (TagPrinted && AllowXHTMLEmpty && (TagContents == null || TagContents.Count == 0))
+            if (tagPrinted && AllowXhtmlEmpty && (TagContents == null || TagContents.Count == 0))
             {
                 yield return "/>";
                 yield break;
             }
-            if (TagPrinted)
+            if (tagPrinted)
                 yield return ">";
-            foreach (object Content in TagContents)
+            foreach (object content in TagContents)
             {
-                if (Content == null)
+                if (content == null)
                     continue;
-                foreach (string s in Stringify(Content))
+                foreach (string s in stringify(content))
                     yield return s;
             }
             if (EndTag)
@@ -121,7 +121,7 @@ namespace RT.TagSoup
             return sb.ToString();
         }
 
-        private IEnumerable<string> Stringify(object o)
+        private IEnumerable<string> stringify(object o)
         {
             if (o == null)
                 yield break;
@@ -142,7 +142,7 @@ namespace RT.TagSoup
             if (o is IEnumerable)
             {
                 foreach (object s in (o as IEnumerable))
-                    foreach (string str in Stringify(s))
+                    foreach (string str in stringify(s))
                         yield return str;
                 yield break;
             }
@@ -150,8 +150,8 @@ namespace RT.TagSoup
             Type t = o.GetType();
             if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Func<>))
             {
-                object Result = t.GetMethod("Invoke").Invoke(o, new object[] { });
-                foreach (string str in Stringify(Result))
+                object result = t.GetMethod("Invoke").Invoke(o, new object[] { });
+                foreach (string str in stringify(result))
                     yield return str;
                 yield break;
             }
@@ -170,7 +170,7 @@ namespace RT.TagSoup
         /// </example>
         /// <param name="fn">Field name to convert.</param>
         /// <returns>Converted field name.</returns>
-        private static string FixFieldName(string fn)
+        private static string fixFieldName(string fn)
         {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < fn.Length; i++)

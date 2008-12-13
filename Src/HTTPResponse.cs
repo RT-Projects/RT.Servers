@@ -8,22 +8,22 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates all supported HTTP response headers. A request handler can set these appropriately to cause the server to emit the required headers.
     /// </summary>
-    public class HTTPResponseHeaders
+    public class HttpResponseHeaders
     {
 
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
-        public HTTPAcceptRanges AcceptRanges;
+        public HttpAcceptRanges AcceptRanges;
         public int? Age; // in seconds
         public string[] Allow;  // usually: { "GET", "HEAD", "POST" }
-        public HTTPCacheControl CacheControl;
-        public HTTPConnection Connection;
-        public HTTPContentEncoding ContentEncoding;
+        public HttpCacheControl CacheControl;
+        public HttpConnection Connection;
+        public HttpContentEncoding ContentEncoding;
         public string ContentLanguage;
         public long? ContentLength;
-        public HTTPContentDisposition ContentDisposition;
+        public HttpContentDisposition ContentDisposition;
         public string ContentMD5;
-        public HTTPContentRange? ContentRange;
+        public HttpContentRange? ContentRange;
         public string ContentType;
         public DateTime? Date;
         public string ETag;
@@ -31,7 +31,7 @@ namespace RT.Servers
         public string Location; // used in redirection
         public string Server;
         public List<Cookie> SetCookie;
-        public HTTPTransferEncoding TransferEncoding;
+        public HttpTransferEncoding TransferEncoding;
 
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
@@ -42,57 +42,57 @@ namespace RT.Servers
         public override string ToString()
         {
             StringBuilder b = new StringBuilder();
-            if (AcceptRanges != HTTPAcceptRanges.None)
+            if (AcceptRanges != HttpAcceptRanges.None)
                 b.Append("Accept-Ranges: bytes\r\n");
             if (Age != null)
                 b.Append("Age: " + Age.Value + "\r\n");
             if (Allow != null)
                 b.Append("Allow: " + string.Join(", ", Allow));
-            if (CacheControl.State != HTTPCacheControlState.None)
+            if (CacheControl.State != HttpCacheControlState.None)
             {
                 b.Append("Cache-Control: ");
-                if (CacheControl.State == HTTPCacheControlState.MaxAge && CacheControl.IntParameter != null)
+                if (CacheControl.State == HttpCacheControlState.MaxAge && CacheControl.IntParameter != null)
                     b.Append("max-age=" + CacheControl.IntParameter.Value);
-                else if (CacheControl.State == HTTPCacheControlState.MaxStale && CacheControl.IntParameter != null)
+                else if (CacheControl.State == HttpCacheControlState.MaxStale && CacheControl.IntParameter != null)
                     b.Append("max-stale=" + CacheControl.IntParameter.Value);
-                else if (CacheControl.State == HTTPCacheControlState.MaxStale)
+                else if (CacheControl.State == HttpCacheControlState.MaxStale)
                     b.Append("max-stale");
-                else if (CacheControl.State == HTTPCacheControlState.MinFresh && CacheControl.IntParameter != null)
+                else if (CacheControl.State == HttpCacheControlState.MinFresh && CacheControl.IntParameter != null)
                     b.Append("min-fresh=" + CacheControl.IntParameter.Value);
-                else if (CacheControl.State == HTTPCacheControlState.MustRevalidate)
+                else if (CacheControl.State == HttpCacheControlState.MustRevalidate)
                     b.Append("must-revalidate");
-                else if (CacheControl.State == HTTPCacheControlState.NoCache)
+                else if (CacheControl.State == HttpCacheControlState.NoCache)
                     b.Append("no-cache");
-                else if (CacheControl.State == HTTPCacheControlState.NoStore)
+                else if (CacheControl.State == HttpCacheControlState.NoStore)
                     b.Append("no-store");
-                else if (CacheControl.State == HTTPCacheControlState.NoTransform)
+                else if (CacheControl.State == HttpCacheControlState.NoTransform)
                     b.Append("no-transform");
-                else if (CacheControl.State == HTTPCacheControlState.OnlyIfCached)
+                else if (CacheControl.State == HttpCacheControlState.OnlyIfCached)
                     b.Append("only-if-cached");
-                else if (CacheControl.State == HTTPCacheControlState.Private && CacheControl.StringParameter != null)
+                else if (CacheControl.State == HttpCacheControlState.Private && CacheControl.StringParameter != null)
                     b.Append("private=\"" + CacheControl.StringParameter + "\"");
-                else if (CacheControl.State == HTTPCacheControlState.ProxyRevalidate)
+                else if (CacheControl.State == HttpCacheControlState.ProxyRevalidate)
                     b.Append("proxy-revalidate");
-                else if (CacheControl.State == HTTPCacheControlState.Public)
+                else if (CacheControl.State == HttpCacheControlState.Public)
                     b.Append("public");
-                else if (CacheControl.State == HTTPCacheControlState.SMaxAge && CacheControl.IntParameter != null)
+                else if (CacheControl.State == HttpCacheControlState.SMaxAge && CacheControl.IntParameter != null)
                     b.Append("s-maxage=" + CacheControl.IntParameter.Value);
                 b.Append("\r\n");
             }
-            if (Connection != HTTPConnection.None)
+            if (Connection != HttpConnection.None)
             {
-                if (Connection == HTTPConnection.Close)
+                if (Connection == HttpConnection.Close)
                     b.Append("Connection: close\r\n");
                 else
                     b.Append("Connection: keep-alive\r\n");
             }
-            if (ContentEncoding != HTTPContentEncoding.Identity)
+            if (ContentEncoding != HttpContentEncoding.Identity)
                 b.Append("Content-Encoding: " + ContentEncoding.ToString().ToLowerInvariant() + "\r\n");
             if (ContentLanguage != null)
                 b.Append("Content-Language: " + ContentLanguage + "\r\n");
             if (ContentLength != null)
                 b.Append("Content-Length: " + ContentLength.Value + "\r\n");
-            if (ContentDisposition.Mode != HTTPContentDispositionMode.None && ContentDisposition.Filename != null)
+            if (ContentDisposition.Mode != HttpContentDispositionMode.None && ContentDisposition.Filename != null)
                 b.Append("Content-Disposition: attachment; filename=" + ContentDisposition.Filename + "\r\n");
             if (ContentMD5 != null)
                 b.Append("Content-MD5: " + ContentMD5 + "\r\n");
@@ -124,28 +124,28 @@ namespace RT.Servers
                     b.Append(c.HttpOnly ? "; httponly\r\n" : "\r\n");
                 }
             }
-            if (TransferEncoding != HTTPTransferEncoding.None)
+            if (TransferEncoding != HttpTransferEncoding.None)
                 b.Append("Transfer-Encoding: chunked\r\n");
             return b.ToString();
         }
     }
 
     /// <summary>
-    /// Encapsulates an HTTP response, to be sent by <see cref="HTTPServer"/> to the HTTP client that sent the original request.
-    /// A request handler must return an HTTPResponse object to the <see cref="HTTPServer"/> when handling a request.
+    /// Encapsulates an HTTP response, to be sent by <see cref="HttpServer"/> to the HTTP client that sent the original request.
+    /// A request handler must return an HttpResponse object to the <see cref="HttpServer"/> when handling a request.
     /// </summary>
-    public class HTTPResponse
+    public class HttpResponse
     {
         /// <summary>
         /// The HTTP status code. For example, HTTP 200 OK, HTTP 404 Not Found, HTTP 500 Internal Server Error.
         /// If not set, HTTP 200 OK is assumed as the default.
         /// </summary>
-        public HTTPStatusCode Status;
+        public HttpStatusCode Status;
 
         /// <summary>
         /// The HTTP response headers which are to be sent back to the HTTP client as part of this HTTP response.
         /// </summary>
-        public HTTPResponseHeaders Headers = new HTTPResponseHeaders();
+        public HttpResponseHeaders Headers = new HttpResponseHeaders();
 
         /// <summary>
         /// A stream object providing read access to the content returned. For static files, use <see cref="FileStream"/>.
@@ -155,8 +155,8 @@ namespace RT.Servers
         public Stream Content;
 
         /// <summary>
-        /// Internal field for <see cref="HTTPServer"/> to access the original request that this is the response for.
+        /// Internal field for <see cref="HttpServer"/> to access the original request that this is the response for.
         /// </summary>
-        internal HTTPRequest OriginalRequest;
+        internal HttpRequest OriginalRequest;
     }
 }

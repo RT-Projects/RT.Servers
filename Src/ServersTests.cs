@@ -69,22 +69,22 @@ Content-Type: text/html
             for (int cs = 1; cs < InputStr.Length; cs++)
             {
                 Stream f = new SlowStream(new MemoryStream(TestCase), cs);
-                HTTPRequest r = new HTTPRequest(f)
+                HttpRequest r = new HttpRequest(f)
                 {
-                    Headers = new HTTPRequestHeaders
+                    Headers = new HttpRequestHeaders
                     {
                         ContentLength = InputStr.Length,
                         ContentMultipartBoundary = "---------------------------265001916915724",
-                        ContentType = HTTPPOSTContentType.MultipartFormData
+                        ContentType = HttpPostContentType.MultipartFormData
                     },
-                    Method = HTTPMethod.POST,
-                    URL = "/",
-                    RestURL = "/",
+                    Method = HttpMethod.Post,
+                    Url = "/",
+                    RestUrl = "/",
                     TempDir = @"C:\temp\testresults"
                 };
 
-                var Gets = r.GET;
-                var Posts = r.POST;
+                var Gets = r.Get;
+                var Posts = r.Post;
                 var Files = r.FileUploads;
                 f.Close();
 
@@ -157,10 +157,10 @@ Content-Type: text/html
         [Test]
         public void TestSomeRequests()
         {
-            HTTPServer instance = new HTTPServer(new HTTPServerOptions { Port = _port });
-            instance.RequestHandlerHooks.Add(new HTTPRequestHandlerHook("/static", TestHandlerStatic));
-            instance.RequestHandlerHooks.Add(new HTTPRequestHandlerHook("/dynamic", TestHandlerDynamic));
-            instance.RequestHandlerHooks.Add(new HTTPRequestHandlerHook("/64kfile", TestHandler64KFile));
+            HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", TestHandlerStatic));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", TestHandlerDynamic));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/64kfile", TestHandler64KFile));
             instance.StartListening(false);
             try
             {
@@ -258,9 +258,9 @@ Content-Type: text/html
 
             for (int i = 5; i <= 1024; i += 1019)
             {
-                instance = new HTTPServer(new HTTPServerOptions { Port = _port, UseFileUploadAtSize = i });
-                instance.RequestHandlerHooks.Add(new HTTPRequestHandlerHook("/static", TestHandlerStatic));
-                instance.RequestHandlerHooks.Add(new HTTPRequestHandlerHook("/dynamic", TestHandlerDynamic));
+                instance = new HttpServer(new HttpServerOptions { Port = _port, UseFileUploadAtSize = i });
+                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", TestHandlerStatic));
+                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", TestHandlerDynamic));
                 instance.StartListening(false);
 
                 try
@@ -306,8 +306,8 @@ Content-Type: text/html
         [Test]
         public void TestKeepaliveAndChunked()
         {
-            HTTPServer instance = new HTTPServer(new HTTPServerOptions { Port = _port });
-            instance.RequestHandlerHooks.Add(new HTTPRequestHandlerHook("/dynamic", TestHandlerDynamic));
+            HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", TestHandlerDynamic));
             instance.StartListening(false);
 
             TcpClient cl = new TcpClient();
@@ -371,23 +371,23 @@ Content-Type: text/html
             Assert.AreEqual("GET:\naktion => \"list\"\nshowonly => \"recordings\"\nlimitStart => \"0\"\nfiltermask_t => \"\"\nfiltermask_g => \"\"\nfiltermask_s => \"\"\nsize_max => \"*\"\nsize_min => \"*\"\nlang => \"\"\narchivemonth => \"200709\"\nformat_wmv => \"true\"\nformat_avi => \"true\"\nformat_hq => \"\"\nformat_mp4 => \"\"\norderby => \"time_desc\"\n", reconstruct);
         }
 
-        private IEnumerable<string> GenerateGetPostFilesOutput(HTTPRequest req)
+        private IEnumerable<string> GenerateGetPostFilesOutput(HttpRequest req)
         {
-            if (req.GET.Count > 0)
+            if (req.Get.Count > 0)
                 yield return "GET:\n";
-            foreach (var kvp in req.GET)
+            foreach (var kvp in req.Get)
                 yield return kvp.Key + " => \"" + kvp.Value + "\"\n";
-            if (req.GETArr.Count > 0)
+            if (req.GetArr.Count > 0)
                 yield return "\nGETArr:\n";
-            foreach (var kvp in req.GETArr)
+            foreach (var kvp in req.GetArr)
                 yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").Join(", ") + "]\n";
-            if (req.POST.Count > 0)
+            if (req.Post.Count > 0)
                 yield return "\nPOST:\n";
-            foreach (var kvp in req.POST)
+            foreach (var kvp in req.Post)
                 yield return kvp.Key + " => \"" + kvp.Value + "\"\n";
-            if (req.POSTArr.Count > 0)
+            if (req.PostArr.Count > 0)
                 yield return "\nPOSTArr:\n";
-            foreach (var kvp in req.POSTArr)
+            foreach (var kvp in req.PostArr)
                 yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").Join(", ") + "]\n";
             if (req.FileUploads.Count > 0)
                 yield return "\nFiles:\n";
@@ -399,35 +399,35 @@ Content-Type: text/html
             }
         }
 
-        private HTTPResponse TestHandlerStatic(HTTPRequest req)
+        private HttpResponse TestHandlerStatic(HttpRequest req)
         {
-            return new HTTPResponse
+            return new HttpResponse
             {
-                Status = HTTPStatusCode._200_OK,
-                Headers = new HTTPResponseHeaders { ContentType = "text/plain; charset=utf-8" },
+                Status = HttpStatusCode._200_OK,
+                Headers = new HttpResponseHeaders { ContentType = "text/plain; charset=utf-8" },
                 Content = new MemoryStream(GenerateGetPostFilesOutput(req).Join("").ToUTF8())
             };
         }
 
-        private HTTPResponse TestHandlerDynamic(HTTPRequest req)
+        private HttpResponse TestHandlerDynamic(HttpRequest req)
         {
-            return new HTTPResponse
+            return new HttpResponse
             {
-                Status = HTTPStatusCode._200_OK,
-                Headers = new HTTPResponseHeaders { ContentType = "text/plain; charset=utf-8" },
+                Status = HttpStatusCode._200_OK,
+                Headers = new HttpResponseHeaders { ContentType = "text/plain; charset=utf-8" },
                 Content = new DynamicContentStream(GenerateGetPostFilesOutput(req), false)
             };
         }
 
-        private HTTPResponse TestHandler64KFile(HTTPRequest req)
+        private HttpResponse TestHandler64KFile(HttpRequest req)
         {
             byte[] largeFile = new byte[65536];
             for (int i = 0; i < 65536; i++)
                 largeFile[i] = (byte) (i % 256);
-            return new HTTPResponse
+            return new HttpResponse
             {
-                Status = HTTPStatusCode._200_OK,
-                Headers = new HTTPResponseHeaders { ContentType = "application/octet-stream" },
+                Status = HttpStatusCode._200_OK,
+                Headers = new HttpResponseHeaders { ContentType = "application/octet-stream" },
                 Content = new MemoryStream(largeFile)
             };
         }

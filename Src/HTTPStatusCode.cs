@@ -4,10 +4,10 @@ namespace RT.Servers
     /// <summary>
     /// Contains definitions for all the HTTP status codes defined in HTTP/1.1.
     /// </summary>
-    public enum HTTPStatusCode
+    public enum HttpStatusCode
     {
         /// <summary>
-        /// Default value to capture the case where no status code is provided. 
+        /// Default value to capture the case where no status code is provided.
         /// The server will then default to <see cref="_200_OK"/> before sending the headers.
         /// </summary>
         None = 0,
@@ -63,26 +63,26 @@ namespace RT.Servers
         _502_BadGateway = 502,
         _503_ServiceUnavailable = 503,
         _504_GatewayTimeout = 504,
-        _505_HTTPVersionNotSupported = 505
+        _505_HttpVersionNotSupported = 505
 
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
-    
+
     }
 
     /// <summary>
-    /// Extension methods for <see cref="HTTPStatusCode"/>.
+    /// Extension methods for <see cref="HttpStatusCode"/>.
     /// </summary>
-    public static class HTTPStatusCodeExtensions
+    public static class HttpStatusCodeExtensions
     {
         /// <summary>
         /// Returns a string representation of the specified HTTP status code.
         /// </summary>
         /// <param name="code">The status code to return a string representation for.</param>
         /// <returns>A string representation of the specified HTTP status code.</returns>
-        public static string ToText(this HTTPStatusCode code)
+        public static string ToText(this HttpStatusCode code)
         {
-            return HTTPInternalObjects.StatusCodeNames.ContainsKey(code)
-                ? HTTPInternalObjects.StatusCodeNames[code]
+            return HttpInternalObjects.StatusCodeNames.ContainsKey(code)
+                ? HttpInternalObjects.StatusCodeNames[code]
                 : "Unknown status code";
         }
     }

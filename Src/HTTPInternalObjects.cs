@@ -8,13 +8,13 @@ namespace RT.Servers
     /// <summary>
     /// Internal class containing global static objects.
     /// </summary>
-    public static class HTTPInternalObjects
+    public static class HttpInternalObjects
     {
         /// <summary>
         /// XSL to use for directory listings. This will be converted to UTF-8, whitespace-optimised and cached before being output.
         /// This is the file that is returned at the URL /$/directory-listing/xsl.
         /// </summary>
-        private static string DirectoryListingXSLString = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+        private static string _directoryListingXslString = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 
             <xsl:stylesheet version=""1.0"" xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" xmlns=""http://www.w3.org/1999/xhtml"">
                 <xsl:output method=""html""/>
@@ -92,83 +92,83 @@ namespace RT.Servers
         /// <summary>
         /// Caches the UTF-8-encoded version of the directory-listing XSL file.
         /// </summary>
-        private static byte[] DirectoryListingXSLByteArray = null;
+        private static byte[] _directoryListingXslByteArray = null;
 
         /// <summary>
         /// Contains string representations of the HTTP status codes defined in HTTP/1.1.
         /// </summary>
-        public static Dictionary<HTTPStatusCode, string> StatusCodeNames = new Dictionary<HTTPStatusCode, string>
+        public static Dictionary<HttpStatusCode, string> StatusCodeNames = new Dictionary<HttpStatusCode, string>
         {
-            { HTTPStatusCode._100_Continue, "Continue" },
-            { HTTPStatusCode._101_SwitchingProtocols, "Switching Protocols" },
-            { HTTPStatusCode._200_OK, "OK" },
-            { HTTPStatusCode._201_Created, "Created" },
-            { HTTPStatusCode._202_Accepted, "Accepted" },
-            { HTTPStatusCode._203_NonAuthoritativeInformation, "Non-Authoritative Information" },
-            { HTTPStatusCode._204_NoContent, "No Content" },
-            { HTTPStatusCode._205_ResetContent, "Reset Content" },
-            { HTTPStatusCode._206_PartialContent, "Partial Content" },
-            { HTTPStatusCode._300_MultipleChoices, "Multiple Choices" },
-            { HTTPStatusCode._301_MovedPermanently, "Moved Permanently" },
-            { HTTPStatusCode._302_Found, "Found" },
-            { HTTPStatusCode._303_SeeOther, "See Other" },
-            { HTTPStatusCode._304_NotModified, "Not Modified" },
-            { HTTPStatusCode._305_UseProxy, "Use Proxy" },
-            { HTTPStatusCode._306__Unused, "(Unused)" },
-            { HTTPStatusCode._307_TemporaryRedirect, "Temporary Redirect" },
-            { HTTPStatusCode._400_BadRequest, "Bad Request" },
-            { HTTPStatusCode._401_Unauthorized, "Unauthorized" },
-            { HTTPStatusCode._402_PaymentRequired, "Payment Required" },
-            { HTTPStatusCode._403_Forbidden, "Forbidden" },
-            { HTTPStatusCode._404_NotFound, "Not Found" },
-            { HTTPStatusCode._405_MethodNotAllowed, "Method Not Allowed" },
-            { HTTPStatusCode._406_NotAcceptable, "Not Acceptable" },
-            { HTTPStatusCode._407_ProxyAuthenticationRequired, "Proxy Authentication Required" },
-            { HTTPStatusCode._408_RequestTimeout, "Request Timeout" },
-            { HTTPStatusCode._409_Conflict, "Conflict" },
-            { HTTPStatusCode._410_Gone, "Gone" },
-            { HTTPStatusCode._411_LengthRequired, "Length Required" },
-            { HTTPStatusCode._412_PreconditionFailed, "Precondition Failed" },
-            { HTTPStatusCode._413_RequestEntityTooLarge, "Request Entity Too Large" },
-            { HTTPStatusCode._414_RequestURITooLong, "Request URI Too Long" },
-            { HTTPStatusCode._415_UnsupportedMediaType, "Unsupported Media Type" },
-            { HTTPStatusCode._416_RequestedRangeNotSatisfiable, "Requested Range Not Satisfiable" },
-            { HTTPStatusCode._417_ExpectationFailed, "Expectation Failed" },
-            { HTTPStatusCode._500_InternalServerError, "Internal Server Error" },
-            { HTTPStatusCode._501_NotImplemented, "Not Implemented" },
-            { HTTPStatusCode._502_BadGateway, "Bad Gateway" },
-            { HTTPStatusCode._503_ServiceUnavailable, "Service Unavailable" },
-            { HTTPStatusCode._504_GatewayTimeout, "Gateway Timeout" },
-            { HTTPStatusCode._505_HTTPVersionNotSupported, "HTTP Version Not Supported" }
+            { HttpStatusCode._100_Continue, "Continue" },
+            { HttpStatusCode._101_SwitchingProtocols, "Switching Protocols" },
+            { HttpStatusCode._200_OK, "OK" },
+            { HttpStatusCode._201_Created, "Created" },
+            { HttpStatusCode._202_Accepted, "Accepted" },
+            { HttpStatusCode._203_NonAuthoritativeInformation, "Non-Authoritative Information" },
+            { HttpStatusCode._204_NoContent, "No Content" },
+            { HttpStatusCode._205_ResetContent, "Reset Content" },
+            { HttpStatusCode._206_PartialContent, "Partial Content" },
+            { HttpStatusCode._300_MultipleChoices, "Multiple Choices" },
+            { HttpStatusCode._301_MovedPermanently, "Moved Permanently" },
+            { HttpStatusCode._302_Found, "Found" },
+            { HttpStatusCode._303_SeeOther, "See Other" },
+            { HttpStatusCode._304_NotModified, "Not Modified" },
+            { HttpStatusCode._305_UseProxy, "Use Proxy" },
+            { HttpStatusCode._306__Unused, "(Unused)" },
+            { HttpStatusCode._307_TemporaryRedirect, "Temporary Redirect" },
+            { HttpStatusCode._400_BadRequest, "Bad Request" },
+            { HttpStatusCode._401_Unauthorized, "Unauthorized" },
+            { HttpStatusCode._402_PaymentRequired, "Payment Required" },
+            { HttpStatusCode._403_Forbidden, "Forbidden" },
+            { HttpStatusCode._404_NotFound, "Not Found" },
+            { HttpStatusCode._405_MethodNotAllowed, "Method Not Allowed" },
+            { HttpStatusCode._406_NotAcceptable, "Not Acceptable" },
+            { HttpStatusCode._407_ProxyAuthenticationRequired, "Proxy Authentication Required" },
+            { HttpStatusCode._408_RequestTimeout, "Request Timeout" },
+            { HttpStatusCode._409_Conflict, "Conflict" },
+            { HttpStatusCode._410_Gone, "Gone" },
+            { HttpStatusCode._411_LengthRequired, "Length Required" },
+            { HttpStatusCode._412_PreconditionFailed, "Precondition Failed" },
+            { HttpStatusCode._413_RequestEntityTooLarge, "Request Entity Too Large" },
+            { HttpStatusCode._414_RequestURITooLong, "Request URI Too Long" },
+            { HttpStatusCode._415_UnsupportedMediaType, "Unsupported Media Type" },
+            { HttpStatusCode._416_RequestedRangeNotSatisfiable, "Requested Range Not Satisfiable" },
+            { HttpStatusCode._417_ExpectationFailed, "Expectation Failed" },
+            { HttpStatusCode._500_InternalServerError, "Internal Server Error" },
+            { HttpStatusCode._501_NotImplemented, "Not Implemented" },
+            { HttpStatusCode._502_BadGateway, "Bad Gateway" },
+            { HttpStatusCode._503_ServiceUnavailable, "Service Unavailable" },
+            { HttpStatusCode._504_GatewayTimeout, "Gateway Timeout" },
+            { HttpStatusCode._505_HttpVersionNotSupported, "HTTP Version Not Supported" }
         };
 
         /// <summary>
         /// Generates a random filename for a temporary file in the specified directory.
         /// </summary>
-        /// <param name="TempDir">Directory to generate a temporary file in.</param>
-        /// <param name="FStream">Will be set to a writable FileStream pointing at the newly-created, empty temporary file.</param>
+        /// <param name="tempDir">Directory to generate a temporary file in.</param>
+        /// <param name="fStream">Will be set to a writable FileStream pointing at the newly-created, empty temporary file.</param>
         /// <returns>The full path and filename of the temporary file.</returns>
-        public static string RandomTempFilepath(string TempDir, out Stream FStream)
+        public static string RandomTempFilepath(string tempDir, out Stream fStream)
         {
-            string Dir = TempDir + (TempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
+            string dir = tempDir + (tempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
             lock (Ut.Rnd)
             {
-                int Counter = Ut.Rnd.Next(1000);
+                int counter = Ut.Rnd.Next(1000);
                 // This seemingly bizarre construct tries to prevent race conditions between several threads/processes trying to create the same file.
                 while (true)
                 {
-                    if (Counter > 100000)
-                        throw new IOException("Could not generate a new temporary filename in the directory " + TempDir +
+                    if (counter > 100000)
+                        throw new IOException("Could not generate a new temporary filename in the directory " + tempDir +
                             ". Make sure that the directory exists. You may need to clear out this directory if it is full.");
                     try
                     {
-                        string Filepath = Dir + "http_upload_" + Counter;
-                        FStream = File.Open(Filepath, FileMode.CreateNew, FileAccess.Write);
-                        return Filepath;
+                        string filepath = dir + "http_upload_" + counter;
+                        fStream = File.Open(filepath, FileMode.CreateNew, FileAccess.Write);
+                        return filepath;
                     }
                     catch (IOException)
                     {
-                        Counter += Ut.Rnd.Next(1000);
+                        counter += Ut.Rnd.Next(1000);
                     }
                 }
             }
@@ -178,42 +178,42 @@ namespace RT.Servers
         /// Returns a byte array containing the UTF-8-encoded directory-listing XSL.
         /// </summary>
         /// <returns>A byte array containing the UTF-8-encoded directory-listing XSL.</returns>
-        public static byte[] DirectoryListingXSL()
+        public static byte[] DirectoryListingXsl()
         {
-            if (DirectoryListingXSLByteArray == null)
+            if (_directoryListingXslByteArray == null)
             {
-                DirectoryListingXSLByteArray = DirectoryListingXSLString.ToUTF8();
-                DirectoryListingXSLString = null; // free some memory?
+                _directoryListingXslByteArray = _directoryListingXslString.ToUTF8();
+                _directoryListingXslString = null; // free some memory?
             }
-            return DirectoryListingXSLByteArray;
+            return _directoryListingXslByteArray;
         }
 
         /// <summary>
         /// Returns a byte array representing an icon in PNG format that corresponds to the specified file extension.
         /// </summary>
-        /// <param name="Ext">The file extension for which to retrieve an icon in PNG format.</param>
+        /// <param name="extension">The file extension for which to retrieve an icon in PNG format.</param>
         /// <returns>A byte array representing an icon in PNG format that corresponds to the specified file extension.</returns>
-        public static byte[] GetDirectoryListingIcon(string Ext)
+        public static byte[] GetDirectoryListingIcon(string extension)
         {
-            if (Ext == "folder") return Resources.folder_16;
-            if (Ext == "folderbig") return Resources.folder_48;
+            if (extension == "folder") return Resources.folder_16;
+            if (extension == "folderbig") return Resources.folder_48;
 
-            if (Ext == "bmp") return Resources.bmp_16;
-            if (Ext == "csv") return Resources.csv_16;
-            if (Ext == "doc") return Resources.doc_16;
-            if (Ext == "exe") return Resources.exe_16;
-            if (Ext == "faq") return Resources.faq_16;
-            if (Ext == "gz") return Resources.zip_16;
-            if (Ext == "jpg") return Resources.jpg_16;
-            if (Ext == "pdf") return Resources.pdf_16;
-            if (Ext == "pic") return Resources.pic_16;
-            if (Ext == "png") return Resources.png_16;
-            if (Ext == "pps") return Resources.pps_16;
-            if (Ext == "ppt") return Resources.ppt_16;
-            if (Ext == "txt") return Resources.txt_16;
-            if (Ext == "xls") return Resources.xls_16;
-            if (Ext == "zip") return Resources.zip_16;
-            if (Ext == "rar") return Resources.gz_16;
+            if (extension == "bmp") return Resources.bmp_16;
+            if (extension == "csv") return Resources.csv_16;
+            if (extension == "doc") return Resources.doc_16;
+            if (extension == "exe") return Resources.exe_16;
+            if (extension == "faq") return Resources.faq_16;
+            if (extension == "gz") return Resources.zip_16;
+            if (extension == "jpg") return Resources.jpg_16;
+            if (extension == "pdf") return Resources.pdf_16;
+            if (extension == "pic") return Resources.pic_16;
+            if (extension == "png") return Resources.png_16;
+            if (extension == "pps") return Resources.pps_16;
+            if (extension == "ppt") return Resources.ppt_16;
+            if (extension == "txt") return Resources.txt_16;
+            if (extension == "xls") return Resources.xls_16;
+            if (extension == "zip") return Resources.zip_16;
+            if (extension == "rar") return Resources.gz_16;
 
             return Resources.txt_16;
         }
@@ -221,29 +221,29 @@ namespace RT.Servers
         /// <summary>
         /// Returns a file extension whose icon is used in directory listings to represent files of the specified file extension.
         /// </summary>
-        /// <param name="Ext">The extension of the actual file for which to display an icon.</param>
+        /// <param name="extension">The extension of the actual file for which to display an icon.</param>
         /// <returns>The file extension whose icon is used in directory listings to represent files of the specified file extension.</returns>
-        public static string GetDirectoryListingIconStr(string Ext)
+        public static string GetDirectoryListingIconStr(string extension)
         {
-            if (Ext == "folder") return Ext;
-            if (Ext == "folderbig") return Ext;
+            if (extension == "folder") return extension;
+            if (extension == "folderbig") return extension;
 
-            if (Ext == "bmp") return Ext;
-            if (Ext == "csv") return Ext;
-            if (Ext == "doc") return Ext;
-            if (Ext == "exe") return Ext;
-            if (Ext == "faq") return Ext;
-            if (Ext == "gz") return "zip";
-            if (Ext == "jpg") return Ext;
-            if (Ext == "pdf") return Ext;
-            if (Ext == "pic") return Ext;
-            if (Ext == "png") return Ext;
-            if (Ext == "pps") return Ext;
-            if (Ext == "ppt") return Ext;
-            if (Ext == "txt") return Ext;
-            if (Ext == "xls") return Ext;
-            if (Ext == "zip") return Ext;
-            if (Ext == "rar") return Ext;
+            if (extension == "bmp") return extension;
+            if (extension == "csv") return extension;
+            if (extension == "doc") return extension;
+            if (extension == "exe") return extension;
+            if (extension == "faq") return extension;
+            if (extension == "gz") return "zip";
+            if (extension == "jpg") return extension;
+            if (extension == "pdf") return extension;
+            if (extension == "pic") return extension;
+            if (extension == "png") return extension;
+            if (extension == "pps") return extension;
+            if (extension == "ppt") return extension;
+            if (extension == "txt") return extension;
+            if (extension == "xls") return extension;
+            if (extension == "zip") return extension;
+            if (extension == "rar") return extension;
 
             return "txt";
         }

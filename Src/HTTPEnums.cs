@@ -7,17 +7,17 @@ namespace RT.Servers
     /// <summary>
     /// Contains values for the supported HTTP methods.
     /// </summary>
-    public enum HTTPMethod
+    public enum HttpMethod
     {
-        GET,
-        POST,
-        HEAD
+        Get,
+        Post,
+        Head
     }
 
     /// <summary>
     /// Contains values for the supported values of the Accept-Ranges HTTP request header.
     /// </summary>
-    public enum HTTPAcceptRanges
+    public enum HttpAcceptRanges
     {
         None,
         Bytes
@@ -26,7 +26,7 @@ namespace RT.Servers
     /// <summary>
     /// Contains values for the supported values of the Connection HTTP request or response header.
     /// </summary>
-    public enum HTTPConnection
+    public enum HttpConnection
     {
         None,
         Close,
@@ -36,7 +36,7 @@ namespace RT.Servers
     /// <summary>
     /// Contains values for the Cache-Control HTTP request or response header. None of these currently have any effect.
     /// </summary>
-    public enum HTTPCacheControlState
+    public enum HttpCacheControlState
     {
         None,
 
@@ -62,8 +62,8 @@ namespace RT.Servers
     /// <summary>
     /// Contains values for the supported values of the Content-Disposition HTTP entity header, minus the filename.
     /// </summary>
-    /// <seealso cref="HTTPContentDisposition"/>
-    public enum HTTPContentDispositionMode
+    /// <seealso cref="HttpContentDisposition"/>
+    public enum HttpContentDispositionMode
     {
         None,
         Attachment,
@@ -72,7 +72,7 @@ namespace RT.Servers
     /// <summary>
     /// Contains values for the supported values of the Accept-Encoding HTTP request header and the Content-Encoding HTTP response header.
     /// </summary>
-    public enum HTTPContentEncoding
+    public enum HttpContentEncoding
     {
         Identity,
         Gzip,
@@ -83,27 +83,27 @@ namespace RT.Servers
     /// <summary>
     /// Contains values for the supported values of the Transfer-Encoding HTTP response header.
     /// </summary>
-    public enum HTTPTransferEncoding
+    public enum HttpTransferEncoding
     {
         None,
         Chunked
     }
 
     /// <summary>
-    /// Controls which style of directory listing should be used by <see cref="HTTPServer.FileSystemResponse"/> to list the contents of directories.
+    /// Controls which style of directory listing should be used by <see cref="HttpServer.FileSystemResponse"/> to list the contents of directories.
     /// </summary>
     public enum DirectoryListingStyle
     {
-        XMLplusXSL
+        XmlPlusXsl
     }
 
     /// <summary>
     /// Contains values for the supported values of the Content-Type HTTP request header when used in HTTP POST requests.
     /// </summary>
-    public enum HTTPPOSTContentType
+    public enum HttpPostContentType
     {
         None,
-        ApplicationXWWWFormURLEncoded,
+        ApplicationXWwwFormUrlEncoded,
         MultipartFormData
     }
 

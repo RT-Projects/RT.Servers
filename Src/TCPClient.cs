@@ -1,24 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net.Sockets;
 using System.Threading;
-using RT.Servers.TCPEvents;
+using RT.Servers.TcpEvents;
+using System.Net.Sockets;
 
 namespace RT.Servers
 {
     /// <summary>
-    /// Provides a TCP client that can monitor an existing TCP connection (<see cref="System.Net.Sockets.Socket"/>)
+    /// Provides a TCP client that can monitor an existing TCP connection (<see cref="Socket"/>)
     /// for incoming data and will raise events (callback functions) when data is received or the 
     /// connection is closed.
     /// </summary>
-    public class TCPClient
+    public class TcpClientWithEvents
     {
         private Socket Socket;
         private Thread ReadingThread;
 
         /// <summary>Constructs a TCP client based on an existing Socket.</summary>
         /// <param name="Socket">The Socket to monitor for incoming data.</param>
-        public TCPClient(Socket Socket)
+        public TcpClientWithEvents(Socket Socket)
         {
             this.Socket = Socket;
             ReadingThread = new Thread(ReadingThreadFunction);

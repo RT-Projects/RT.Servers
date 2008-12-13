@@ -26,14 +26,14 @@ namespace RT.Servers
         /// <summary>
         /// Logs an event.
         /// </summary>
-        /// <param name="Msg">Message to log.</param>
-        public abstract void Log(string Msg);
+        /// <param name="msg">Message to log.</param>
+        public abstract void Log(string msg);
 
         /// <summary>
         /// Outputs the stopwatch report with timing information to the specified file.
         /// </summary>
-        /// <param name="Filepath">File to save stopwatch output to. If the file already exists, it will be overwritten.</param>
-        public abstract void SaveToFile(string Filepath);
+        /// <param name="filePath">File to save stopwatch output to. If the file already exists, it will be overwritten.</param>
+        public abstract void SaveToFile(string filePath);
 
         /// <summary>No-op.</summary>
         public void Dispose() { }
@@ -58,12 +58,12 @@ namespace RT.Servers
         /// <summary>
         /// Logs an event.
         /// </summary>
-        /// <param name="Msg">Message to log.</param>
-        public override void Log(string Msg)
+        /// <param name="msg">Message to log.</param>
+        public override void Log(string msg)
         {
             Elements.Add(new StopWatchElement
             {
-                Event = Msg,
+                Event = msg,
                 Milliseconds = (DateTime.Now - StartTime).TotalMilliseconds
             });
         }
@@ -75,14 +75,14 @@ namespace RT.Servers
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            int MaxLength = 0;
+            int maxLength = 0;
             foreach (var x in Elements)
-                MaxLength = Math.Max(MaxLength, x.Event.Length + 5);
-            sb.Append(new string('-', MaxLength + 20) + "\r\n");
+                maxLength = Math.Max(maxLength, x.Event.Length + 5);
+            sb.Append(new string('-', maxLength + 20) + "\r\n");
             for (int i = 0; i < Elements.Count; i++)
             {
                 var x = Elements[i];
-                sb.Append(x.Event.PadRight(MaxLength, '.'));
+                sb.Append(x.Event.PadRight(maxLength, '.'));
                 sb.Append(string.Format("{0,10:0.00}", (i > 0 ? x.Milliseconds - Elements[i - 1].Milliseconds : x.Milliseconds)));
                 sb.Append(string.Format("{0,10:0.00}", x.Milliseconds));
                 sb.Append("\r\n");
@@ -93,12 +93,12 @@ namespace RT.Servers
         /// <summary>
         /// Outputs the stopwatch report with timing information to the specified file.
         /// </summary>
-        /// <param name="Filepath">File to save stopwatch output to. If the file already exists, it will be overwritten.</param>
-        public override void SaveToFile(string Filepath)
+        /// <param name="filePath">File to save stopwatch output to. If the file already exists, it will be overwritten.</param>
+        public override void SaveToFile(string filePath)
         {
             try
             {
-                File.WriteAllBytes(Filepath, this.ToString().ToUTF8());
+                File.WriteAllBytes(filePath, this.ToString().ToUTF8());
             }
             catch (IOException)
             {
@@ -114,8 +114,8 @@ namespace RT.Servers
         /// <summary>
         /// Doesn't do anything.
         /// </summary>
-        /// <param name="Msg">Is ignored.</param>
-        public override void Log(string Msg) { }
+        /// <param name="msg">Is ignored.</param>
+        public override void Log(string msg) { }
 
         /// <summary>
         /// Returns an empty string.
@@ -126,7 +126,7 @@ namespace RT.Servers
         /// <summary>
         /// Doesn't do anything.
         /// </summary>
-        /// <param name="Filepath">Is ignored.</param>
-        public override void SaveToFile(string Filepath) { }
+        /// <param name="filePath">Is ignored.</param>
+        public override void SaveToFile(string filePath) { }
     }
 }

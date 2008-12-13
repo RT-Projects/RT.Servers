@@ -9,44 +9,44 @@ using RT.Util.ExtensionMethods;
 namespace RT.Servers
 {
     /// <summary>
-    /// An HTTP request handler is a function that takes an HTTP request (<see cref="HTTPRequest"/>) and returns an HTTP response (<see cref="HTTPResponse"/>).
+    /// An HTTP request handler is a function that takes an HTTP request (<see cref="HttpRequest"/>) and returns an HTTP response (<see cref="HttpResponse"/>).
     /// </summary>
-    /// <param name="Request">The HTTP request to be processed.</param>
+    /// <param name="request">The HTTP request to be processed.</param>
     /// <returns>The HTTP response generated from the HTTP request.</returns>
-    public delegate HTTPResponse HTTPRequestHandler(HTTPRequest Request);
+    public delegate HttpResponse HttpRequestHandler(HttpRequest request);
 
     /// <summary>
     /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
     /// </summary>
-    public class HTTPRequestHeaders
+    public class HttpRequestHeaders
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public string[] Accept;
         public string[] AcceptCharset;
-        public HTTPContentEncoding[] AcceptEncoding;
+        public HttpContentEncoding[] AcceptEncoding;
         public string[] AcceptLanguage;
-        public HTTPConnection Connection;
+        public HttpConnection Connection;
         public long? ContentLength;                 // required only for POST
-        public HTTPPOSTContentType ContentType;     // required only for POST
-        public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HTTPPOSTContentType.MultipartFormData
+        public HttpPostContentType ContentType;     // required only for POST
+        public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HttpPostContentType.MultipartFormData
         public Dictionary<string, Cookie> Cookie;
         public Dictionary<string, string> Expect;
         public string Host;
         public DateTime? IfModifiedSince;
         public string IfNoneMatch;
-        public HTTPRange[] Range;
+        public HttpRange[] Range;
         public string UserAgent;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
-        /// <summary>Stores the header values pertaining to headers not supported by <see cref="HTTPRequestHeaders"/> as raw strings.</summary>
+        /// <summary>Stores the header values pertaining to headers not supported by <see cref="HttpRequestHeaders"/> as raw strings.</summary>
         public Dictionary<string, string> UnrecognisedHeaders;
     }
 
     /// <summary>
-    /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HTTPServer"/> generates this when it receives an 
-    /// HTTP request and passes it to the relevant <see cref="HTTPRequestHandler"/>.
+    /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HttpServer"/> generates this when it receives an
+    /// HTTP request and passes it to the relevant <see cref="HttpRequestHandler"/>.
     /// </summary>
-    public class HTTPRequest
+    public class HttpRequest
     {
         private struct FieldsCache
         {
@@ -54,31 +54,31 @@ namespace RT.Servers
             public Dictionary<string, List<string>> ArrayCache;
             public Dictionary<string, FileUpload> FileCache;
         }
-        private string _URL;
-        private FieldsCache GETFieldsCache;
-        private FieldsCache POSTFieldsCache;
+        private string _url;
+        private FieldsCache GetFieldsCache;
+        private FieldsCache PostFieldsCache;
 
         /// <summary>
         /// Contains the part of the URL that follows the path where the request handler is hooked.
-        /// <see cref="BaseURL"/> + RestURL is equal to <see cref="URL"/>.
+        /// <see cref="BaseUrl"/> + RestURL is equal to <see cref="Url"/>.
         /// </summary>
         /// <example>
         ///     Consider the following example code:
         ///     <code>
-        ///         HTTPServer MyServer = new HTTPServer();
-        ///         MyServer.AddHandler(new HTTPRequestHandlerHook { Path = "/homepages", Handler = MyHandler });
+        ///         HttpServer MyServer = new HttpServer();
+        ///         MyServer.AddHandler(new HttpRequestHandlerHook { Path = "/homepages", Handler = MyHandler });
         ///     </code>
         ///     In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
         ///     would have the RestURL field set to the value <c>/a/adam</c>. Note the leading slash.
         /// </example>
-        public string RestURL;
+        public string RestUrl;
 
         /// <summary>
         /// Contains the part of the URL to which the request handler is hooked.
-        /// BaseURL + <see cref="RestURL"/> is equal to <see cref="URL"/>.
-        /// For an example, see <see cref="RestURL"/>.
+        /// BaseURL + <see cref="RestUrl"/> is equal to <see cref="Url"/>.
+        /// For an example, see <see cref="RestUrl"/>.
         /// </summary>
-        public string BaseURL;
+        public string BaseUrl;
 
         /// <summary>
         /// Stores the domain name from the Host header, without the port number.
@@ -92,8 +92,8 @@ namespace RT.Servers
         /// <example>
         ///     Consider the following example code:
         ///     <code>
-        ///         HTTPServer MyServer = new HTTPServer();
-        ///         MyServer.AddHandler(new HTTPRequestHandlerHook { Domain = "homepages.mydomain.com", Handler = MyHandler });
+        ///         HttpServer MyServer = new HttpServer();
+        ///         MyServer.AddHandler(new HttpRequestHandlerHook { Domain = "homepages.mydomain.com", Handler = MyHandler });
         ///     </code>
         ///     In the above example, an HTTP request for the URL <c>http://peter.schmidt.homepages.mydomain.com/</c>
         ///     would have the RestDomain field set to the value <c>peter.schmidt.</c>. Note the trailing dot.
@@ -110,16 +110,16 @@ namespace RT.Servers
         /// <summary>
         /// The HTTP request method (GET, POST or HEAD).
         /// </summary>
-        public HTTPMethod Method;
+        public HttpMethod Method;
 
         /// <summary>
-        /// The HTTP request headers that were received and understood by <see cref="HTTPServer"/>.
+        /// The HTTP request headers that were received and understood by <see cref="HttpServer"/>.
         /// </summary>
-        public HTTPRequestHeaders Headers = new HTTPRequestHeaders();
+        public HttpRequestHeaders Headers = new HttpRequestHeaders();
 
         /// <summary>
         /// The directory to use for temporary files if the request is a POST request and contains a file upload.
-        /// This can be set before <see cref="FileUploads"/>, <see cref="POST"/> or <see cref="POSTArr"/> is called for the first time.
+        /// This can be set before <see cref="FileUploads"/>, <see cref="Post"/> or <see cref="PostArr"/> is called for the first time.
         /// After the first call to any of these, file uploads will already have been processed.
         /// </summary>
         public string TempDir;
@@ -133,37 +133,37 @@ namespace RT.Servers
         /// <summary>
         /// Contains the delegate function used to handle this request.
         /// </summary>
-        internal HTTPRequestHandler Handler;
+        internal HttpRequestHandler Handler;
 
         /// <summary>
-        /// Contains the path and filename of a temporary file that has been used to store the POST request content, if any. 
-        /// <see cref="HTTPServer"/> uses this field to keep track of it and delete the file when it is no longer needed.
+        /// Contains the path and filename of a temporary file that has been used to store the POST request content, if any.
+        /// <see cref="HttpServer"/> uses this field to keep track of it and delete the file when it is no longer needed.
         /// </summary>
         internal string TemporaryFile;
 
         /// <summary>
         /// A default constructor that initialises all fields to their defaults.
         /// </summary>
-        public HTTPRequest()
+        public HttpRequest()
         {
         }
 
         /// <summary>
         /// DO NOT USE THIS CONSTRUCTOR except in unit testing.
         /// </summary>
-        /// <param name="Content">DO NOT USE THIS CONSTRUCTOR except in unit testing.</param>
-        public HTTPRequest(Stream Content)
+        /// <param name="content">DO NOT USE THIS CONSTRUCTOR except in unit testing.</param>
+        public HttpRequest(Stream content)
         {
-            this.Content = Content;
+            Content = content;
 
             // Default values. I don't understand why I have to set them here.
-            _URL = null;
-            GETFieldsCache = new FieldsCache();
-            POSTFieldsCache = new FieldsCache();
-            BaseURL = null;
-            RestURL = null;
-            Method = HTTPMethod.GET;
-            Headers = new HTTPRequestHeaders();
+            _url = null;
+            GetFieldsCache = new FieldsCache();
+            PostFieldsCache = new FieldsCache();
+            BaseUrl = null;
+            RestUrl = null;
+            Method = HttpMethod.Get;
+            Headers = new HttpRequestHeaders();
             Handler = null;
             TemporaryFile = null;
             TempDir = null;
@@ -175,89 +175,89 @@ namespace RT.Servers
         /// <summary>
         /// The URL of the request, not including the domain, but including GET query parameters if any.
         /// </summary>
-        public string URL
+        public string Url
         {
-            get { return _URL; }
-            set { _URL = value; GETFieldsCache = new FieldsCache(); }
+            get { return _url; }
+            set { _url = value; GetFieldsCache = new FieldsCache(); }
         }
 
         /// <summary>
         /// The URL of the request, not including the domain or any GET query parameters.
         /// </summary>
-        public string URLWithoutQuery
+        public string UrlWithoutQuery
         {
-            get { return _URL.Contains('?') ? _URL.Remove(_URL.IndexOf('?')) : _URL; }
+            get { return _url.Contains('?') ? _url.Remove(_url.IndexOf('?')) : _url; }
         }
 
         /// <summary>
-        /// The <see cref="RestURL"/> (q.v.) of the request, not including the domain or any GET query parameters.
+        /// The <see cref="RestUrl"/> (q.v.) of the request, not including the domain or any GET query parameters.
         /// </summary>
-        public string RestURLWithoutQuery
+        public string RestUrlWithoutQuery
         {
-            get { return RestURL.Contains('?') ? RestURL.Remove(RestURL.IndexOf('?')) : RestURL; }
+            get { return RestUrl.Contains('?') ? RestUrl.Remove(RestUrl.IndexOf('?')) : RestUrl; }
         }
 
         /// <summary>
         /// Provides access to GET query parameters that are individual values.
         /// </summary>
-        /// <seealso cref="GETArr"/>
-        public Dictionary<string, string> GET
+        /// <seealso cref="GetArr"/>
+        public Dictionary<string, string> Get
         {
             get
             {
-                if (!_URL.Contains('?'))
+                if (!_url.Contains('?'))
                     return new Dictionary<string, string>();
-                if (GETFieldsCache.ValueCache == null)
-                    GETFieldsCache = ParseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_URL.Substring(_URL.IndexOf('?') + 1))));
-                return GETFieldsCache.ValueCache;
+                if (GetFieldsCache.ValueCache == null)
+                    GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
+                return GetFieldsCache.ValueCache;
             }
         }
 
         /// <summary>
         /// Provides access to GET query parameters that are arrays.
         /// </summary>
-        /// <seealso cref="GET"/>
-        public Dictionary<string, List<string>> GETArr
+        /// <seealso cref="Get"/>
+        public Dictionary<string, List<string>> GetArr
         {
             get
             {
-                if (!_URL.Contains('?'))
+                if (!_url.Contains('?'))
                     return new Dictionary<string, List<string>>();
-                if (GETFieldsCache.ArrayCache == null)
-                    GETFieldsCache = ParseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_URL.Substring(_URL.IndexOf('?') + 1))));
-                return GETFieldsCache.ArrayCache;
+                if (GetFieldsCache.ArrayCache == null)
+                    GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
+                return GetFieldsCache.ArrayCache;
             }
         }
 
         /// <summary>
         /// Provides access to POST query parameters that are individual values (empty if the request is not a POST request).
         /// </summary>
-        /// <seealso cref="POSTArr"/>
-        public Dictionary<string, string> POST
+        /// <seealso cref="PostArr"/>
+        public Dictionary<string, string> Post
         {
             get
             {
                 if (Content == null)
                     return new Dictionary<string, string>();
-                if (POSTFieldsCache.ValueCache == null)
-                    POSTFieldsCache = ParsePOSTParameters();
-                return POSTFieldsCache.ValueCache;
+                if (PostFieldsCache.ValueCache == null)
+                    PostFieldsCache = parsePostParameters();
+                return PostFieldsCache.ValueCache;
             }
         }
 
         /// <summary>
         /// Provides access to POST query parameters that are arrays (empty if the request is not a POST request).
         /// </summary>
-        /// <seealso cref="POST"/>
-        public Dictionary<string, List<string>> POSTArr
+        /// <seealso cref="Post"/>
+        public Dictionary<string, List<string>> PostArr
         {
             get
             {
                 if (Content == null)
                     return new Dictionary<string, List<string>>();
-                if (POSTFieldsCache.ArrayCache == null)
-                    POSTFieldsCache = ParsePOSTParameters();
-                return POSTFieldsCache.ArrayCache;
+                if (PostFieldsCache.ArrayCache == null)
+                    PostFieldsCache = parsePostParameters();
+                return PostFieldsCache.ArrayCache;
             }
         }
 
@@ -270,16 +270,16 @@ namespace RT.Servers
             {
                 if (Content == null)
                     return new Dictionary<string, FileUpload>();
-                if (POSTFieldsCache.FileCache == null)
-                    POSTFieldsCache = ParsePOSTParameters();
-                return POSTFieldsCache.FileCache;
+                if (PostFieldsCache.FileCache == null)
+                    PostFieldsCache = parsePostParameters();
+                return PostFieldsCache.FileCache;
             }
         }
 
-        private FieldsCache ParsePOSTParameters()
+        private FieldsCache parsePostParameters()
         {
-            if (Headers.ContentType == HTTPPOSTContentType.ApplicationXWWWFormURLEncoded)
-                return ParseQueryParameters(Content);
+            if (Headers.ContentType == HttpPostContentType.ApplicationXWwwFormUrlEncoded)
+                return parseQueryParameters(Content);
             FieldsCache fc = new FieldsCache
             {
                 ArrayCache = new Dictionary<string, List<string>>(),
@@ -294,48 +294,48 @@ namespace RT.Servers
 
             // Process POST request upload data
 
-            byte[] Buffer = new byte[65536];
-            int BytesRead = Content.Read(Buffer, 0, 65536);
+            byte[] buffer = new byte[65536];
+            int bytesRead = Content.Read(buffer, 0, 65536);
             // We expect the input to begin with "--" followed by the boundary followed by "\r\n"
-            string Expecting = "--" + Headers.ContentMultipartBoundary + "\r\n";
-            string StuffRead = Encoding.ASCII.GetString(Buffer, 0, BytesRead);
-            int PrevLength = 0;
-            while (StuffRead.Length < Expecting.Length)
+            string expecting = "--" + Headers.ContentMultipartBoundary + "\r\n";
+            string stuffRead = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+            int prevLength = 0;
+            while (stuffRead.Length < expecting.Length)
             {
-                BytesRead = Content.Read(Buffer, 0, 65536);
-                PrevLength = StuffRead.Length;
-                StuffRead += Encoding.ASCII.GetString(Buffer, 0, BytesRead);
+                bytesRead = Content.Read(buffer, 0, 65536);
+                prevLength = stuffRead.Length;
+                stuffRead += Encoding.ASCII.GetString(buffer, 0, bytesRead);
             }
-            if (StuffRead.Substring(0, Expecting.Length) != Expecting)
+            if (stuffRead.Substring(0, expecting.Length) != expecting)
                 return fc;
-            int BufferIndex = BytesRead + Expecting.Length - StuffRead.Length;
-            BytesRead -= BufferIndex;
+            int bufferIndex = bytesRead + expecting.Length - stuffRead.Length;
+            bytesRead -= bufferIndex;
 
             // Now comes the main reading loop
-            bool ProcessingHeaders = true;
-            string CurrentHeaders = "";
-            string CurrentFieldName = null;
-            Stream CurrentWritingStream = null;
-            while (BufferIndex > 0 || BytesRead > 0)
+            bool processingHeaders = true;
+            string currentHeaders = "";
+            string currentFieldName = null;
+            Stream currentWritingStream = null;
+            while (bufferIndex > 0 || bytesRead > 0)
             {
-                int WriteIndex = 0;
-                if (BytesRead > 0)
+                int writeIndex = 0;
+                if (bytesRead > 0)
                 {
-                    if (ProcessingHeaders)
+                    if (processingHeaders)
                     {
-                        int PrevCHLength = CurrentHeaders.Length;
-                        CurrentHeaders += Encoding.ASCII.GetString(Buffer, BufferIndex, BytesRead);
-                        if (CurrentHeaders.Contains("\r\n\r\n"))
+                        int prevCHLength = currentHeaders.Length;
+                        currentHeaders += Encoding.ASCII.GetString(buffer, bufferIndex, bytesRead);
+                        if (currentHeaders.Contains("\r\n\r\n"))
                         {
-                            int Pos = CurrentHeaders.IndexOf("\r\n\r\n");
-                            CurrentHeaders = CurrentHeaders.Remove(Pos);
-                            BufferIndex += Pos - PrevCHLength + 4;
-                            BytesRead -= Pos - PrevCHLength + 4;
-                            string FileName = null;
-                            string ContentType = null;
-                            foreach (string Header in CurrentHeaders.Split(new string[] { "\r\n" }, StringSplitOptions.None))
+                            int pos = currentHeaders.IndexOf("\r\n\r\n");
+                            currentHeaders = currentHeaders.Remove(pos);
+                            bufferIndex += pos - prevCHLength + 4;
+                            bytesRead -= pos - prevCHLength + 4;
+                            string fileName = null;
+                            string contentType = null;
+                            foreach (string header in currentHeaders.Split(new string[] { "\r\n" }, StringSplitOptions.None))
                             {
-                                Match m = Regex.Match(Header, @"^content-disposition\s*:\s*form-data\s*;(.*)$", RegexOptions.IgnoreCase);
+                                Match m = Regex.Match(header, @"^content-disposition\s*:\s*form-data\s*;(.*)$", RegexOptions.IgnoreCase);
                                 if (m.Success)
                                 {
                                     string v = m.Groups[1].Value;
@@ -347,126 +347,126 @@ namespace RT.Servers
                                         if (!m.Success)
                                             break;
                                         if (m.Groups[1].Value.ToLowerInvariant() == "name")
-                                            CurrentFieldName = m.Groups[2].Value;
+                                            currentFieldName = m.Groups[2].Value;
                                         else if (m.Groups[1].Value.ToLowerInvariant() == "filename")
-                                            FileName = m.Groups[2].Value;
+                                            fileName = m.Groups[2].Value;
                                         v = v.Substring(m.Length);
                                     }
                                 }
                                 else
                                 {
-                                    m = Regex.Match(Header, @"^content-type\s*:\s*(.*)$", RegexOptions.IgnoreCase);
+                                    m = Regex.Match(header, @"^content-type\s*:\s*(.*)$", RegexOptions.IgnoreCase);
                                     if (m.Success)
-                                        ContentType = m.Groups[1].Value;
+                                        contentType = m.Groups[1].Value;
                                 }
                             }
-                            if (FileName == null && CurrentFieldName != null)
-                                CurrentWritingStream = new MemoryStream();
-                            else if (FileName != null && CurrentFieldName != null)
+                            if (fileName == null && currentFieldName != null)
+                                currentWritingStream = new MemoryStream();
+                            else if (fileName != null && currentFieldName != null)
                             {
-                                string TempFile = HTTPInternalObjects.RandomTempFilepath(TempDir, out CurrentWritingStream);
-                                fc.FileCache[CurrentFieldName] = new FileUpload
+                                string tempFile = HttpInternalObjects.RandomTempFilepath(TempDir, out currentWritingStream);
+                                fc.FileCache[currentFieldName] = new FileUpload
                                 {
-                                    ContentType = ContentType,
-                                    Filename = FileName,
-                                    LocalTempFilename = TempFile
+                                    ContentType = contentType,
+                                    Filename = fileName,
+                                    LocalTempFilename = tempFile
                                 };
                             }
-                            ProcessingHeaders = false;
+                            processingHeaders = false;
                             continue;
                         }
                     }
-                    else if (BytesRead >= Headers.ContentMultipartBoundary.Length + 8)   // processing content
+                    else if (bytesRead >= Headers.ContentMultipartBoundary.Length + 8)   // processing content
                     {
                         // This will convert non-ASCII bytes to question marks, but that's OK because we use this only to find the boundary
-                        string Data = Encoding.ASCII.GetString(Buffer, BufferIndex, BytesRead);
-                        bool SepFound = false;
-                        int SepIndex = 0;
-                        bool End = false;
-                        if (Data.Contains("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n"))
+                        string data = Encoding.ASCII.GetString(buffer, bufferIndex, bytesRead);
+                        bool sepFound = false;
+                        int sepIndex = 0;
+                        bool end = false;
+                        if (data.Contains("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n"))
                         {
-                            SepFound = true;
-                            SepIndex = Data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n");
-                            End = true;
+                            sepFound = true;
+                            sepIndex = data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n");
+                            end = true;
                         }
-                        if (Data.Contains("\r\n--" + Headers.ContentMultipartBoundary + "\r\n"))
+                        if (data.Contains("\r\n--" + Headers.ContentMultipartBoundary + "\r\n"))
                         {
-                            int Pos = Data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "\r\n");
-                            if (!SepFound || Pos < SepIndex)
+                            int pos = data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "\r\n");
+                            if (!sepFound || pos < sepIndex)
                             {
-                                SepFound = true;
-                                SepIndex = Data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "\r\n");
-                                End = false;
+                                sepFound = true;
+                                sepIndex = data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "\r\n");
+                                end = false;
                             }
                         }
 
-                        if (SepFound)
+                        if (sepFound)
                         {
                             // Write the rest of the data to the output stream and then process the separator
-                            if (SepIndex > 0) CurrentWritingStream.Write(Buffer, BufferIndex, SepIndex);
-                            CurrentWritingStream.Close();
+                            if (sepIndex > 0) currentWritingStream.Write(buffer, bufferIndex, sepIndex);
+                            currentWritingStream.Close();
                             // Note that CurrentWritingStream is either a MemoryStream or a FileStream.
                             // If it is a FileStream, then the relevant entry to fc.FileCache has already been made.
                             // Only if it is a MemoryStream, we need to process the stuff here.
-                            if (CurrentWritingStream is MemoryStream && CurrentFieldName.EndsWith("[]"))
+                            if (currentWritingStream is MemoryStream && currentFieldName.EndsWith("[]"))
                                 fc.ArrayCache.AddSafe(
-                                    CurrentFieldName.Remove(CurrentFieldName.Length - 2),
-                                    Encoding.UTF8.GetString(((MemoryStream) CurrentWritingStream).ToArray())
+                                    currentFieldName.Remove(currentFieldName.Length - 2),
+                                    Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray())
                                 );
-                            else if (CurrentWritingStream is MemoryStream)
-                                fc.ValueCache[CurrentFieldName] = Encoding.UTF8.GetString(((MemoryStream) CurrentWritingStream).ToArray());
+                            else if (currentWritingStream is MemoryStream)
+                                fc.ValueCache[currentFieldName] = Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray());
 
-                            if (End)
+                            if (end)
                                 break;
 
-                            ProcessingHeaders = true;
-                            CurrentHeaders = "";
-                            BufferIndex += SepIndex + Headers.ContentMultipartBoundary.Length + 6;
-                            BytesRead -= SepIndex + Headers.ContentMultipartBoundary.Length + 6;
+                            processingHeaders = true;
+                            currentHeaders = "";
+                            bufferIndex += sepIndex + Headers.ContentMultipartBoundary.Length + 6;
+                            bytesRead -= sepIndex + Headers.ContentMultipartBoundary.Length + 6;
                             continue;
                         }
                         else
                         {
                             // Write some of the data to the output stream, but leave enough so that we can still recognise the boundary
-                            int HowMuchToWrite = BytesRead - Headers.ContentMultipartBoundary.Length - 8;
-                            if (HowMuchToWrite > 0)
-                                CurrentWritingStream.Write(Buffer, BufferIndex, HowMuchToWrite);
-                            byte[] NewBuffer = new byte[65536];
-                            Array.Copy(Buffer, BufferIndex + HowMuchToWrite, NewBuffer, 0, BytesRead - HowMuchToWrite);
-                            Buffer = NewBuffer;
-                            BufferIndex = 0;
-                            BytesRead -= HowMuchToWrite;
-                            WriteIndex = BytesRead;
+                            int howMuchToWrite = bytesRead - Headers.ContentMultipartBoundary.Length - 8;
+                            if (howMuchToWrite > 0)
+                                currentWritingStream.Write(buffer, bufferIndex, howMuchToWrite);
+                            byte[] newBuffer = new byte[65536];
+                            Array.Copy(buffer, bufferIndex + howMuchToWrite, newBuffer, 0, bytesRead - howMuchToWrite);
+                            buffer = newBuffer;
+                            bufferIndex = 0;
+                            bytesRead -= howMuchToWrite;
+                            writeIndex = bytesRead;
                         }
                     }
-                    else if (BufferIndex > 0)
+                    else if (bufferIndex > 0)
                     {
-                        byte[] NewBuffer = new byte[65536];
-                        Array.Copy(Buffer, BufferIndex, NewBuffer, 0, BytesRead);
-                        Buffer = NewBuffer;
-                        WriteIndex = BytesRead;
+                        byte[] newBuffer = new byte[65536];
+                        Array.Copy(buffer, bufferIndex, newBuffer, 0, bytesRead);
+                        buffer = newBuffer;
+                        writeIndex = bytesRead;
                     }
                 }
-                BufferIndex = 0;
+                bufferIndex = 0;
                 // We need to read enough data to contain the boundary
                 do
                 {
-                    BytesRead = Content.Read(Buffer, WriteIndex, 65536 - WriteIndex);
-                    if (BytesRead == 0) // premature end of content
+                    bytesRead = Content.Read(buffer, writeIndex, 65536 - writeIndex);
+                    if (bytesRead == 0) // premature end of content
                     {
-                        if (CurrentWritingStream != null)
-                            CurrentWritingStream.Close();
+                        if (currentWritingStream != null)
+                            currentWritingStream.Close();
                         return fc;
                     }
-                    WriteIndex += BytesRead;
-                } while (WriteIndex < Headers.ContentMultipartBoundary.Length + 8);
-                BytesRead = WriteIndex;
+                    writeIndex += bytesRead;
+                } while (writeIndex < Headers.ContentMultipartBoundary.Length + 8);
+                bytesRead = writeIndex;
             }
 
             return fc;
         }
 
-        private FieldsCache ParseQueryParameters(Stream s)
+        private FieldsCache parseQueryParameters(Stream s)
         {
             FieldsCache fc = new FieldsCache
             {
@@ -475,58 +475,58 @@ namespace RT.Servers
                 FileCache = new Dictionary<string, FileUpload>()
             };
 
-            byte[] Buffer = new byte[65536];
-            int BytesRead = s.Read(Buffer, 0, Buffer.Length);
-            int BufferIndex = 0;
-            string CurKey = "";
-            string CurValue = null;
+            byte[] buffer = new byte[65536];
+            int bytesRead = s.Read(buffer, 0, buffer.Length);
+            int bufferIndex = 0;
+            string curKey = "";
+            string curValue = null;
 
-            var LocalAdd = new Action<string, string>((Key, Value) =>
+            var fnAdd = new Action<string, string>((key, val) =>
             {
-                Key = Key.URLUnescape();
-                Value = Value.URLUnescape();
-                if (Key.EndsWith("[]"))
-                    fc.ArrayCache.AddSafe(Key.Remove(Key.Length - 2), Value);
+                key = key.URLUnescape();
+                val = val.URLUnescape();
+                if (key.EndsWith("[]"))
+                    fc.ArrayCache.AddSafe(key.Remove(key.Length - 2), val);
                 else
-                    fc.ValueCache[Key] = Value;
+                    fc.ValueCache[key] = val;
             });
 
-            while (BytesRead > 0)
+            while (bytesRead > 0)
             {
-                while (BufferIndex < BytesRead)
+                while (bufferIndex < bytesRead)
                 {
-                    int i = BufferIndex;
-                    while (i < BytesRead && Buffer[i] != '&' && Buffer[i] != '=')
+                    int i = bufferIndex;
+                    while (i < bytesRead && buffer[i] != '&' && buffer[i] != '=')
                         i++;
-                    if (i == BytesRead)
+                    if (i == bytesRead)
                     {
-                        if (CurValue != null)
-                            CurValue += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
+                        if (curValue != null)
+                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
                         else
-                            CurKey += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
-                        BufferIndex = i;
+                            curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                        bufferIndex = i;
                     }
-                    else if (Buffer[i] == (byte) '=')
+                    else if (buffer[i] == (byte) '=')
                     {
-                        CurKey += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
-                        CurValue = "";
-                        BufferIndex = i + 1;
+                        curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                        curValue = "";
+                        bufferIndex = i + 1;
                     }
-                    else if (Buffer[i] == (byte) '&')
+                    else if (buffer[i] == (byte) '&')
                     {
-                        CurValue += Encoding.ASCII.GetString(Buffer, BufferIndex, i - BufferIndex);
-                        LocalAdd(CurKey, CurValue);
-                        CurKey = "";
-                        CurValue = null;
-                        BufferIndex = i + 1;
+                        curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                        fnAdd(curKey, curValue);
+                        curKey = "";
+                        curValue = null;
+                        bufferIndex = i + 1;
                     }
                 }
-                BytesRead = s.Read(Buffer, 0, Buffer.Length);
-                BufferIndex = 0;
+                bytesRead = s.Read(buffer, 0, buffer.Length);
+                bufferIndex = 0;
             }
 
-            if (CurValue != null)
-                LocalAdd(CurKey, CurValue);
+            if (curValue != null)
+                fnAdd(curKey, curValue);
 
             s.Close();
             return fc;
@@ -539,15 +539,15 @@ namespace RT.Servers
     public class InvalidRequestException : Exception
     {
         /// <summary>
-        /// Response to return when the exception is caught. Usually <see cref="HTTPServer.ErrorResponse(HTTPStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.
+        /// Response to return when the exception is caught. Usually <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.
         /// </summary>
-        public HTTPResponse Response;
+        public HttpResponse Response;
 
         /// <summary>
         /// Constructor.
         /// </summary>
-        /// <param name="Response">Response to return when the exception is caught.
-        /// Usually <see cref="HTTPServer.ErrorResponse(HTTPStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.</param>
-        public InvalidRequestException(HTTPResponse Response) { this.Response = Response; }
+        /// <param name="response">Response to return when the exception is caught.
+        /// Usually <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.</param>
+        public InvalidRequestException(HttpResponse response) { Response = response; }
     }
 }

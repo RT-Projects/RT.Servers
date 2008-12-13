@@ -20,10 +20,10 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates the possible values of the Cache-Control HTTP request or response header.
     /// </summary>
-    public struct HTTPCacheControl
+    public struct HttpCacheControl
     {
         /// <summary>Contains possible values of the Cache-Control header.</summary>
-        public HTTPCacheControlState State;
+        public HttpCacheControlState State;
         /// <summary>Some values of the Cache-Control header have an integer parameter.</summary>
         public int? IntParameter;
         /// <summary>Some values of the Cache-Control header have a string parameter.</summary>
@@ -33,10 +33,10 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates the possible values of the Content-Disposition HTTP response header.
     /// </summary>
-    public struct HTTPContentDisposition
+    public struct HttpContentDisposition
     {
         /// <summary>Supports only two values ("None" and "Attachment").</summary>
-        public HTTPContentDispositionMode Mode;
+        public HttpContentDispositionMode Mode;
         /// <summary>If Mode is "Attachment", contains the filename of the attachment.</summary>
         public string Filename;
     }
@@ -44,7 +44,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates the possible values of the Content-Range HTTP response header.
     /// </summary>
-    public struct HTTPContentRange
+    public struct HttpContentRange
     {
         /// <summary>First byte index of the range. The first byte in the file has index 0.</summary>
         public long From;
@@ -57,7 +57,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates one of the ranges specified in a Range HTTP request header.
     /// </summary>
-    public struct HTTPRange
+    public struct HttpRange
     {
         /// <summary>First byte index of the range. The first byte in the file has index 0.</summary>
         public long? From;

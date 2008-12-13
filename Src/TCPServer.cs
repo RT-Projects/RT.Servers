@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using RT.Servers.TCPEvents;
+using RT.Servers.TcpEvents;
 
 namespace RT.Servers
 {
@@ -9,13 +9,13 @@ namespace RT.Servers
     /// Provides a TCP server which can listen on a TCP port and invoke callback functions when
     /// a new incoming connection is received or when data is received on any active connection.
     /// </summary>
-    public class TCPServer
+    public class TcpServer
     {
-        /// <summary>Constructs a <see cref="TCPServer"/>. Use <see cref="StartListening"/> to activate the server.</summary>
-        public TCPServer() { }
+        /// <summary>Constructs a <see cref="TcpServer"/>. Use <see cref="StartListening"/> to activate the server.</summary>
+        public TcpServer() { }
 
         /// <summary>Determines whether the server is currently listening for incoming connections.</summary>
-        public bool IsListening { get { return ListeningThread != null && ListeningThread.IsAlive; } }
+        public bool IsListening { get { return _listeningThread != null && _listeningThread.IsAlive; } }
 
         /// <summary>Event raised when a new connection comes in.</summary>
         public event ConnectionEventHandler IncomingConnection;
@@ -23,56 +23,56 @@ namespace RT.Servers
         /// <summary>Event raised when any active connection receives data.</summary>
         public event DataEventHandler IncomingData;
 
-        private TcpListener Listener;
-        private Thread ListeningThread;
+        private TcpListener _listener;
+        private Thread _listeningThread;
 
         /// <summary>Disables the server, but does not terminate active connections.</summary>
         public void StopListening()
         {
             if (!IsListening)
                 return;
-            ListeningThread.Abort();
-            ListeningThread = null;
-            Listener.Stop();
-            Listener = null;
+            _listeningThread.Abort();
+            _listeningThread = null;
+            _listener.Stop();
+            _listener = null;
         }
 
         /// <summary>Activates the TCP server and starts listening on the specified port.</summary>
-        /// <param name="Port">TCP port to listen on.</param>
-        /// <param name="Blocking">If true, the method will continually wait for incoming connections and never return.
+        /// <param name="port">TCP port to listen on.</param>
+        /// <param name="blocking">If true, the method will continually wait for incoming connections and never return.
         /// If false, a separate thread is spawned in which the server will listen for incoming connections, 
         /// and control is returned immediately.</param>
-        public void StartListening(int Port, bool Blocking)
+        public void StartListening(int port, bool blocking)
         {
-            if (IsListening && !Blocking)
+            if (IsListening && !blocking)
                 return;
-            if (IsListening && Blocking)
+            if (IsListening && blocking)
                 StopListening();
-            Listener = new TcpListener(IPAddress.Any, Port);
-            Listener.Start();
-            if (Blocking)
+            _listener = new TcpListener(IPAddress.Any, port);
+            _listener.Start();
+            if (blocking)
             {
-                ListeningThreadFunction();
-                Listener.Stop();
-                Listener = null;
+                listeningThreadFunction();
+                _listener.Stop();
+                _listener = null;
             }
             else
             {
-                ListeningThread = new Thread(ListeningThreadFunction);
-                ListeningThread.Start();
+                _listeningThread = new Thread(listeningThreadFunction);
+                _listeningThread.Start();
             }
         }
 
-        private void ListeningThreadFunction()
+        private void listeningThreadFunction()
         {
             while (true)
             {
-                Socket Socket = Listener.AcceptSocket();
-                TCPClient TCPSocket = new TCPClient(Socket);
+                Socket socket = _listener.AcceptSocket();
+                TcpClientWithEvents client = new TcpClientWithEvents(socket);
                 if (IncomingData != null)
-                    TCPSocket.IncomingData += IncomingData;
+                    client.IncomingData += IncomingData;
                 if (IncomingConnection != null)
-                    new Thread(() => IncomingConnection(this, TCPSocket)).Start();
+                    new Thread(() => IncomingConnection(this, client)).Start();
             }
         }
     }

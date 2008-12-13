@@ -16,40 +16,40 @@ using RT.Util;
 namespace RT.Servers
 {
     /// <summary>
-    /// Encapsulates the various ways in which a URL can map to a request handler. Add instances of this class to <see cref="HTTPServer.RequestHandlerHooks"/>
-    /// to hook a handler to a specific <see cref="HTTPServer"/> instance. This class is immutable.
+    /// Encapsulates the various ways in which a URL can map to a request handler. Add instances of this class to <see cref="HttpServer.RequestHandlerHooks"/>
+    /// to hook a handler to a specific <see cref="HttpServer"/> instance. This class is immutable.
     /// </summary>
-    public class HTTPRequestHandlerHook
+    public class HttpRequestHandlerHook
     {
         /// <summary>Gets a value indicating what domain name the handler applies to. Returns null if it applies to all domains.</summary>
         /// <seealso cref="SpecificDomain"/>
-        public string Domain { get { return _Domain; } }
-        private string _Domain;
+        public string Domain { get { return _domain; } }
+        private string _domain;
 
         /// <summary>Gets a value indicating what port the handler applies to. Returns null if it applies to all ports.</summary>
-        public int? Port { get { return _Port; } }
-        private int? _Port;
+        public int? Port { get { return _port; } }
+        private int? _port;
 
         /// <summary>Gets a value indicating what URL path the handler applies to. Returns null if it applies to all paths.</summary>
         /// <seealso cref="SpecificPath"/>
-        public string Path { get { return _Path; } }
-        private string _Path;
+        public string Path { get { return _path; } }
+        private string _path;
 
         /// <summary>Gets a value indicating whether the handler applies to all subdomains of the domain specified by
         /// <see cref="Domain"/> (false) or the specific domain only (true).</summary>
-        public bool SpecificDomain { get { return _SpecificDomain; } }
-        private bool _SpecificDomain;
+        public bool SpecificDomain { get { return _specificDomain; } }
+        private bool _specificDomain;
 
         /// <summary>Gets a value indicating whether the handler applies to all subpaths of the path specified by
         /// <see cref="Path"/> (false) or to the specific path only (true).</summary>
-        public bool SpecificPath { get { return _SpecificPath; } }
-        private bool _SpecificPath;
+        public bool SpecificPath { get { return _specificPath; } }
+        private bool _specificPath;
 
         /// <summary>Gets the request handler for this hook.</summary>
-        public HTTPRequestHandler Handler { get { return _Handler; } }
-        private HTTPRequestHandler _Handler;
+        public HttpRequestHandler Handler { get { return _handler; } }
+        private HttpRequestHandler _handler;
 
-        private void Init(string domain, int? port, string path, bool specificDomain, bool specificPath, HTTPRequestHandler handler)
+        private void init(string domain, int? port, string path, bool specificDomain, bool specificPath, HttpRequestHandler handler)
         {
             if (domain == null && specificDomain)
                 throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
@@ -76,15 +76,15 @@ namespace RT.Servers
             if (port != null && (port.Value < 1 || port.Value > 65535))
                 throw new ArgumentException("The port parameter must contain an integer in the range 1 to 65535 or null.");
 
-            _Domain = domain;
-            _Port = port;
-            _Path = path;
-            _SpecificDomain = specificDomain;
-            _SpecificPath = specificPath;
-            _Handler = handler;
+            _domain = domain;
+            _port = port;
+            _path = path;
+            _specificDomain = specificDomain;
+            _specificPath = specificPath;
+            _handler = handler;
         }
 
-        /// <summary>Initialises a new <see cref="HTTPRequestHandlerHook"/>.</summary>
+        /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
         /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
         /// domain and all subdomains or to this domain only, depending on the value of <paramref name="specificDomain"/>.</param>
         /// <param name="port">If null, the handler applies to all ports; otherwise to the specified port only.</param>
@@ -95,74 +95,74 @@ namespace RT.Servers
         /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
         /// <paramref name="Path"/>. Otherwise it applies to the specific path only.</param>
         /// <param name="handler">The request handler to hook.</param>
-        public HTTPRequestHandlerHook(string domain, int? port, string path, bool specificDomain, bool specificPath, HTTPRequestHandler handler)
+        public HttpRequestHandlerHook(string domain, int? port, string path, bool specificDomain, bool specificPath, HttpRequestHandler handler)
         {
-            Init(domain, port, path, specificDomain, specificPath, handler);
+            init(domain, port, path, specificDomain, specificPath, handler);
         }
 
         /// <summary>Initialises a request handler to be hooked to a specific path (URL fragment) and all sub-paths, but any domain or port.</summary>
         /// <param name="path">Path (URL fragment) for which this handler should be used (for example, "/users").</param>
         /// <param name="handler">The request handler to hook.</param>
-        public HTTPRequestHandlerHook(string path, HTTPRequestHandler handler)
+        public HttpRequestHandlerHook(string path, HttpRequestHandler handler)
         {
             if (path == null)
-                throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HTTPRequestHandler.", "path");
-            Init(null, null, path, false, false, handler);
+                throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HttpRequestHandler.", "path");
+            init(null, null, path, false, false, handler);
         }
 
         /// <summary>Initialises a request handler to be hooked to a specific domain and all sub-domains, but any path or port.</summary>
         /// <param name="handler">The request handler to hook.</param>
         /// <param name="domain">Domain name for which this handler should be used (for example, "example.com").</param>
-        public HTTPRequestHandlerHook(HTTPRequestHandler handler, string domain)
+        public HttpRequestHandlerHook(HttpRequestHandler handler, string domain)
         {
             if (domain == null)
-                throw new ArgumentException("The domain parameter must not be null. If the handler should apply to all domains, use the constructor that takes only a HTTPRequestHandler.", "domain");
-            Init(domain, null, null, false, false, handler);
+                throw new ArgumentException("The domain parameter must not be null. If the handler should apply to all domains, use the constructor that takes only a HttpRequestHandler.", "domain");
+            init(domain, null, null, false, false, handler);
         }
     }
 
     /// <summary>
     /// Provides an HTTP server.
     /// </summary>
-    public partial class HTTPServer
+    public partial class HttpServer
     {
         /// <summary>
         /// Constructs an HTTP server with all configuration values set to default values.
         /// </summary>
-        public HTTPServer() { Opt = new HTTPServerOptions(); }
+        public HttpServer() { _opt = new HttpServerOptions(); }
 
         /// <summary>
         /// Constructs an HTTP server with the specified configuration settings.
         /// </summary>
-        /// <param name="Options">Specifies the configuration settings to use for this <see cref="HTTPServer"/>.</param>
-        public HTTPServer(HTTPServerOptions Options)
+        /// <param name="options">Specifies the configuration settings to use for this <see cref="HttpServer"/>.</param>
+        public HttpServer(HttpServerOptions options)
         {
-            Opt = Options;
+            _opt = options;
         }
 
         /// <summary>
         /// Returns the configuration settings currently in effect for this server.
         /// </summary>
-        public HTTPServerOptions Options { get { return Opt; } }
+        public HttpServerOptions Options { get { return _opt; } }
 
         /// <summary>
         /// Returns a boolean specifying whether the server is currently running (listening).
         /// </summary>
-        public bool IsListening { get { return ListeningThread != null && ListeningThread.IsAlive; } }
+        public bool IsListening { get { return _listeningThread != null && _listeningThread.IsAlive; } }
 
-        private TcpListener Listener;
-        private Thread ListeningThread;
-        private HTTPServerOptions Opt;
-        private List<Thread> ActiveReadingThreads = new List<Thread>();
+        private TcpListener _listener;
+        private Thread _listeningThread;
+        private HttpServerOptions _opt;
+        private List<Thread> _activeReadingThreads = new List<Thread>();
 
         /// <summary>
         /// Returns the number of currently active threads that are processing a request.
         /// </summary>
-        public int ActiveHandlers { get { lock (ActiveReadingThreads) { return ActiveReadingThreads.Count; } } }
+        public int ActiveHandlers { get { lock (_activeReadingThreads) { return _activeReadingThreads.Count; } } }
 
-        /// <summary>Add request handlers here. See the documentation for <see cref="HTTPRequestHandlerHook"/> for more information.
+        /// <summary>Add request handlers here. See the documentation for <see cref="HttpRequestHandlerHook"/> for more information.
         /// If you wish to make changes to this list while the server is running, use a lock around it.</summary>
-        public List<HTTPRequestHandlerHook> RequestHandlerHooks = new List<HTTPRequestHandlerHook>();
+        public List<HttpRequestHandlerHook> RequestHandlerHooks = new List<HttpRequestHandlerHook>();
 
         /// <summary>If set, various debug events will be logged to here.</summary>
         public LoggerBase Log;
@@ -176,17 +176,17 @@ namespace RT.Servers
         {
             if (!IsListening)
                 return;
-            ListeningThread.Abort();
-            ListeningThread = null;
-            Listener.Stop();
-            Listener = null;
+            _listeningThread.Abort();
+            _listeningThread = null;
+            _listener.Stop();
+            _listener = null;
 
-            lock (ActiveReadingThreads)
+            lock (_activeReadingThreads)
             {
                 if (brutal)
-                    foreach (var thr in ActiveReadingThreads)
+                    foreach (var thr in _activeReadingThreads)
                         thr.Abort();
-                ActiveReadingThreads = new List<Thread>();
+                _activeReadingThreads = new List<Thread>();
             }
         }
 
@@ -202,184 +202,184 @@ namespace RT.Servers
         /// <summary>
         /// Runs the HTTP server.
         /// </summary>
-        /// <param name="Blocking">If true, the method will continually wait for and handle incoming requests and never return.
+        /// <param name="blocking">If true, the method will continually wait for and handle incoming requests and never return.
         /// If false, a separate thread is spawned in which the server will handle incoming requests,
         /// and control is returned immediately.</param>
-        public void StartListening(bool Blocking)
+        public void StartListening(bool blocking)
         {
-            if (IsListening && !Blocking)
+            if (IsListening && !blocking)
                 return;
             if (IsListening)
                 StopListening();
 
-            Listener = new TcpListener(System.Net.IPAddress.Any, Opt.Port);
-            Listener.Start();
-            if (Blocking)
+            _listener = new TcpListener(System.Net.IPAddress.Any, _opt.Port);
+            _listener.Start();
+            if (blocking)
             {
-                ListeningThreadFunction();
+                listeningThreadFunction();
             }
             else
             {
-                ListeningThread = new Thread(ListeningThreadFunction);
-                ListeningThread.Start();
+                _listeningThread = new Thread(listeningThreadFunction);
+                _listeningThread.Start();
             }
         }
 
         /// <summary>
-        /// Returns an <see cref="HTTPRequestHandler"/> that serves static files from a specified directory on the
+        /// Returns an <see cref="HttpRequestHandler"/> that serves static files from a specified directory on the
         /// local file system and that lists the contents of directories within the specified directory.
-        /// The MIME type used for the returned files is determined from <see cref="HTTPServerOptions.MIMETypes"/>.
+        /// The MIME type used for the returned files is determined from <see cref="HttpServerOptions.MimeTypes"/>.
         /// </summary>
-        /// <param name="BaseDir">The base directory from which to serve files.</param>
-        /// <returns>An <see cref="HTTPRequestHandler"/> that can be used to create an <see cref="HTTPRequestHandlerHook"/>
+        /// <param name="baseDir">The base directory from which to serve files.</param>
+        /// <returns>An <see cref="HttpRequestHandler"/> that can be used to create an <see cref="HttpRequestHandlerHook"/>
         /// and then added to <see cref="RequestHandlerHooks"/>.</returns>
         /// <example>
-        ///     The following code will instantiate an <see cref="HTTPServer"/> which will serve files from the <c>D:\UserFiles</c> directory
+        ///     The following code will instantiate an <see cref="HttpServer"/> which will serve files from the <c>D:\UserFiles</c> directory
         ///     on the local file system. For example, a request for the URL <c>http://www.mydomain.com/users/adam/report.txt</c>
         ///     will serve the file stored at the location <c>D:\UserFiles\adam\report.txt</c>. A request for the URL
         ///     <c>http://www.mydomain.com/users/adam/</c> will list all the files in the directory <c>D:\UserFiles\adam</c>.
         ///     <code>
-        ///         HTTPServer MyServer = new HTTPServer();
+        ///         HttpServer MyServer = new HttpServer();
         ///         var handler = MyServer.CreateFileSystemHandler(@"D:\UserFiles");
-        ///         var hook = new HTTPRequestHandlerHook("/users", handler);
+        ///         var hook = new HttpRequestHandlerHook("/users", handler);
         ///         MyServer.RequestHandlerHooks.Add(hook);
         ///     </code>
         /// </example>
-        public HTTPRequestHandler CreateFileSystemHandler(string BaseDir)
+        public HttpRequestHandler CreateFileSystemHandler(string baseDir)
         {
-            return Req => FileSystemResponse(BaseDir, Req);
+            return req => FileSystemResponse(baseDir, req);
         }
 
         /// <summary>
         /// Creates a handler which will serve the file specified in <paramref name="Filepath"/>.
-        /// Use in a <see cref="HTTPRequestHandlerHook"/> and add to <see cref="RequestHandlerHooks"/>.
+        /// Use in a <see cref="HttpRequestHandlerHook"/> and add to <see cref="RequestHandlerHooks"/>.
         /// See also: <see cref="CreateFileSystemHandler"/>.
         /// </summary>
-        public HTTPRequestHandler CreateFileHandler(string Filepath)
+        public HttpRequestHandler CreateFileHandler(string filePath)
         {
-            return Req => FileResponse(Filepath);
+            return req => FileResponse(filePath);
         }
 
         /// <summary>
         /// Creates a handler which will redirect the browser to <paramref name="NewURL"/>.
-        /// To be used in conjunction with <see cref="HTTPRequestHandlerHook"/> to add to <see cref="RequestHandlerHooks"/>.
+        /// To be used in conjunction with <see cref="HttpRequestHandlerHook"/> to add to <see cref="RequestHandlerHooks"/>.
         /// </summary>
-        public HTTPRequestHandler CreateRedirectHandler(string NewURL)
+        public HttpRequestHandler CreateRedirectHandler(string newUrl)
         {
-            return Req => RedirectResponse(NewURL);
+            return req => RedirectResponse(newUrl);
         }
 
         /// <summary>
-        /// Returns an <see cref="HTTPResponse"/> that returns a file from the local file system,
+        /// Returns an <see cref="HttpResponse"/> that returns a file from the local file system,
         /// which is derived from the specified base directory and the URL of the specified request.
         /// </summary>
-        /// <param name="BaseDir">Base directory in which to search for the file.</param>
-        /// <param name="Req">HTTP request from the client.</param>
-        /// <returns>An <see cref="HTTPResponse"/> encapsulating the file transfer.</returns>
-        public HTTPResponse FileSystemResponse(string BaseDir, HTTPRequest Req)
+        /// <param name="baseDir">Base directory in which to search for the file.</param>
+        /// <param name="req">HTTP request from the client.</param>
+        /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer.</returns>
+        public HttpResponse FileSystemResponse(string baseDir, HttpRequest req)
         {
-            string p = BaseDir.EndsWith("" + Path.DirectorySeparatorChar) ? BaseDir.Remove(BaseDir.Length - 1) : BaseDir;
-            string BaseURL = Req.URL.Substring(0, Req.URL.Length - Req.RestURL.Length);
-            string URL = Req.RestURL.Contains('?') ? Req.RestURL.Remove(Req.RestURL.IndexOf('?')) : Req.RestURL;
-            string[] URLPieces = URL.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            string SoFar = "";
-            string SoFarURL = "";
-            for (int i = 0; i < URLPieces.Length; i++)
+            string p = baseDir.EndsWith("" + Path.DirectorySeparatorChar) ? baseDir.Remove(baseDir.Length - 1) : baseDir;
+            string baseUrl = req.Url.Substring(0, req.Url.Length - req.RestUrl.Length);
+            string url = req.RestUrl.Contains('?') ? req.RestUrl.Remove(req.RestUrl.IndexOf('?')) : req.RestUrl;
+            string[] urlPieces = url.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            string soFar = "";
+            string soFarUrl = "";
+            for (int i = 0; i < urlPieces.Length; i++)
             {
-                string Piece = URLPieces[i].URLUnescape();
-                string NextSoFar = SoFar + Path.DirectorySeparatorChar + Piece;
+                string piece = urlPieces[i].URLUnescape();
+                string nextSoFar = soFar + Path.DirectorySeparatorChar + piece;
 
-                if (File.Exists(p + NextSoFar))
+                if (File.Exists(p + nextSoFar))
                 {
-                    DirectoryInfo ParentDir = new DirectoryInfo(p + SoFar);
-                    foreach (var FileInf in ParentDir.GetFiles(Piece))
+                    DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
+                    foreach (var fileInf in parentDir.GetFiles(piece))
                     {
-                        SoFarURL += "/" + FileInf.Name.URLEscape();
+                        soFarUrl += "/" + fileInf.Name.URLEscape();
                         break;
                     }
 
-                    if (Req.URL != BaseURL + SoFarURL)
-                        return RedirectResponse(BaseURL + SoFarURL);
+                    if (req.Url != baseUrl + soFarUrl)
+                        return RedirectResponse(baseUrl + soFarUrl);
 
-                    return FileResponse(p + NextSoFar);
+                    return FileResponse(p + nextSoFar);
                 }
-                else if (Directory.Exists(p + NextSoFar))
+                else if (Directory.Exists(p + nextSoFar))
                 {
-                    DirectoryInfo ParentDir = new DirectoryInfo(p + SoFar);
-                    foreach (var DirInfo in ParentDir.GetDirectories(Piece))
+                    DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
+                    foreach (var dirInfo in parentDir.GetDirectories(piece))
                     {
-                        SoFarURL += "/" + DirInfo.Name.URLEscape();
+                        soFarUrl += "/" + dirInfo.Name.URLEscape();
                         break;
                     }
                 }
                 else
                 {
-                    return ErrorResponse(HTTPStatusCode._404_NotFound, "\"" + BaseURL + SoFarURL + "/" + Piece + "\" doesn't exist.");
+                    return ErrorResponse(HttpStatusCode._404_NotFound, "\"" + baseUrl + soFarUrl + "/" + piece + "\" doesn't exist.");
                 }
-                SoFar = NextSoFar;
+                soFar = nextSoFar;
             }
 
             // If this point is reached, it's a directory
-            string TrueDirURL = BaseURL + SoFarURL + "/";
-            if (Req.URL != TrueDirURL)
-                return RedirectResponse(TrueDirURL);
+            string trueDirURL = baseUrl + soFarUrl + "/";
+            if (req.Url != trueDirURL)
+                return RedirectResponse(trueDirURL);
 
-            if (Opt.DirectoryListingStyle == DirectoryListingStyle.XMLplusXSL)
+            if (_opt.DirectoryListingStyle == DirectoryListingStyle.XmlPlusXsl)
             {
-                return new HTTPResponse
+                return new HttpResponse
                 {
-                    Headers = new HTTPResponseHeaders { ContentType = "application/xml; charset=utf-8" },
-                    Status = HTTPStatusCode._200_OK,
-                    Content = new DynamicContentStream(GenerateDirectoryXml(p + SoFar, TrueDirURL))
+                    Headers = new HttpResponseHeaders { ContentType = "application/xml; charset=utf-8" },
+                    Status = HttpStatusCode._200_OK,
+                    Content = new DynamicContentStream(GenerateDirectoryXml(p + soFar, trueDirURL))
                 };
             }
             else
-                return ErrorResponse(HTTPStatusCode._500_InternalServerError);
+                return ErrorResponse(HttpStatusCode._500_InternalServerError);
         }
 
         /// <summary>
-        /// Generates an <see cref="HTTPResponse"/> that causes the server to return the specified
-        /// file from the local file system. The content type is inferred from the <see cref="HTTPServerOptions.MIMETypes"/>
+        /// Generates an <see cref="HttpResponse"/> that causes the server to return the specified
+        /// file from the local file system. The content type is inferred from the <see cref="HttpServerOptions.MimeTypes"/>
         /// field in <see cref="Options"/>.
         /// </summary>
-        /// <param name="Filepath">Full path and filename of the file to return.</param>
-        /// <returns><see cref="HTTPResponse"/> object that encapsulates the return of the specified file.</returns>
-        public HTTPResponse FileResponse(string Filepath)
+        /// <param name="filePath">Full path and filename of the file to return.</param>
+        /// <returns><see cref="HttpResponse"/> object that encapsulates the return of the specified file.</returns>
+        public HttpResponse FileResponse(string filePath)
         {
-            FileInfo f = new FileInfo(Filepath);
-            string Extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
-            return FileResponse(Filepath,
-                Opt.MIMETypes.ContainsKey(Extension) ? Opt.MIMETypes[Extension] :
-                Opt.MIMETypes.ContainsKey("*") ? Opt.MIMETypes["*"] : "application/octet-stream");
+            FileInfo f = new FileInfo(filePath);
+            string extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
+            return FileResponse(filePath,
+                _opt.MimeTypes.ContainsKey(extension) ? _opt.MimeTypes[extension] :
+                _opt.MimeTypes.ContainsKey("*") ? _opt.MimeTypes["*"] : "application/octet-stream");
         }
 
         /// <summary>
-        /// Generates an <see cref="HTTPResponse"/> that causes the server to return the specified
+        /// Generates an <see cref="HttpResponse"/> that causes the server to return the specified
         /// file from the local file system using the specified MIME content type.
         /// </summary>
-        /// <param name="Filepath">Full path and filename of the file to return.</param>
-        /// <param name="ContentType">MIME type to use in the Content-Type header.</param>
-        /// <returns><see cref="HTTPResponse"/> object that encapsulates the return of the specified file.</returns>
-        public static HTTPResponse FileResponse(string Filepath, string ContentType)
+        /// <param name="filePath">Full path and filename of the file to return.</param>
+        /// <param name="contentType">MIME type to use in the Content-Type header.</param>
+        /// <returns><see cref="HttpResponse"/> object that encapsulates the return of the specified file.</returns>
+        public static HttpResponse FileResponse(string filePath, string contentType)
         {
             try
             {
-                FileStream FileStream = File.Open(Filepath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                return new HTTPResponse
+                FileStream fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                return new HttpResponse
                 {
-                    Status = HTTPStatusCode._200_OK,
-                    Content = FileStream,
-                    Headers = new HTTPResponseHeaders { ContentType = ContentType }
+                    Status = HttpStatusCode._200_OK,
+                    Content = fileStream,
+                    Headers = new HttpResponseHeaders { ContentType = contentType }
                 };
             }
             catch (FileNotFoundException)
             {
-                return ErrorResponse(HTTPStatusCode._404_NotFound,
+                return ErrorResponse(HttpStatusCode._404_NotFound,
                     "The requested file does not exist.");
             }
             catch (IOException e)
             {
-                return ErrorResponse(HTTPStatusCode._500_InternalServerError,
+                return ErrorResponse(HttpStatusCode._500_InternalServerError,
                     "File could not be opened in the file system: " + e.Message);
             }
         }
@@ -387,256 +387,256 @@ namespace RT.Servers
         /// <summary>
         /// Returns the specified string to the client, designating it as a specific MIME type.
         /// </summary>
-        /// <param name="Content">Content to return to the client.</param>
-        /// <param name="ContentType">MIME type of the content.</param>
-        /// <returns>An <see cref="HTTPResponse"/> object encapsulating the return of the string.</returns>
-        public static HTTPResponse StringResponse(string Content, string ContentType)
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="contentType">MIME type of the content.</param>
+        /// <returns>An <see cref="HttpResponse"/> object encapsulating the return of the string.</returns>
+        public static HttpResponse StringResponse(string content, string contentType)
         {
-            return new HTTPResponse
+            return new HttpResponse
             {
-                Content = new MemoryStream(Content.ToUTF8()),
-                Headers = new HTTPResponseHeaders { ContentType = ContentType },
-                Status = HTTPStatusCode._200_OK
+                Content = new MemoryStream(content.ToUTF8()),
+                Headers = new HttpResponseHeaders { ContentType = contentType },
+                Status = HttpStatusCode._200_OK
             };
         }
 
         /// <summary>
         /// Returns the specified string to the client. The MIME type is assumed to be "text/html; charset=utf-8".
         /// </summary>
-        /// <param name="Content">Content to return to the client.</param>
-        /// <returns>An <see cref="HTTPResponse"/> object encapsulating the return of the string.</returns>
-        public HTTPResponse StringResponse(string Content)
+        /// <param name="content">Content to return to the client.</param>
+        /// <returns>An <see cref="HttpResponse"/> object encapsulating the return of the string.</returns>
+        public HttpResponse stringResponse(string content)
         {
-            return new HTTPResponse
+            return new HttpResponse
             {
-                Content = new MemoryStream(Content.ToUTF8()),
-                Headers = new HTTPResponseHeaders { ContentType = "text/html; charset=utf-8" },
-                Status = HTTPStatusCode._200_OK
+                Content = new MemoryStream(content.ToUTF8()),
+                Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
+                Status = HttpStatusCode._200_OK
             };
         }
 
         /// <summary>
         /// Generates XML that represents the contents of a directory on the local file system.
         /// </summary>
-        /// <param name="LocalPath">Full path of a directory to list the contents of.</param>
-        /// <param name="URL">URL (not including a domain) that points at the directory.</param>
+        /// <param name="localPath">Full path of a directory to list the contents of.</param>
+        /// <param name="url">URL (not including a domain) that points at the directory.</param>
         /// <returns>XML that represents the contents of the specified directory.</returns>
-        public static IEnumerable<string> GenerateDirectoryXml(string LocalPath, string URL)
+        public static IEnumerable<string> GenerateDirectoryXml(string localPath, string url)
         {
-            if (!Directory.Exists(LocalPath))
-                throw new FileNotFoundException("Directory does not exist.", LocalPath);
+            if (!Directory.Exists(localPath))
+                throw new FileNotFoundException("Directory does not exist.", localPath);
 
-            List<DirectoryInfo> Dirs = new List<DirectoryInfo>();
-            List<FileInfo> Files = new List<FileInfo>();
-            DirectoryInfo Inf = new DirectoryInfo(LocalPath);
-            foreach (var d in Inf.GetDirectories())
-                Dirs.Add(d);
-            foreach (var f in Inf.GetFiles())
-                Files.Add(f);
-            Dirs.Sort((a, b) => a.Name.CompareTo(b.Name));
-            Files.Sort((a, b) => a.Name.CompareTo(b.Name));
+            List<DirectoryInfo> dirs = new List<DirectoryInfo>();
+            List<FileInfo> files = new List<FileInfo>();
+            DirectoryInfo dirInfo = new DirectoryInfo(localPath);
+            foreach (var d in dirInfo.GetDirectories())
+                dirs.Add(d);
+            foreach (var f in dirInfo.GetFiles())
+                files.Add(f);
+            dirs.Sort((a, b) => a.Name.CompareTo(b.Name));
+            files.Sort((a, b) => a.Name.CompareTo(b.Name));
 
             yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
             yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>\n";
-            yield return "<directory url=\"" + URL.HTMLEscape() + "\" unescapedurl=\"" + URL.URLUnescape().HTMLEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (Dirs.Count) + "\" numfiles=\"" + (Files.Count) + "\">\n";
+            yield return "<directory url=\"" + url.HTMLEscape() + "\" unescapedurl=\"" + url.URLUnescape().HTMLEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (dirs.Count) + "\" numfiles=\"" + (files.Count) + "\">\n";
 
-            foreach (var d in Dirs)
+            foreach (var d in dirs)
                 yield return "  <dir link=\"" + d.Name.URLEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HTMLEscape() + "</dir>\n";
-            foreach (var f in Files)
+            foreach (var f in files)
             {
-                string Ext = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
+                string extension = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
                 yield return "  <file link=\"" + f.Name.URLEscape() + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
-                yield return "\" img=\"/$/directory-listing/icons/" + HTTPInternalObjects.GetDirectoryListingIconStr(Ext) + "\">" + f.Name.HTMLEscape() + "</file>\n";
+                yield return "\" img=\"/$/directory-listing/icons/" + HttpInternalObjects.GetDirectoryListingIconStr(extension) + "\">" + f.Name.HTMLEscape() + "</file>\n";
             }
 
             yield return "</directory>\n";
         }
 
         /// <summary>
-        /// Generates an <see cref="HTTPResponse"/> that redirects the client to a new URL, using the HTTP status code 301 Moved Permanently.
+        /// Generates an <see cref="HttpResponse"/> that redirects the client to a new URL, using the HTTP status code 301 Moved Permanently.
         /// </summary>
-        /// <param name="NewURL">URL to redirect the client to.</param>
-        /// <returns><see cref="HTTPResponse"/> encapsulating a redirect to the specified URL, using the HTTP status code 301 Moved Permanently.</returns>
-        public static HTTPResponse RedirectResponse(string NewURL)
+        /// <param name="newUrl">URL to redirect the client to.</param>
+        /// <returns><see cref="HttpResponse"/> encapsulating a redirect to the specified URL, using the HTTP status code 301 Moved Permanently.</returns>
+        public static HttpResponse RedirectResponse(string newUrl)
         {
-            return new HTTPResponse
+            return new HttpResponse
             {
-                Headers = new HTTPResponseHeaders { Location = NewURL },
-                Status = HTTPStatusCode._301_MovedPermanently
+                Headers = new HttpResponseHeaders { Location = newUrl },
+                Status = HttpStatusCode._301_MovedPermanently
             };
         }
 
         /// <summary>
-        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code. Generally used for error.
+        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code. Generally used for error.
         /// </summary>
-        /// <param name="StatusCode">HTTP status code to use in the response.</param>
-        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code.</returns>
-        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode)
+        /// <param name="statusCode">HTTP status code to use in the response.</param>
+        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code.</returns>
+        public static HttpResponse ErrorResponse(HttpStatusCode statusCode)
         {
-            return ErrorResponse(StatusCode, new HTTPResponseHeaders(), null);
+            return ErrorResponse(statusCode, new HttpResponseHeaders(), null);
         }
 
         /// <summary>
-        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code and message. Generally used for error.
+        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code and message. Generally used for error.
         /// </summary>
-        /// <param name="StatusCode">HTTP status code to use in the response.</param>
-        /// <param name="Message">Message to display along with the HTTP status code.</param>
-        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code and message.</returns>
-        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode, string Message)
+        /// <param name="statusCode">HTTP status code to use in the response.</param>
+        /// <param name="message">Message to display along with the HTTP status code.</param>
+        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code and message.</returns>
+        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, string message)
         {
-            return ErrorResponse(StatusCode, new HTTPResponseHeaders(), Message);
+            return ErrorResponse(statusCode, new HttpResponseHeaders(), message);
         }
 
         /// <summary>
-        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code and headers. Generally used for error.
+        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code and headers. Generally used for error.
         /// </summary>
-        /// <param name="StatusCode">HTTP status code to use in the response.</param>
-        /// <param name="Headers">Headers to use in the <see cref="HTTPResponse"/>.</param>
-        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code and headers.</returns>
-        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers)
+        /// <param name="statusCode">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the <see cref="HttpResponse"/>.</param>
+        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code and headers.</returns>
+        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, HttpResponseHeaders headers)
         {
-            return ErrorResponse(StatusCode, Headers, null);
+            return ErrorResponse(statusCode, headers, null);
         }
 
         /// <summary>
-        /// Generates a simple <see cref="HTTPResponse"/> with the specified HTTP status code, headers and message. Generally used for error.
+        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code, headers and message. Generally used for error.
         /// </summary>
-        /// <param name="StatusCode">HTTP status code to use in the response.</param>
-        /// <param name="Headers">Headers to use in the <see cref="HTTPResponse"/>.</param>
-        /// <param name="Message">Message to display along with the HTTP status code.</param>
-        /// <returns>A minimalist <see cref="HTTPResponse"/> with the specified HTTP status code, headers and message.</returns>
-        public static HTTPResponse ErrorResponse(HTTPStatusCode StatusCode, HTTPResponseHeaders Headers, string Message)
+        /// <param name="statusCode">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the <see cref="HttpResponse"/>.</param>
+        /// <param name="message">Message to display along with the HTTP status code.</param>
+        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code, headers and message.</returns>
+        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, HttpResponseHeaders headers, string message)
         {
-            string StatusCodeName = ("" + ((int) StatusCode) + " " + StatusCode.ToText()).HTMLEscape();
-            Headers.ContentType = "text/html; charset=utf-8";
+            string statusCodeName = ("" + ((int) statusCode) + " " + statusCode.ToText()).HTMLEscape();
+            headers.ContentType = "text/html; charset=utf-8";
 
             // We sometimes output error messages as soon as possible, even if we should normally wait for more data, esp. the POST content.
             // This would interfere with Connection: keep-alive, so the best solution here is to close the connection in such an error condition.
-            Headers.Connection = HTTPConnection.Close;
+            headers.Connection = HttpConnection.Close;
 
-            string ContentStr =
+            string contentStr =
                 "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n" +
-                "<html>\n <head>\n  <title>HTTP " + StatusCodeName + "</title>\n </head>\n <body>\n  <h1>" + StatusCodeName + "</h1>\n" +
-                (Message != null ? "  <p>" + Message.HTMLEscape() + "</p>" : "") + "\n </body>\n</html>";
-            return new HTTPResponse
+                "<html>\n <head>\n  <title>HTTP " + statusCodeName + "</title>\n </head>\n <body>\n  <h1>" + statusCodeName + "</h1>\n" +
+                (message != null ? "  <p>" + message.HTMLEscape() + "</p>" : "") + "\n </body>\n</html>";
+            return new HttpResponse
             {
-                Status = StatusCode,
-                Headers = Headers,
-                Content = new MemoryStream(ContentStr.ToUTF8())
+                Status = statusCode,
+                Headers = headers,
+                Content = new MemoryStream(contentStr.ToUTF8())
             };
         }
 
-        private void ListeningThreadFunction()
+        private void listeningThreadFunction()
         {
             while (true)
             {
-                Socket Socket = Listener.AcceptSocket();
-                HandleRequest(Socket, false);
+                Socket socket = _listener.AcceptSocket();
+                HandleRequest(socket, false);
             }
         }
 
-        private void ReadingThreadFunction(Socket Socket, Thread ThisThread)
+        private void readingThreadFunction(Socket socket, Thread thread)
         {
-            string StopWatchFilename = Socket.RemoteEndPoint.ToString().Replace(':', '_');
+            string stopWatchFilename = socket.RemoteEndPoint.ToString().Replace(':', '_');
             Stopwatch sw = new StopwatchDummy();
 
             try
             {
                 sw.Log("Start ReadingThreadFunction()");
 
-                byte[] NextRead = null;
-                int NextReadOffset = 0;
-                int NextReadLength = 0;
+                byte[] nextRead = null;
+                int nextReadOffset = 0;
+                int nextReadLength = 0;
 
-                byte[] Buffer = new byte[65536];
+                byte[] buffer = new byte[65536];
                 sw.Log("Allocate buffer");
 
                 try
                 {
-                    if (Opt.IdleTimeout != 0)
-                        Socket.ReceiveTimeout = Opt.IdleTimeout;
-                    string HeadersSoFar = "";
+                    if (_opt.IdleTimeout != 0)
+                        socket.ReceiveTimeout = _opt.IdleTimeout;
+                    string headersSoFar = "";
                     sw.Log("Stuff before while(true) loop");
                     while (true)
                     {
                         sw.Log("Start of while(true) loop");
-                        if (NextRead == null)
+                        if (nextRead == null)
                         {
-                            SocketError ErrorCode;
-                            try { NextReadLength = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode); }
-                            catch (SocketException) { Socket.Close(); return; }
+                            SocketError errorCode;
+                            try { nextReadLength = socket.Receive(buffer, 0, 65536, SocketFlags.None, out errorCode); }
+                            catch (SocketException) { socket.Close(); return; }
                             sw.Log("Socket.Receive()");
 
-                            if (ErrorCode != SocketError.Success || NextReadLength == 0)
+                            if (errorCode != SocketError.Success || nextReadLength == 0)
                             {
-                                Socket.Close();
+                                socket.Close();
                                 return;
                             }
 
-                            NextRead = Buffer;
-                            NextReadOffset = 0;
+                            nextRead = buffer;
+                            nextReadOffset = 0;
                             sw.Log("Stuff after Socket.Receive()");
                         }
 
                         // Stop soon if the headers become too large.
-                        if (HeadersSoFar.Length + NextReadLength > Opt.MaxSizeHeaders)
+                        if (headersSoFar.Length + nextReadLength > _opt.MaxSizeHeaders)
                         {
-                            Socket.Close();
+                            socket.Close();
                             return;
                         }
 
-                        int PrevHeadersLength = HeadersSoFar.Length;
+                        int prevHeadersLength = headersSoFar.Length;
                         sw.Log("Stuff before HeadersSoFar += Encoding.ASCII.GetString(...)");
-                        HeadersSoFar += Encoding.ASCII.GetString(NextRead, NextReadOffset, NextReadLength);
+                        headersSoFar += Encoding.ASCII.GetString(nextRead, nextReadOffset, nextReadLength);
                         sw.Log("HeadersSoFar += Encoding.ASCII.GetString(...)");
-                        bool Cont = HeadersSoFar.Contains("\r\n\r\n");
+                        bool cont = headersSoFar.Contains("\r\n\r\n");
                         sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
-                        if (!Cont)
+                        if (!cont)
                         {
-                            NextRead = null;
+                            nextRead = null;
                             continue;
                         }
 
-                        int SepIndex = HeadersSoFar.IndexOf("\r\n\r\n");
+                        int sepIndex = headersSoFar.IndexOf("\r\n\r\n");
                         sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
-                        HeadersSoFar = HeadersSoFar.Remove(SepIndex);
+                        headersSoFar = headersSoFar.Remove(sepIndex);
                         sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
 
-                        if (Log != null) Log.Info(HeadersSoFar);
+                        if (Log != null) Log.Info(headersSoFar);
 
-                        NextReadOffset += SepIndex + 4 - PrevHeadersLength;
-                        NextReadLength -= SepIndex + 4 - PrevHeadersLength;
+                        nextReadOffset += sepIndex + 4 - prevHeadersLength;
+                        nextReadLength -= sepIndex + 4 - prevHeadersLength;
                         sw.Log("Stuff before HandleRequestAfterHeaders()");
-                        HTTPRequest OriginalRequest;
-                        HTTPResponse Response = HandleRequestAfterHeaders(Socket, HeadersSoFar, NextRead, ref NextReadOffset, ref NextReadLength, sw, out OriginalRequest);
-                        Response.OriginalRequest = OriginalRequest;
+                        HttpRequest originalRequest;
+                        HttpResponse response = handleRequestAfterHeaders(socket, headersSoFar, nextRead, ref nextReadOffset, ref nextReadLength, sw, out originalRequest);
+                        response.OriginalRequest = originalRequest;
                         sw.Log("Returned from HandleRequestAfterHeaders()");
-                        if (NextReadLength == 0)
-                            NextRead = null;
-                        bool ConnectionKeepAlive = false;
+                        if (nextReadLength == 0)
+                            nextRead = null;
+                        bool connectionKeepAlive = false;
                         try
                         {
                             sw.Log("Stuff before OutputResponse()");
-                            ConnectionKeepAlive = OutputResponse(Socket, Response, sw);
+                            connectionKeepAlive = outputResponse(socket, response, sw);
                             sw.Log("Returned from OutputResponse()");
                         }
                         finally
                         {
-                            if (Response.Content != null)
+                            if (response.Content != null)
                             {
                                 sw.Log("Stuff before Response.Content.Close()");
-                                Response.Content.Close();
+                                response.Content.Close();
                                 sw.Log("Response.Content.Close()");
                             }
                         }
-                        if (ConnectionKeepAlive && Socket.Connected)
+                        if (connectionKeepAlive && socket.Connected)
                         {
-                            HeadersSoFar = "";
+                            headersSoFar = "";
                             sw.Log("Reusing connection");
                             continue;
                         }
                         sw.Log("Stuff before Socket.Close()");
-                        Socket.Close();
+                        socket.Close();
                         sw.Log("Socket.Close()");
                         return;
                     }
@@ -648,107 +648,107 @@ namespace RT.Servers
             }
             finally
             {
-                sw.SaveToFile(@"C:\temp\log\log_" + StopWatchFilename);
-                lock (ActiveReadingThreads)
-                    ActiveReadingThreads.Remove(ThisThread);
+                sw.SaveToFile(@"C:\temp\log\log_" + stopWatchFilename);
+                lock (_activeReadingThreads)
+                    _activeReadingThreads.Remove(thread);
             }
         }
 
-        private void SendHeaders(Socket Socket, HTTPResponse Response)
+        private void sendHeaders(Socket socket, HttpResponse response)
         {
-            string HeadersStr = "HTTP/1.1 " + ((int) Response.Status) + " " + Response.Status.ToText() + "\r\n" +
-                Response.Headers.ToString() + "\r\n";
-            if (Log != null) Log.Info(HeadersStr);
-            Socket.Send(Encoding.ASCII.GetBytes(HeadersStr));
+            string headersStr = "HTTP/1.1 " + ((int) response.Status) + " " + response.Status.ToText() + "\r\n" +
+                response.Headers.ToString() + "\r\n";
+            if (Log != null) Log.Info(headersStr);
+            socket.Send(Encoding.ASCII.GetBytes(headersStr));
         }
 
-        private bool OutputResponse(Socket Socket, HTTPResponse Response, Stopwatch sw)
+        private bool outputResponse(Socket socket, HttpResponse response, Stopwatch sw)
         {
             sw.Log("OutputResponse() - enter");
 
             try
             {
                 // If no status is given, by default assume 200 OK
-                if (Response.Status == HTTPStatusCode.None)
-                    Response.Status = HTTPStatusCode._200_OK;
+                if (response.Status == HttpStatusCode.None)
+                    response.Status = HttpStatusCode._200_OK;
 
                 // If no Content-Type is given and there is no Location header, use default
-                if (Response.Headers.ContentType == null && Response.Headers.Location == null)
-                    Response.Headers.ContentType = Opt.DefaultContentType;
+                if (response.Headers.ContentType == null && response.Headers.Location == null)
+                    response.Headers.ContentType = _opt.DefaultContentType;
 
-                bool KeepAliveRequested = Response.OriginalRequest.Headers.Connection == HTTPConnection.KeepAlive;
-                bool GzipRequested = false;
-                if (Response.OriginalRequest.Headers.AcceptEncoding != null)
-                    foreach (HTTPContentEncoding hce in Response.OriginalRequest.Headers.AcceptEncoding)
-                        GzipRequested = GzipRequested || (hce == HTTPContentEncoding.Gzip);
-                bool ContentLengthKnown = false;
-                long ContentLength = 0;
+                bool keepAliveRequested = response.OriginalRequest.Headers.Connection == HttpConnection.KeepAlive;
+                bool gzipRequested = false;
+                if (response.OriginalRequest.Headers.AcceptEncoding != null)
+                    foreach (HttpContentEncoding hce in response.OriginalRequest.Headers.AcceptEncoding)
+                        gzipRequested = gzipRequested || (hce == HttpContentEncoding.Gzip);
+                bool contentLengthKnown = false;
+                long contentLength = 0;
 
                 // Find out if we know the content length
-                if (Response.Content == null)
+                if (response.Content == null)
                 {
-                    ContentLength = 0;
-                    ContentLengthKnown = true;
+                    contentLength = 0;
+                    contentLengthKnown = true;
                 }
-                else if (Response.Headers.ContentLength != null)
+                else if (response.Headers.ContentLength != null)
                 {
-                    ContentLength = Response.Headers.ContentLength.Value;
-                    ContentLengthKnown = true;
+                    contentLength = response.Headers.ContentLength.Value;
+                    contentLengthKnown = true;
                 }
                 else
                 {
                     // See if we can deduce the content length from the stream
                     try
                     {
-                        ContentLength = Response.Content.Length;
-                        ContentLengthKnown = true;
+                        contentLength = response.Content.Length;
+                        contentLengthKnown = true;
                     }
                     catch (NotSupportedException) { }
                 }
 
-                bool UseKeepAlive = KeepAliveRequested;
-                if (UseKeepAlive)
-                    Response.Headers.Connection = HTTPConnection.KeepAlive;
+                bool useKeepAlive = keepAliveRequested;
+                if (useKeepAlive)
+                    response.Headers.Connection = HttpConnection.KeepAlive;
 
                 // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 1 MB
-                if (ContentLengthKnown && ContentLength < 1024 * 1024 && Response.Status == HTTPStatusCode._200_OK && Response.Content.CanSeek)
+                if (contentLengthKnown && contentLength < 1024 * 1024 && response.Status == HttpStatusCode._200_OK && response.Content.CanSeek)
                 {
-                    Response.Headers.AcceptRanges = HTTPAcceptRanges.Bytes;
+                    response.Headers.AcceptRanges = HttpAcceptRanges.Bytes;
 
                     // If the client requested a range, then serve it
-                    if (Response.Status == HTTPStatusCode._200_OK && Response.OriginalRequest.Headers.Range != null)
+                    if (response.Status == HttpStatusCode._200_OK && response.OriginalRequest.Headers.Range != null)
                     {
                         // Construct a canonical set of satisfiable ranges
-                        var Ranges = new SortedList<long, long>();
-                        foreach (var r in Response.OriginalRequest.Headers.Range)
+                        var ranges = new SortedList<long, long>();
+                        foreach (var r in response.OriginalRequest.Headers.Range)
                         {
                             long rFrom = r.From == null || r.From.Value < 0 ? 0 : r.From.Value;
-                            long rTo = r.To == null || r.To.Value >= ContentLength ? ContentLength - 1 : r.To.Value;
-                            if (Ranges.ContainsKey(rFrom))
-                                Ranges[rFrom] = Math.Max(Ranges[rFrom], rTo);
+                            long rTo = r.To == null || r.To.Value >= contentLength ? contentLength - 1 : r.To.Value;
+                            if (ranges.ContainsKey(rFrom))
+                                ranges[rFrom] = Math.Max(ranges[rFrom], rTo);
                             else
-                                Ranges.Add(rFrom, rTo);
+                                ranges.Add(rFrom, rTo);
                         }
 
                         // If one of the ranges spans the complete file, don't bother with ranges
-                        if (!Ranges.ContainsKey(0) || Ranges[0] < ContentLength - 1)
+                        if (!ranges.ContainsKey(0) || ranges[0] < contentLength - 1)
                         {
                             // Make a copy of this so that we can modify Ranges while iterating over it
-                            var RangeFroms = new List<long>(Ranges.Keys);
+                            var rangeFroms = new List<long>(ranges.Keys);
 
-                            long PrevFrom = 0;
-                            bool HavePrevFrom = false;
-                            foreach (long From in RangeFroms)
+                            long prevFrom = 0;
+                            bool havePrevFrom = false;
+                            foreach (long from in rangeFroms)
                             {
-                                if (!HavePrevFrom)
+                                if (!havePrevFrom)
                                 {
-                                    PrevFrom = From;
-                                    HavePrevFrom = true;
+                                    prevFrom = from;
+                                    havePrevFrom = true;
                                 }
-                                else if (Ranges[PrevFrom] >= From)
+                                else if (ranges[prevFrom] >= from)
                                 {
-                                    Ranges[PrevFrom] = Math.Max(Ranges[PrevFrom], Ranges[From]);
-                                    Ranges.Remove(From);
+                                    ranges[prevFrom] = Math.Max(ranges[prevFrom], ranges[from]);
+                                    ranges.Remove(from);
                                 }
                             }
 
@@ -757,276 +757,277 @@ namespace RT.Servers
                             // set a Content-Length header that specifies the size of just the range(s).
 
                             // Also note that if Ranges.Count is 0, we want to fall through and handle the request without ranges
-                            if (Ranges.Count == 1)
+                            if (ranges.Count == 1)
                             {
-                                ServeSingleRange(Socket, Response, Ranges, ContentLength);
-                                return UseKeepAlive;
+                                serveSingleRange(socket, response, ranges, contentLength);
+                                return useKeepAlive;
                             }
-                            else if (Ranges.Count > 1)
+                            else if (ranges.Count > 1)
                             {
-                                ServeRanges(Socket, Response, Ranges, ContentLength);
-                                return UseKeepAlive;
+                                serveRanges(socket, response, ranges, contentLength);
+                                return useKeepAlive;
                             }
                         }
                     }
                 }
 
-                bool UseGzip = GzipRequested && !(ContentLengthKnown && ContentLength <= 1024);
-                if (UseGzip)
-                    Response.Headers.ContentEncoding = HTTPContentEncoding.Gzip;
+                bool useGzip = gzipRequested && !(contentLengthKnown && contentLength <= 1024);
+                if (useGzip)
+                    response.Headers.ContentEncoding = HttpContentEncoding.Gzip;
 
                 sw.Log("OutputResponse() - find out things");
 
                 // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
-                if (UseGzip && ContentLengthKnown && ContentLength < Opt.GzipInMemoryUpToSize)
+                if (useGzip && contentLengthKnown && contentLength < _opt.GzipInMemoryUpToSize)
                 {
                     sw.Log("OutputResponse() - using in-memory gzip");
                     // In this case, do all the gzipping before sending the headers.
                     // After all we want to include the new (compressed) Content-Length.
                     MemoryStream ms = new MemoryStream();
                     GZipStream gz = new GZipStream(ms, CompressionMode.Compress);
-                    byte[] ContentReadBuffer = new byte[65536];
-                    int Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
-                    while (Bytes > 0)
+                    byte[] contentReadBuffer = new byte[65536];
+                    int bytes = response.Content.Read(contentReadBuffer, 0, 65536);
+                    while (bytes > 0)
                     {
-                        gz.Write(ContentReadBuffer, 0, Bytes);
-                        Bytes = Response.Content.Read(ContentReadBuffer, 0, 65536);
+                        gz.Write(contentReadBuffer, 0, bytes);
+                        bytes = response.Content.Read(contentReadBuffer, 0, 65536);
                     }
                     gz.Close();
                     sw.Log("OutputResponse() - finished gzipping");
-                    byte[] ResultBuffer = ms.ToArray();
-                    Response.Headers.ContentLength = ResultBuffer.Length;
-                    SendHeaders(Socket, Response);
+                    byte[] resultBuffer = ms.ToArray();
+                    response.Headers.ContentLength = resultBuffer.Length;
+                    sendHeaders(socket, response);
                     sw.Log("OutputResponse() - finished sending headers");
-                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                        return UseKeepAlive;
-                    Socket.Send(ResultBuffer);
+                    if (response.OriginalRequest.Method == HttpMethod.Head)
+                        return useKeepAlive;
+                    socket.Send(resultBuffer);
                     sw.Log("OutputResponse() - finished sending response");
-                    return UseKeepAlive;
+                    return useKeepAlive;
                 }
 
                 sw.Log("OutputResponse() - using something other than in-memory gzip");
 
-                Stream Output;
+                Stream output;
 
-                if (UseGzip && !UseKeepAlive)
+                if (useGzip && !useKeepAlive)
                 {
                     // In this case, send the headers first, then instantiate the GZipStream.
                     // Otherwise we run the risk that the GzipStream might write to the socket before the headers are sent.
                     // Also note that we are not sending a Content-Length header; even if we know the content length
                     // of the uncompressed file, we cannot predict the length of the compressed output yet
-                    SendHeaders(Socket, Response);
+                    sendHeaders(socket, response);
                     sw.Log("OutputResponse() - sending headers");
-                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                        return UseKeepAlive;
-                    StreamOnSocket str = new StreamOnSocket(Socket);
-                    Output = new GZipStream(str, CompressionMode.Compress);
+                    if (response.OriginalRequest.Method == HttpMethod.Head)
+                        return useKeepAlive;
+                    StreamOnSocket str = new StreamOnSocket(socket);
+                    output = new GZipStream(str, CompressionMode.Compress);
                 }
-                else if (UseGzip)
+                else if (useGzip)
                 {
                     // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Length header
-                    Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
-                    SendHeaders(Socket, Response);
+                    response.Headers.TransferEncoding = HttpTransferEncoding.Chunked;
+                    sendHeaders(socket, response);
                     sw.Log("OutputResponse() - sending headers");
-                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                        return UseKeepAlive;
-                    StreamOnSocket str = new StreamOnSocketChunked(Socket);
-                    Output = new GZipStream(str, CompressionMode.Compress);
+                    if (response.OriginalRequest.Method == HttpMethod.Head)
+                        return useKeepAlive;
+                    StreamOnSocket str = new StreamOnSocketChunked(socket);
+                    output = new GZipStream(str, CompressionMode.Compress);
                 }
-                else if (UseKeepAlive && !ContentLengthKnown)
+                else if (useKeepAlive && !contentLengthKnown)
                 {
                     // Use chunked encoding without Gzip
-                    Response.Headers.TransferEncoding = HTTPTransferEncoding.Chunked;
-                    SendHeaders(Socket, Response);
+                    response.Headers.TransferEncoding = HttpTransferEncoding.Chunked;
+                    sendHeaders(socket, response);
                     sw.Log("OutputResponse() - sending headers");
-                    if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                        return UseKeepAlive;
-                    Output = new StreamOnSocketChunked(Socket);
+                    if (response.OriginalRequest.Method == HttpMethod.Head)
+                        return useKeepAlive;
+                    output = new StreamOnSocketChunked(socket);
                 }
                 else
                 {
                     // No Gzip, no chunked, but if we know the content length, supply it
                     // (if we don't, then we're not using keep-alive here)
-                    if (ContentLengthKnown)
-                        Response.Headers.ContentLength = ContentLength;
+                    if (contentLengthKnown)
+                        response.Headers.ContentLength = contentLength;
 
-                    SendHeaders(Socket, Response);
+                    sendHeaders(socket, response);
                     sw.Log("OutputResponse() - sending headers");
 
                     // If the content length is zero, we can exit as quickly as possible
                     // (no need to instantiate an output stream)
-                    if ((ContentLengthKnown && ContentLength == 0) || Response.OriginalRequest.Method == HTTPMethod.HEAD)
-                        return UseKeepAlive;
+                    if ((contentLengthKnown && contentLength == 0) || response.OriginalRequest.Method == HttpMethod.Head)
+                        return useKeepAlive;
 
-                    Output = new StreamOnSocket(Socket);
+                    output = new StreamOnSocket(socket);
                 }
 
                 sw.Log("OutputResponse() - instantiating output stream");
 
                 // Finally output the actual content
-                int BufferSize = 65536;
-                byte[] Buffer = new byte[BufferSize];
+                int bufferSize = 65536;
+                byte[] buffer = new byte[bufferSize];
                 sw.Log("OutputResponse() - Allocate buffer");
-                int BytesRead;
+                int bytesRead;
                 while (true)
                 {
-                    if (Opt.ReturnExceptionsToClient)
+                    if (_opt.ReturnExceptionsToClient)
                     {
-                        try { BytesRead = Response.Content.Read(Buffer, 0, BufferSize); }
+                        try { bytesRead = response.Content.Read(buffer, 0, bufferSize); }
                         catch (Exception e)
                         {
-                            SendExceptionToClient(Output, Response.Headers.ContentType, e);
+                            sendExceptionToClient(output, response.Headers.ContentType, e);
                             return false;
                         }
                     }
                     else
-                        BytesRead = Response.Content.Read(Buffer, 0, BufferSize);
+                        bytesRead = response.Content.Read(buffer, 0, bufferSize);
                     sw.Log("OutputResponse() - Response.Content.Read()");
-                    if (BytesRead == 0) break;
-                    Output.Write(Buffer, 0, BytesRead);
+                    if (bytesRead == 0) break;
+                    output.Write(buffer, 0, bytesRead);
                     sw.Log("OutputResponse() - Output.Write()");
                 }
-                Output.Close();
+                output.Close();
                 sw.Log("OutputResponse() - Output.Close()");
-                return UseKeepAlive;
+                return useKeepAlive;
             }
             finally
             {
                 sw.Log("OutputResponse() - stuff before finally clause");
                 try
                 {
-                    if (Response.OriginalRequest.TemporaryFile != null)
-                        File.Delete(Response.OriginalRequest.TemporaryFile);
+                    if (response.OriginalRequest.TemporaryFile != null)
+                        File.Delete(response.OriginalRequest.TemporaryFile);
                 }
                 catch (Exception) { }
                 sw.Log("OutputResponse() - finally clause");
             }
         }
 
-        private void ServeSingleRange(Socket Socket, HTTPResponse Response, SortedList<long, long> Ranges, long TotalFileSize)
+        private void serveSingleRange(Socket socket, HttpResponse response, SortedList<long, long> ranges, long totalFileSize)
         {
-            foreach (var r in Ranges)
+            foreach (var r in ranges)
             {
-                Response.Status = HTTPStatusCode._206_PartialContent;
+                response.Status = HttpStatusCode._206_PartialContent;
                 // Note: this is the length of just the range, not the complete file (that's TotalFileSize)
-                Response.Headers.ContentLength = r.Value - r.Key + 1;
-                Response.Headers.ContentRange = new HTTPContentRange { From = r.Key, To = r.Value, Total = TotalFileSize };
-                SendHeaders(Socket, Response);
-                if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+                response.Headers.ContentLength = r.Value - r.Key + 1;
+                response.Headers.ContentRange = new HttpContentRange { From = r.Key, To = r.Value, Total = totalFileSize };
+                sendHeaders(socket, response);
+                if (response.OriginalRequest.Method == HttpMethod.Head)
                     return;
-                byte[] Buffer = new byte[65536];
+                byte[] buffer = new byte[65536];
 
-                Response.Content.Seek(r.Key, SeekOrigin.Begin);
-                long BytesMissing = r.Value - r.Key + 1;
-                int BytesRead = Response.Content.Read(Buffer, 0, (int) Math.Min(65536, BytesMissing));
-                while (BytesRead > 0)
+                response.Content.Seek(r.Key, SeekOrigin.Begin);
+                long bytesMissing = r.Value - r.Key + 1;
+                int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
+                while (bytesRead > 0)
                 {
-                    Socket.Send(Buffer, 0, BytesRead, SocketFlags.None);
-                    BytesMissing -= BytesRead;
-                    BytesRead = (BytesMissing > 0) ? Response.Content.Read(Buffer, 0, (int) Math.Min(65536, BytesMissing)) : 0;
+                    socket.Send(buffer, 0, bytesRead, SocketFlags.None);
+                    bytesMissing -= bytesRead;
+                    bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                 }
                 return;
             }
         }
 
-        private void ServeRanges(Socket Socket, HTTPResponse Response, SortedList<long, long> Ranges, long TotalFileSize)
+        private void serveRanges(Socket socket, HttpResponse response, SortedList<long, long> ranges, long totalFileSize)
         {
-            Response.Status = HTTPStatusCode._206_PartialContent;
+            response.Status = HttpStatusCode._206_PartialContent;
 
             // Generate a random boundary token
-            byte[] Boundary = new byte[64];
+            byte[] boundary = new byte[64];
             lock (Ut.Rnd)
             {
                 for (int i = 0; i < 64; i++)
                 {
                     int r = Ut.Rnd.Next(16);
-                    Boundary[i] = r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
+                    boundary[i] = r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
                 }
             }
 
             // Calculate the total content length
-            long CLength = 0;
-            foreach (var r in Ranges)
+            long cLength = 0;
+            foreach (var r in ranges)
             {
-                CLength += 68;                  // "--$boundary\r\n"
-                CLength += 27 +                 // "Content-range: bytes $f-$l/$filesize\r\n\r\n"
-                    r.Key.ToString().Length + r.Value.ToString().Length + TotalFileSize.ToString().Length;
-                CLength += r.Key - r.Value + 1; // content
-                CLength += 2;                   // "\r\n"
+                cLength += 68;                  // "--$boundary\r\n"
+                cLength += 27 +                 // "Content-range: bytes $f-$l/$filesize\r\n\r\n"
+                    r.Key.ToString().Length + r.Value.ToString().Length + totalFileSize.ToString().Length;
+                cLength += r.Key - r.Value + 1; // content
+                cLength += 2;                   // "\r\n"
             }
-            CLength += 70;                      // "--$boundary--\r\n"
+            cLength += 70;                      // "--$boundary--\r\n"
 
-            Response.Headers.ContentLength = CLength;
-            Response.Headers.ContentType = "multipart/byteranges; boundary=" + Encoding.ASCII.GetString(Boundary);
-            SendHeaders(Socket, Response);
-            if (Response.OriginalRequest.Method == HTTPMethod.HEAD)
+            response.Headers.ContentLength = cLength;
+            response.Headers.ContentType = "multipart/byteranges; boundary=" + Encoding.ASCII.GetString(boundary);
+            sendHeaders(socket, response);
+            if (response.OriginalRequest.Method == HttpMethod.Head)
                 return;
 
-            byte[] Buffer = new byte[65536];
-            foreach (var r in Ranges)
+            byte[] buffer = new byte[65536];
+            foreach (var r in ranges)
             {
-                Socket.Send(new byte[] { (byte) '-', (byte) '-' });
-                Socket.Send(Boundary);
-                Socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + TotalFileSize.ToString() + "\r\n\r\n").ToASCII());
+                socket.Send(new byte[] { (byte) '-', (byte) '-' });
+                socket.Send(boundary);
+                socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToASCII());
 
-                Response.Content.Seek(r.Key, SeekOrigin.Begin);
-                long BytesMissing = r.Value - r.Key + 1;
-                int BytesRead = Response.Content.Read(Buffer, 0, (int) Math.Min(65536, BytesMissing));
-                while (BytesRead > 0)
+                response.Content.Seek(r.Key, SeekOrigin.Begin);
+                long bytesMissing = r.Value - r.Key + 1;
+                int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
+                while (bytesRead > 0)
                 {
-                    Socket.Send(Buffer, 0, BytesRead, SocketFlags.None);
-                    BytesMissing -= BytesRead;
-                    BytesRead = (BytesMissing > 0) ? Response.Content.Read(Buffer, 0, (int) Math.Min(65536, BytesMissing)) : 0;
+                    socket.Send(buffer, 0, bytesRead, SocketFlags.None);
+                    bytesMissing -= bytesRead;
+                    bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                 }
-                Socket.Send(new byte[] { 13, 10 });
+                socket.Send(new byte[] { 13, 10 });
             }
-            Socket.Send(new byte[] { (byte) '-', (byte) '-' });
-            Socket.Send(Boundary);
-            Socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
+            socket.Send(new byte[] { (byte) '-', (byte) '-' });
+            socket.Send(boundary);
+            socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
         }
 
-        private HTTPResponse HandleRequestAfterHeaders(Socket Socket, string Headers, byte[] BufferWithContentSoFar, ref int ContentOffset, ref int ContentLengthSoFar, Stopwatch sw, out HTTPRequest Req)
+        private HttpResponse handleRequestAfterHeaders(Socket socket, string headers, byte[] bufferWithContentSoFar, ref int contentOffset, ref int contentLengthSoFar, Stopwatch sw, out HttpRequest req)
         {
             sw.Log("HandleRequestAfterHeaders() - enter");
 
-            string[] Lines = Headers.Split(new string[] { "\r\n" }, StringSplitOptions.None);
-            Req = new HTTPRequest();
-            if (Lines.Length < 2)
-                return ErrorResponse(HTTPStatusCode._400_BadRequest);
+            string[] lines = headers.Split(new string[] { "\r\n" }, StringSplitOptions.None);
+            req = new HttpRequest();
+            if (lines.Length < 2)
+                return ErrorResponse(HttpStatusCode._400_BadRequest);
 
             // Parse the method line
-            Match Match = Regex.Match(Lines[0], @"^(GET|POST|HEAD) ([^ ]+) HTTP/1.1$");
-            if (!Match.Success)
-                return ErrorResponse(HTTPStatusCode._501_NotImplemented);
+            Match match = Regex.Match(lines[0], @"^(GET|POST|HEAD) ([^ ]+) HTTP/1.1$");
+            if (!match.Success)
+                return ErrorResponse(HttpStatusCode._501_NotImplemented);
 
-            sw.Log("HandleRequestAfterHeaders() - Stuff before new HTTPRequest()");
-            Req.Method = Match.Groups[1].Value == "HEAD" ? HTTPMethod.HEAD :
-                         Match.Groups[1].Value == "POST" ? HTTPMethod.POST : HTTPMethod.GET;
-            Req.URL = Match.Groups[2].Value;
-            Req.TempDir = Opt.TempDir;   // this will only be used if there is a file upload in a POST request.
+            sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
+            req.Method =
+                match.Groups[1].Value == "HEAD" ? HttpMethod.Head :
+                match.Groups[1].Value == "POST" ? HttpMethod.Post : HttpMethod.Get;
+            req.Url = match.Groups[2].Value;
+            req.TempDir = _opt.TempDir;   // this will only be used if there is a file upload in a POST request.
 
-            sw.Log("HandleRequestAfterHeaders() - new HTTPRequest()");
+            sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
 
             // Parse the request headers
             try
             {
-                string LastHeader = null;
-                string ValueSoFar = null;
-                for (int i = 1; i < Lines.Length; i++)
+                string lastHeader = null;
+                string valueSoFar = null;
+                for (int i = 1; i < lines.Length; i++)
                 {
-                    if (Lines[i][0] == '\t' || Lines[i][0] == ' ')
-                        ValueSoFar += " " + Lines[i].Trim();
+                    if (lines[i][0] == '\t' || lines[i][0] == ' ')
+                        valueSoFar += " " + lines[i].Trim();
                     else
                     {
-                        Match = Regex.Match(Lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
-                        if (!Match.Success)
-                            return ErrorResponse(HTTPStatusCode._400_BadRequest);
-                        ParseHeader(LastHeader, ValueSoFar, ref Req);
-                        LastHeader = Match.Groups[1].Value.ToLowerInvariant();
-                        ValueSoFar = Match.Groups[2].Value.Trim();
+                        match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
+                        if (!match.Success)
+                            return ErrorResponse(HttpStatusCode._400_BadRequest);
+                        parseHeader(lastHeader, valueSoFar, ref req);
+                        lastHeader = match.Groups[1].Value.ToLowerInvariant();
+                        valueSoFar = match.Groups[2].Value.Trim();
                     }
                 }
-                ParseHeader(LastHeader, ValueSoFar, ref Req);
+                parseHeader(lastHeader, valueSoFar, ref req);
             }
             catch (InvalidRequestException e)
             {
@@ -1035,44 +1036,44 @@ namespace RT.Servers
 
             sw.Log("HandleRequestAfterHeaders() - Parse headers");
 
-            if (Req.Handler == null)
-                return ErrorResponse(HTTPStatusCode._404_NotFound);
+            if (req.Handler == null)
+                return ErrorResponse(HttpStatusCode._404_NotFound);
 
-            if (Req.Method == HTTPMethod.POST)
+            if (req.Method == HttpMethod.Post)
             {
                 // Some validity checks
-                if (Req.Headers.ContentLength == null)
-                    return ErrorResponse(HTTPStatusCode._411_LengthRequired);
-                if (Req.Headers.ContentLength.Value > Opt.MaxSizePostContent)
-                    return ErrorResponse(HTTPStatusCode._413_RequestEntityTooLarge);
+                if (req.Headers.ContentLength == null)
+                    return ErrorResponse(HttpStatusCode._411_LengthRequired);
+                if (req.Headers.ContentLength.Value > _opt.MaxSizePostContent)
+                    return ErrorResponse(HttpStatusCode._413_RequestEntityTooLarge);
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here
-                if (Req.Headers.Expect != null && Req.Headers.Expect.ContainsKey("100-continue"))
-                    Socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToASCII());
+                if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
+                    socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToASCII());
 
                 // Read the contents of the POST request
-                if (ContentLengthSoFar >= Req.Headers.ContentLength.Value)
+                if (contentLengthSoFar >= req.Headers.ContentLength.Value)
                 {
-                    Req.Content = new MemoryStream(BufferWithContentSoFar, ContentOffset, (int) Req.Headers.ContentLength.Value, false);
-                    ContentOffset += (int) Req.Headers.ContentLength.Value;
-                    ContentLengthSoFar -= (int) Req.Headers.ContentLength.Value;
+                    req.Content = new MemoryStream(bufferWithContentSoFar, contentOffset, (int) req.Headers.ContentLength.Value, false);
+                    contentOffset += (int) req.Headers.ContentLength.Value;
+                    contentLengthSoFar -= (int) req.Headers.ContentLength.Value;
                 }
-                else if (Req.Headers.ContentLength.Value < Opt.UseFileUploadAtSize)
+                else if (req.Headers.ContentLength.Value < _opt.UseFileUploadAtSize)
                 {
                     // Receive the POST request content into an in-memory buffer
-                    byte[] Buffer = new byte[Req.Headers.ContentLength.Value];
-                    if (ContentLengthSoFar > 0)
-                        Array.Copy(BufferWithContentSoFar, ContentOffset, Buffer, 0, ContentLengthSoFar);
-                    while (ContentLengthSoFar < Req.Headers.ContentLength)
+                    byte[] buffer = new byte[req.Headers.ContentLength.Value];
+                    if (contentLengthSoFar > 0)
+                        Array.Copy(bufferWithContentSoFar, contentOffset, buffer, 0, contentLengthSoFar);
+                    while (contentLengthSoFar < req.Headers.ContentLength)
                     {
-                        SocketError ErrorCode;
-                        int BytesReceived = Socket.Receive(Buffer, ContentLengthSoFar, (int) Req.Headers.ContentLength.Value - ContentLengthSoFar, SocketFlags.None, out ErrorCode);
-                        if (ErrorCode != SocketError.Success)
+                        SocketError errorCode;
+                        int bytesReceived = socket.Receive(buffer, contentLengthSoFar, (int) req.Headers.ContentLength.Value - contentLengthSoFar, SocketFlags.None, out errorCode);
+                        if (errorCode != SocketError.Success)
                             throw new SocketException();
-                        ContentLengthSoFar += BytesReceived;
+                        contentLengthSoFar += bytesReceived;
                     }
-                    Req.Content = new MemoryStream(Buffer, 0, (int) Req.Headers.ContentLength.Value);
-                    ContentLengthSoFar = 0;
+                    req.Content = new MemoryStream(buffer, 0, (int) req.Headers.ContentLength.Value);
+                    contentLengthSoFar = 0;
                 }
                 else
                 {
@@ -1080,37 +1081,37 @@ namespace RT.Servers
                     Stream f;
                     try
                     {
-                        Req.TemporaryFile = HTTPInternalObjects.RandomTempFilepath(Opt.TempDir, out f);
+                        req.TemporaryFile = HttpInternalObjects.RandomTempFilepath(_opt.TempDir, out f);
                     }
                     catch (IOException)
                     {
-                        return ErrorResponse(HTTPStatusCode._500_InternalServerError);
+                        return ErrorResponse(HttpStatusCode._500_InternalServerError);
                     }
                     try
                     {
-                        if (ContentLengthSoFar > 0)
-                            f.Write(BufferWithContentSoFar, ContentOffset, ContentLengthSoFar);
-                        byte[] Buffer = new byte[65536];
-                        while (ContentLengthSoFar < Req.Headers.ContentLength)
+                        if (contentLengthSoFar > 0)
+                            f.Write(bufferWithContentSoFar, contentOffset, contentLengthSoFar);
+                        byte[] buffer = new byte[65536];
+                        while (contentLengthSoFar < req.Headers.ContentLength)
                         {
-                            SocketError ErrorCode;
-                            int BytesReceived = Socket.Receive(Buffer, 0, 65536, SocketFlags.None, out ErrorCode);
-                            if (ErrorCode != SocketError.Success)
+                            SocketError errorCode;
+                            int bytesReceived = socket.Receive(buffer, 0, 65536, SocketFlags.None, out errorCode);
+                            if (errorCode != SocketError.Success)
                                 throw new SocketException();
-                            if (BytesReceived > 0)
+                            if (bytesReceived > 0)
                             {
-                                f.Write(Buffer, 0, BytesReceived);
-                                ContentLengthSoFar += BytesReceived;
+                                f.Write(buffer, 0, bytesReceived);
+                                contentLengthSoFar += bytesReceived;
                             }
                         }
                         f.Close();
-                        Req.Content = File.Open(Req.TemporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        ContentLengthSoFar = 0;
+                        req.Content = File.Open(req.TemporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        contentLengthSoFar = 0;
                     }
                     catch (Exception e)
                     {
                         f.Close();
-                        File.Delete(Req.TemporaryFile);
+                        File.Delete(req.TemporaryFile);
                         throw e;
                     }
                 }
@@ -1118,13 +1119,13 @@ namespace RT.Servers
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
 
-            if (Opt.ReturnExceptionsToClient)
+            if (_opt.ReturnExceptionsToClient)
             {
                 try
                 {
-                    HTTPResponse Resp = Req.Handler(Req);
+                    HttpResponse resp = req.Handler(req);
                     sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                    return Resp;
+                    return resp;
                 }
                 catch (InvalidRequestException e)
                 {
@@ -1133,18 +1134,18 @@ namespace RT.Servers
                 }
                 catch (Exception e)
                 {
-                    HTTPResponse Resp = ExceptionResponse(e);
+                    HttpResponse resp = ExceptionResponse(e);
                     sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
-                    return Resp;
+                    return resp;
                 }
             }
             else
             {
                 try
                 {
-                    HTTPResponse Resp = Req.Handler(Req);
+                    HttpResponse resp = req.Handler(req);
                     sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                    return Resp;
+                    return resp;
                 }
                 catch (InvalidRequestException e)
                 {
@@ -1158,142 +1159,143 @@ namespace RT.Servers
         /// Generates a 500 Internal Server Error response which formats the specified exception as HTML.
         /// </summary>
         /// <param name="e">Exception to format.</param>
-        /// <returns>An HTTPResponse to use to respond to a client request which threw the exception.</returns>
-        public static HTTPResponse ExceptionResponse(Exception e)
+        /// <returns>An HttpResponse to use to respond to a client request which threw the exception.</returns>
+        public static HttpResponse ExceptionResponse(Exception e)
         {
-            return new HTTPResponse
+            return new HttpResponse
             {
-                Status = HTTPStatusCode._500_InternalServerError,
-                Headers = new HTTPResponseHeaders { ContentType = "text/html; charset=utf-8" },
-                Content = new MemoryStream(ExceptionAsString(e, true).ToUTF8())
+                Status = HttpStatusCode._500_InternalServerError,
+                Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
+                Content = new MemoryStream(exceptionAsString(e, true).ToUTF8())
             };
         }
 
-        private void SendExceptionToClient(Stream Output, string ContentType, Exception e)
+        private void sendExceptionToClient(Stream output, string contentType, Exception exception)
         {
-            if (e is SocketException) throw e;
+            if (exception is SocketException)
+                throw exception;
 
-            byte[] Outp = ExceptionAsString(e,
-                ContentType.StartsWith("text/html") || ContentType.StartsWith("application/xhtml")).ToUTF8();
-            Output.Write(Outp, 0, Outp.Length);
-            Output.Close();
+            byte[] outp = exceptionAsString(exception,
+                contentType.StartsWith("text/html") || contentType.StartsWith("application/xhtml")).ToUTF8();
+            output.Write(outp, 0, outp.Length);
+            output.Close();
         }
 
-        private static string ExceptionAsString(Exception e, bool HTML)
+        private static string exceptionAsString(Exception exception, bool html)
         {
-            string ExceptionText = "";
+            string exceptionText = "";
             bool first = true;
-            if (HTML)
+            if (html)
             {
-                ExceptionText += "<div class='exception'>";
-                while (e != null)
+                exceptionText += "<div class='exception'>";
+                while (exception != null)
                 {
-                    ExceptionText += first ? "" : "<hr />";
-                    ExceptionText += "<h3>" + e.GetType().FullName.HTMLEscape() + "</h3>";
-                    ExceptionText += "<p>" + e.Message.HTMLEscape() + "</p>";
-                    ExceptionText += "<pre>" + e.StackTrace.HTMLEscape() + "</pre>";
-                    e = e.InnerException;
+                    exceptionText += first ? "" : "<hr />";
+                    exceptionText += "<h3>" + exception.GetType().FullName.HTMLEscape() + "</h3>";
+                    exceptionText += "<p>" + exception.Message.HTMLEscape() + "</p>";
+                    exceptionText += "<pre>" + exception.StackTrace.HTMLEscape() + "</pre>";
+                    exception = exception.InnerException;
                     first = false;
                 }
-                ExceptionText += "</div>";
+                exceptionText += "</div>";
             }
             else        // Assume plain text
             {
-                while (e != null)
+                while (exception != null)
                 {
-                    ExceptionText += first ? "\n\n\n" : "----------------------------------------------------------------------\n";
-                    ExceptionText += e.GetType().FullName + "\n\n";
-                    ExceptionText += e.Message + "\n\n";
-                    ExceptionText += e.StackTrace + "\n\n";
-                    e = e.InnerException;
+                    exceptionText += first ? "\n\n\n" : "----------------------------------------------------------------------\n";
+                    exceptionText += exception.GetType().FullName + "\n\n";
+                    exceptionText += exception.Message + "\n\n";
+                    exceptionText += exception.StackTrace + "\n\n";
+                    exception = exception.InnerException;
                     first = false;
                 }
             }
-            return ExceptionText;
+            return exceptionText;
         }
 
         // Expects HeaderName in lower-case
-        private void ParseHeader(string HeaderName, string HeaderValue, ref HTTPRequest Req)
+        private void parseHeader(string headerName, string headerValue, ref HttpRequest req)
         {
-            if (HeaderName == null)
+            if (headerName == null)
                 return;
 
-            string ValueLower = HeaderValue.ToLowerInvariant();
-            int IntOutput;
+            string valueLower = headerValue.ToLowerInvariant();
+            int intOutput;
 
-            if (HeaderName == "accept")
-                Req.Headers.Accept = SplitAndSortByQ(HeaderValue);
-            else if (HeaderName == "accept-charset")
-                Req.Headers.AcceptCharset = SplitAndSortByQ(HeaderValue);
-            else if (HeaderName == "accept-encoding")
+            if (headerName == "accept")
+                req.Headers.Accept = splitAndSortByQ(headerValue);
+            else if (headerName == "accept-charset")
+                req.Headers.AcceptCharset = splitAndSortByQ(headerValue);
+            else if (headerName == "accept-encoding")
             {
-                string[] StrList = SplitAndSortByQ(HeaderValue.ToLowerInvariant());
-                var List = new List<HTTPContentEncoding>();
-                foreach (string Str in StrList)
+                string[] strList = splitAndSortByQ(headerValue.ToLowerInvariant());
+                var list = new List<HttpContentEncoding>();
+                foreach (string str in strList)
                 {
-                    if (Str == "compress") List.Add(HTTPContentEncoding.Compress);
-                    else if (Str == "deflate") List.Add(HTTPContentEncoding.Deflate);
-                    else if (Str == "gzip") List.Add(HTTPContentEncoding.Gzip);
+                    if (str == "compress") list.Add(HttpContentEncoding.Compress);
+                    else if (str == "deflate") list.Add(HttpContentEncoding.Deflate);
+                    else if (str == "gzip") list.Add(HttpContentEncoding.Gzip);
                 }
-                Req.Headers.AcceptEncoding = List.ToArray();
+                req.Headers.AcceptEncoding = list.ToArray();
             }
-            else if (HeaderName == "accept-language")
-                Req.Headers.AcceptLanguage = SplitAndSortByQ(HeaderValue);
-            else if (HeaderName == "connection")
+            else if (headerName == "accept-language")
+                req.Headers.AcceptLanguage = splitAndSortByQ(headerValue);
+            else if (headerName == "connection")
             {
-                var values = SplitAndSortByQ(ValueLower);
+                var values = splitAndSortByQ(valueLower);
                 if (values.Contains("close"))
-                    Req.Headers.Connection = HTTPConnection.Close;
+                    req.Headers.Connection = HttpConnection.Close;
                 else if (values.Contains("keep-alive") || values.Contains("keepalive"))
-                    Req.Headers.Connection = HTTPConnection.KeepAlive;
+                    req.Headers.Connection = HttpConnection.KeepAlive;
             }
-            else if (HeaderName == "content-length" && int.TryParse(HeaderValue, out IntOutput))
-                Req.Headers.ContentLength = IntOutput;
-            else if (HeaderName == "content-type")
+            else if (headerName == "content-length" && int.TryParse(headerValue, out intOutput))
+                req.Headers.ContentLength = intOutput;
+            else if (headerName == "content-type")
             {
-                if (Req.Method == HTTPMethod.POST)
+                if (req.Method == HttpMethod.Post)
                 {
-                    if (ValueLower == "application/x-www-form-urlencoded")
-                        Req.Headers.ContentType = HTTPPOSTContentType.ApplicationXWWWFormURLEncoded;
+                    if (valueLower == "application/x-www-form-urlencoded")
+                        req.Headers.ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                     else
                     {
-                        Match m = Regex.Match(ValueLower, @"^multipart/form-data\s*;\s*boundary=");
+                        Match m = Regex.Match(valueLower, @"^multipart/form-data\s*;\s*boundary=");
                         if (m.Success)
                         {
-                            Req.Headers.ContentType = HTTPPOSTContentType.MultipartFormData;
-                            Req.Headers.ContentMultipartBoundary = HeaderValue.Substring(m.Length);
+                            req.Headers.ContentType = HttpPostContentType.MultipartFormData;
+                            req.Headers.ContentMultipartBoundary = headerValue.Substring(m.Length);
                         }
                         else
-                            throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._501_NotImplemented));
+                            throw new InvalidRequestException(ErrorResponse(HttpStatusCode._501_NotImplemented));
                     }
                 }
             }
-            else if (HeaderName == "cookie")
+            else if (headerName == "cookie")
             {
-                Cookie PrevCookie = new Cookie { Name = null };
-                while (HeaderValue.Length > 0)
+                Cookie prevCookie = new Cookie { Name = null };
+                while (headerValue.Length > 0)
                 {
-                    string Key, Value;
-                    Match m = Regex.Match(HeaderValue, @"^\s*(\$?\w+)=([^;]*)(;\s*|$)");
+                    string key, value;
+                    Match m = Regex.Match(headerValue, @"^\s*(\$?\w+)=([^;]*)(;\s*|$)");
                     if (m.Success)
                     {
-                        Key = m.Groups[1].Value;
-                        Value = m.Groups[2].Value;
+                        key = m.Groups[1].Value;
+                        value = m.Groups[2].Value;
                     }
                     else
                     {
-                        m = Regex.Match(HeaderValue, @"^\s*(\$?\w+)=""([^""]*)""(;\s*|$)");
+                        m = Regex.Match(headerValue, @"^\s*(\$?\w+)=""([^""]*)""(;\s*|$)");
                         if (m.Success)
                         {
-                            Key = m.Groups[1].Value;
-                            Value = m.Groups[2].Value;
+                            key = m.Groups[1].Value;
+                            value = m.Groups[2].Value;
                         }
                         else
                         {
-                            if (HeaderValue.Contains(';'))
+                            if (headerValue.Contains(';'))
                             {
                                 // Invalid syntax; try to continue parsing at the next ";"
-                                HeaderValue = HeaderValue.Substring(HeaderValue.IndexOf(';') + 1);
+                                headerValue = headerValue.Substring(headerValue.IndexOf(';') + 1);
                                 continue;
                             }
                             else
@@ -1301,235 +1303,233 @@ namespace RT.Servers
                                 return;
                         }
                     }
-                    HeaderValue = HeaderValue.Substring(m.Groups[0].Length);
+                    headerValue = headerValue.Substring(m.Groups[0].Length);
 
-                    if (Key == "$Version")
+                    if (key == "$Version")
                         continue;   // ignore that.
 
-                    if (Req.Headers.Cookie == null)
-                        Req.Headers.Cookie = new Dictionary<string, Cookie>();
+                    if (req.Headers.Cookie == null)
+                        req.Headers.Cookie = new Dictionary<string, Cookie>();
 
-                    if (Key == "$Path" && PrevCookie.Name != null)
+                    if (key == "$Path" && prevCookie.Name != null)
                     {
-                        PrevCookie.Path = Value;
-                        Req.Headers.Cookie[PrevCookie.Name] = PrevCookie;
+                        prevCookie.Path = value;
+                        req.Headers.Cookie[prevCookie.Name] = prevCookie;
                     }
-                    else if (Key == "$Domain" && PrevCookie.Name != null)
+                    else if (key == "$Domain" && prevCookie.Name != null)
                     {
-                        PrevCookie.Domain = Value;
-                        Req.Headers.Cookie[PrevCookie.Name] = PrevCookie;
+                        prevCookie.Domain = value;
+                        req.Headers.Cookie[prevCookie.Name] = prevCookie;
                     }
-                    else if (Key == "$Expires" && PrevCookie.Name != null)
+                    else if (key == "$Expires" && prevCookie.Name != null)
                     {
-                        DateTime Output;
-                        if (DateTime.TryParse(HeaderValue, out Output))
+                        DateTime output;
+                        if (DateTime.TryParse(headerValue, out output))
                         {
-                            PrevCookie.Expires = Output;
-                            Req.Headers.Cookie[PrevCookie.Name] = PrevCookie;
+                            prevCookie.Expires = output;
+                            req.Headers.Cookie[prevCookie.Name] = prevCookie;
                         }
                     }
                     else
                     {
-                        PrevCookie = new Cookie { Name = Key, Value = Value };
-                        Req.Headers.Cookie[Key] = PrevCookie;
+                        prevCookie = new Cookie { Name = key, Value = value };
+                        req.Headers.Cookie[key] = prevCookie;
                     }
                 }
             }
-            else if (HeaderName == "host")
+            else if (headerName == "host")
             {
                 // Can't have more than one "Host" header
-                if (Req.Headers.Host != null)
-                    throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._400_BadRequest));
+                if (req.Headers.Host != null)
+                    throw new InvalidRequestException(ErrorResponse(HttpStatusCode._400_BadRequest));
 
                 // For performance reasons, we check if we have a handler for this domain/URL as soon as possible.
                 // If we find out that we don't, stop processing here and immediately output an error
-                if (Req.URL.StartsWith("/$/"))
-                    Req.Handler = InternalHandler;
+                if (req.Url.StartsWith("/$/"))
+                    req.Handler = internalHandler;
                 else
                 {
-                    string Host = ValueLower;
-                    int Port = 80;
-                    if (Host.Contains(":"))
+                    string host = valueLower;
+                    int port = 80;
+                    if (host.Contains(":"))
                     {
-                        int Pos = Host.IndexOf(":");
-                        int.TryParse(Host.Substring(Pos + 1), out Port);
-                        Host = Host.Remove(Pos);
+                        int pos = host.IndexOf(":");
+                        int.TryParse(host.Substring(pos + 1), out port);
+                        host = host.Remove(pos);
                     }
-                    Host = Host.TrimEnd('.');
+                    host = host.TrimEnd('.');
 
-                    string URL = Req.URL.Contains('?') ? Req.URL.Remove(Req.URL.IndexOf('?')) : Req.URL;
+                    string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
 
                     lock (RequestHandlerHooks)
                     {
-                        var Hook = RequestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == Port) &&
-                                (hk.Domain == null || hk.Domain == Host || (!hk.SpecificDomain && Host.EndsWith("." + hk.Domain))) &&
-                                (hk.Path == null || hk.Path == URL || (!hk.SpecificPath && URL.StartsWith(hk.Path + "/"))));
-                        if (Hook == null)
-                            throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._404_NotFound));
+                        var hook = RequestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
+                                (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
+                                (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))));
+                        if (hook == null)
+                            throw new InvalidRequestException(ErrorResponse(HttpStatusCode._404_NotFound));
 
-                        Req.Handler = Hook.Handler;
-                        Req.BaseURL = Hook.Path == null ? "" : Hook.Path;
-                        Req.RestURL = Hook.Path == null ? URL : URL.Substring(Hook.Path.Length);
-                        Req.Domain = Host;
-                        Req.BaseDomain = Hook.Domain == null ? "" : Hook.Domain;
-                        Req.RestDomain = Hook.Domain == null ? Host : Host.Remove(Host.Length - Hook.Domain.Length);
+                        req.Handler = hook.Handler;
+                        req.BaseUrl = hook.Path == null ? "" : hook.Path;
+                        req.RestUrl = hook.Path == null ? url : url.Substring(hook.Path.Length);
+                        req.Domain = host;
+                        req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
+                        req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
                     }
                 }
-                Req.Headers.Host = ValueLower;
+                req.Headers.Host = valueLower;
             }
-            else if (HeaderName == "expect")
+            else if (headerName == "expect")
             {
-                string HV = HeaderValue;
-                var Expect = new Dictionary<string, string>();
-                while (HV.Length > 0)
+                string hv = headerValue;
+                var expect = new Dictionary<string, string>();
+                while (hv.Length > 0)
                 {
-                    Match m = Regex.Match(HV, @"(^[^;=""]*?)\s*(;\s*|$)");
+                    Match m = Regex.Match(hv, @"(^[^;=""]*?)\s*(;\s*|$)");
                     if (m.Success)
                     {
-                        Expect.Add(m.Groups[1].Value.ToLowerInvariant(), "1");
-                        HV = HV.Substring(m.Length);
+                        expect.Add(m.Groups[1].Value.ToLowerInvariant(), "1");
+                        hv = hv.Substring(m.Length);
                     }
                     else
                     {
-                        m = Regex.Match(HV, @"^([^;=""]*?)\s*=\s*([^;=""]*?)\s*(;\s*|$)");
+                        m = Regex.Match(hv, @"^([^;=""]*?)\s*=\s*([^;=""]*?)\s*(;\s*|$)");
                         if (m.Success)
                         {
-                            Expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value.ToLowerInvariant());
-                            HV = HV.Substring(m.Length);
+                            expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value.ToLowerInvariant());
+                            hv = hv.Substring(m.Length);
                         }
                         else
                         {
-                            m = Regex.Match(HV, @"^([^;=""]*?)\s*=\s*""([^""]*)""\s*(;\s*|$)");
+                            m = Regex.Match(hv, @"^([^;=""]*?)\s*=\s*""([^""]*)""\s*(;\s*|$)");
                             if (m.Success)
                             {
-                                Expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value);
-                                HV = HV.Substring(m.Length);
+                                expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value);
+                                hv = hv.Substring(m.Length);
                             }
                             else
                             {
-                                Expect.Add(HV, "1");
-                                HV = "";
+                                expect.Add(hv, "1");
+                                hv = "";
                             }
                         }
                     }
                 }
-                Req.Headers.Expect = Expect;
-                foreach (var kvp in Expect)
+                req.Headers.Expect = expect;
+                foreach (var kvp in expect)
                     if (kvp.Key != "100-continue")
-                        throw new InvalidRequestException(ErrorResponse(HTTPStatusCode._417_ExpectationFailed));
+                        throw new InvalidRequestException(ErrorResponse(HttpStatusCode._417_ExpectationFailed));
             }
-            else if (HeaderName == "if-modified-since")
+            else if (headerName == "if-modified-since")
             {
-                DateTime Output;
-                if (DateTime.TryParse(HeaderValue, out Output))
-                    Req.Headers.IfModifiedSince = Output;
+                DateTime output;
+                if (DateTime.TryParse(headerValue, out output))
+                    req.Headers.IfModifiedSince = output;
             }
-            else if (HeaderName == "if-none-match")
-                Req.Headers.IfNoneMatch = ValueLower;
-            else if (HeaderName == "range" && ValueLower.StartsWith("bytes="))
+            else if (headerName == "if-none-match")
+                req.Headers.IfNoneMatch = valueLower;
+            else if (headerName == "range" && valueLower.StartsWith("bytes="))
             {
-                string[] RangesStr = ValueLower.Split(',');
-                HTTPRange[] Ranges = new HTTPRange[RangesStr.Length];
-                for (int i = 0; i < RangesStr.Length; i++)
+                string[] rangesStr = valueLower.Split(',');
+                HttpRange[] ranges = new HttpRange[rangesStr.Length];
+                for (int i = 0; i < rangesStr.Length; i++)
                 {
-                    if (RangesStr[i] == null || RangesStr[i].Length < 2)
+                    if (rangesStr[i] == null || rangesStr[i].Length < 2)
                         return;
-                    Match m = Regex.Match(RangesStr[i], @"(\d*)-(\d*)");
+                    Match m = Regex.Match(rangesStr[i], @"(\d*)-(\d*)");
                     if (!m.Success)
                         return;
                     if (m.Groups[1].Length > 0)
-                        Ranges[i].From = int.Parse(m.Groups[1].Value);
+                        ranges[i].From = int.Parse(m.Groups[1].Value);
                     if (m.Groups[2].Length > 0)
-                        Ranges[i].To = int.Parse(m.Groups[2].Value);
+                        ranges[i].To = int.Parse(m.Groups[2].Value);
                 }
-                Req.Headers.Range = Ranges;
+                req.Headers.Range = ranges;
             }
-            else if (HeaderName == "user-agent")
-                Req.Headers.UserAgent = HeaderValue;
+            else if (headerName == "user-agent")
+                req.Headers.UserAgent = headerValue;
             else
             {
-                if (Req.Headers.UnrecognisedHeaders == null)
-                    Req.Headers.UnrecognisedHeaders = new Dictionary<string, string>();
-                Req.Headers.UnrecognisedHeaders.Add(HeaderName, HeaderValue);
+                if (req.Headers.UnrecognisedHeaders == null)
+                    req.Headers.UnrecognisedHeaders = new Dictionary<string, string>();
+                req.Headers.UnrecognisedHeaders.Add(headerName, headerValue);
             }
         }
 
-        private HTTPResponse InternalHandler(HTTPRequest Req)
+        private HttpResponse internalHandler(HttpRequest req)
         {
-            if (Req.URL == "/$/directory-listing/xsl")
+            if (req.Url == "/$/directory-listing/xsl")
             {
-                return new HTTPResponse
+                return new HttpResponse
                 {
-                    Headers = new HTTPResponseHeaders { ContentType = "application/xml; charset=utf-8" },
-                    Content = new MemoryStream(HTTPInternalObjects.DirectoryListingXSL())
+                    Headers = new HttpResponseHeaders { ContentType = "application/xml; charset=utf-8" },
+                    Content = new MemoryStream(HttpInternalObjects.DirectoryListingXsl())
                 };
             }
-            else if (Req.URL.StartsWith("/$/directory-listing/icons/"))
+            else if (req.Url.StartsWith("/$/directory-listing/icons/"))
             {
-                string Rest = Req.URL.Substring(27);
-                return new HTTPResponse
+                string rest = req.Url.Substring(27);
+                return new HttpResponse
                 {
-                    Headers = new HTTPResponseHeaders { ContentType = "image/png" },
-                    Content = new MemoryStream(HTTPInternalObjects.GetDirectoryListingIcon(Rest))
+                    Headers = new HttpResponseHeaders { ContentType = "image/png" },
+                    Content = new MemoryStream(HttpInternalObjects.GetDirectoryListingIcon(rest))
                 };
             }
 
-            return ErrorResponse(HTTPStatusCode._404_NotFound);
+            return ErrorResponse(HttpStatusCode._404_NotFound);
         }
 
-        private string[] SplitAndSortByQ(string Value)
+        private string[] splitAndSortByQ(string value)
         {
-            var Split = Regex.Split(Value, @"\s*,\s*");
-            var Items = new SortedList<float, List<string>>();
-            foreach (string Item in Split)
+            var split = Regex.Split(value, @"\s*,\s*");
+            var items = new SortedList<float, List<string>>();
+            foreach (string item in split)
             {
                 float q = 0;
-                string NItem = Item;
-                if (Item.Contains(";"))
+                string nItem = item;
+                if (item.Contains(";"))
                 {
-                    var Match = Regex.Match(Item, @";\s*q=(\d+(\.\d+)?)");
-                    if (Match.Success) q = 1 - float.Parse(Match.Groups[1].Value);
-                    NItem = Item.Remove(Item.IndexOf(';'));
+                    var match = Regex.Match(item, @";\s*q=(\d+(\.\d+)?)");
+                    if (match.Success)
+                        q = 1 - float.Parse(match.Groups[1].Value);
+                    nItem = item.Remove(item.IndexOf(';'));
                 }
-                if (!Items.ContainsKey(q))
-                    Items[q] = new List<string>();
-                Items[q].Add(NItem);
+                if (!items.ContainsKey(q))
+                    items[q] = new List<string>();
+                items[q].Add(nItem);
             }
-            var FinalList = new List<string>();
-            foreach (var kvp in Items)
-                FinalList.AddRange(kvp.Value);
-            return FinalList.ToArray();
+            return items.SelectMany(kvp => kvp.Value).ToArray();
         }
 
         /// <summary>
         /// Returns a file size in user-readable format, using units like KB, MB, GB, TB.
         /// </summary>
-        /// <param name="Size">Size of a file in bytes.</param>
+        /// <param name="size">Size of a file in bytes.</param>
         /// <returns>User-readable formatted file size.</returns>
-        public static string PrettySize(long Size)
+        public static string PrettySize(long size)
         {
-            if (Size >= (1L << 40))
-                return string.Format("{0:0.00} TB", (double) Size / (1L << 40));
-            if (Size >= (1L << 30))
-                return string.Format("{0:0.00} GB", (double) Size / (1L << 30));
-            if (Size >= (1L << 20))
-                return string.Format("{0:0.00} MB", (double) Size / (1L << 20));
-            return string.Format("{0:0.00} KB", (double) Size / (1L << 10));
+            if (size >= (1L << 40))
+                return string.Format("{0:0.00} TB", (double) size / (1L << 40));
+            if (size >= (1L << 30))
+                return string.Format("{0:0.00} GB", (double) size / (1L << 30));
+            if (size >= (1L << 20))
+                return string.Format("{0:0.00} MB", (double) size / (1L << 20));
+            return string.Format("{0:0.00} KB", (double) size / (1L << 10));
         }
 
         /// <summary>
         /// Handles an incoming connection. This function can be used to let the server handle a TCP connection
-        /// that was received by some other component outside the HTTPServer class.
+        /// that was received by some other component outside the HttpServer class.
         /// </summary>
-        /// <param name="IncomingConnection">The incoming connection to process.</param>
-        /// <param name="Blocking">If true, returns after the request has been processed and the connection closed.
+        /// <param name="incomingConnection">The incoming connection to process.</param>
+        /// <param name="blocking">If true, returns after the request has been processed and the connection closed.
         /// If false, spawns a new thread and returns immediately.</param>
-        public void HandleRequest(Socket IncomingConnection, bool Blocking)
+        public void HandleRequest(Socket incomingConnection, bool blocking)
         {
             Thread readThread = null;
-            readThread = new Thread(() => ReadingThreadFunction(IncomingConnection, readThread));
-            lock (ActiveReadingThreads)
-                ActiveReadingThreads.Add(readThread);
+            readThread = new Thread(() => readingThreadFunction(incomingConnection, readThread));
+            lock (_activeReadingThreads)
+                _activeReadingThreads.Add(readThread);
             readThread.Start();
         }
     }
