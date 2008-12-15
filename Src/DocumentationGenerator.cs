@@ -139,7 +139,7 @@ namespace RT.Servers
                     Type type = null;
                     MemberInfo member = null;
 
-                    string token = req.RestUrl.Substring(1).URLUnescape();
+                    string token = req.RestUrl.Substring(1).UrlUnescape();
                     if (_tree.ContainsKey(token))
                         ns = token;
                     else if (_typeDocumentation.ContainsKey(token))
@@ -188,7 +188,7 @@ namespace RT.Servers
                                             new LI("Event") { class_ = "Event" },
                                             new LI("Field") { class_ = "Field" }
                                         ),
-                                        new UL(_tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = req.BaseUrl + "/" + nkvp.Key.URLEscape() },
+                                        new UL(_tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = req.BaseUrl + "/" + nkvp.Key.UrlEscape() },
                                             ns == null || ns != nkvp.Key ? (object) "" :
                                             new UL(nkvp.Value.Where(tkvp => !tkvp.Value.E1.IsNested).Select(tkvp => generateTypeBullet(tkvp, type, req)))
                                         )))
@@ -277,7 +277,7 @@ namespace RT.Servers
 
                 string ret = t.IsGenericType ? t.Name.Remove(t.Name.IndexOf('`')) : t.Name.TrimEnd('&');
                 if (baseURL != null && !t.IsGenericParameter && _typeDocumentation.ContainsKey(GetTypeFullName(t).TrimEnd('&')))
-                    yield return new A(ret) { href = baseURL + "/" + GetTypeFullName(t).TrimEnd('&').URLEscape() };
+                    yield return new A(ret) { href = baseURL + "/" + GetTypeFullName(t).TrimEnd('&').UrlEscape() };
                 else
                     yield return ret;
 
@@ -538,14 +538,14 @@ namespace RT.Servers
         {
             string cssClass = "type";
             if (tkvp.Value.E2 == null) cssClass += " missing";
-            return new LI { class_ = cssClass }._(new A(friendlyTypeName(tkvp.Value.E1, false)) { href = req.BaseUrl + "/" + tkvp.Key.URLEscape() },
+            return new LI { class_ = cssClass }._(new A(friendlyTypeName(tkvp.Value.E1, false)) { href = req.BaseUrl + "/" + tkvp.Key.UrlEscape() },
                 type == null || !isNestedTypeOf(type, tkvp.Value.E1) || typeof(Delegate).IsAssignableFrom(tkvp.Value.E1) ? (object) null :
                 new UL(tkvp.Value.E3.Select(mkvp =>
                 {
                     string css = mkvp.Value.E1.MemberType.ToString() + " member";
                     if (mkvp.Value.E2 == null) css += " missing";
                     return mkvp.Value.E1.MemberType != MemberTypes.NestedType
-                        ? new LI { class_ = css }._(new A(friendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + mkvp.Key.URLEscape() })
+                        ? new LI { class_ = css }._(new A(friendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + mkvp.Key.UrlEscape() })
                         : generateTypeBullet(_tree[tkvp.Value.E1.Namespace].First(kvp => kvp.Key == ((Type) mkvp.Value.E1).FullName), type, req);
                 }))
             );
@@ -567,7 +567,7 @@ namespace RT.Servers
                 yield return new H2(gr.Key ? "Enums in this namespace" : "Classes and structs in this namespace");
                 yield return new TABLE { class_ = "doclist" }._(
                     gr.Select(kvp => new TR(
-                        new TD(new A(friendlyTypeName(kvp.Value.E1, false)) { href = req.BaseUrl + "/" + kvp.Value.E1.FullName.URLEscape() }),
+                        new TD(new A(friendlyTypeName(kvp.Value.E1, false)) { href = req.BaseUrl + "/" + kvp.Value.E1.FullName.UrlEscape() }),
                         new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
                             ? (object) new EM("No documentation available.")
                             : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
@@ -660,7 +660,7 @@ namespace RT.Servers
                 );
                 yield return new TABLE { class_ = "doclist" }._(
                     gr.Select(kvp => new TR(
-                        new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.E1, true, false, true, true, false, false, req.BaseUrl + "/" + kvp.Key.URLEscape(), req.BaseUrl)),
+                        new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.E1, true, false, true, true, false, false, req.BaseUrl + "/" + kvp.Key.UrlEscape(), req.BaseUrl)),
                         new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
                             ? (object) new EM("No documentation available.")
                             : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
@@ -727,10 +727,10 @@ namespace RT.Servers
                         if (token.StartsWith("T:") && _typeDocumentation.ContainsKey(token.Substring(2)))
                         {
                             token = token.Substring(2);
-                            yield return new A(friendlyTypeName(_typeDocumentation[token].E1, false)) { href = req.BaseUrl + "/" + token.URLEscape() };
+                            yield return new A(friendlyTypeName(_typeDocumentation[token].E1, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
                         }
                         else if (_memberDocumentation.ContainsKey(token))
-                            yield return new A(friendlyMemberName(_memberDocumentation[token].E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + token.URLEscape() };
+                            yield return new A(friendlyMemberName(_memberDocumentation[token].E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
                         else
                             yield return new CODE(token);
                     }

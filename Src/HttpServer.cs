@@ -286,7 +286,7 @@ namespace RT.Servers
             string soFarUrl = "";
             for (int i = 0; i < urlPieces.Length; i++)
             {
-                string piece = urlPieces[i].URLUnescape();
+                string piece = urlPieces[i].UrlUnescape();
                 string nextSoFar = soFar + Path.DirectorySeparatorChar + piece;
 
                 if (File.Exists(p + nextSoFar))
@@ -294,7 +294,7 @@ namespace RT.Servers
                     DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
                     foreach (var fileInf in parentDir.GetFiles(piece))
                     {
-                        soFarUrl += "/" + fileInf.Name.URLEscape();
+                        soFarUrl += "/" + fileInf.Name.UrlEscape();
                         break;
                     }
 
@@ -308,7 +308,7 @@ namespace RT.Servers
                     DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
                     foreach (var dirInfo in parentDir.GetDirectories(piece))
                     {
-                        soFarUrl += "/" + dirInfo.Name.URLEscape();
+                        soFarUrl += "/" + dirInfo.Name.UrlEscape();
                         break;
                     }
                 }
@@ -394,7 +394,7 @@ namespace RT.Servers
         {
             return new HttpResponse
             {
-                Content = new MemoryStream(content.ToUTF8()),
+                Content = new MemoryStream(content.ToUtf8()),
                 Headers = new HttpResponseHeaders { ContentType = contentType },
                 Status = HttpStatusCode._200_OK
             };
@@ -409,7 +409,7 @@ namespace RT.Servers
         {
             return new HttpResponse
             {
-                Content = new MemoryStream(content.ToUTF8()),
+                Content = new MemoryStream(content.ToUtf8()),
                 Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
                 Status = HttpStatusCode._200_OK
             };
@@ -438,15 +438,15 @@ namespace RT.Servers
 
             yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
             yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>\n";
-            yield return "<directory url=\"" + url.HTMLEscape() + "\" unescapedurl=\"" + url.URLUnescape().HTMLEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (dirs.Count) + "\" numfiles=\"" + (files.Count) + "\">\n";
+            yield return "<directory url=\"" + url.HtmlEscape() + "\" unescapedurl=\"" + url.UrlUnescape().HtmlEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (dirs.Count) + "\" numfiles=\"" + (files.Count) + "\">\n";
 
             foreach (var d in dirs)
-                yield return "  <dir link=\"" + d.Name.URLEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HTMLEscape() + "</dir>\n";
+                yield return "  <dir link=\"" + d.Name.UrlEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HtmlEscape() + "</dir>\n";
             foreach (var f in files)
             {
                 string extension = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
-                yield return "  <file link=\"" + f.Name.URLEscape() + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
-                yield return "\" img=\"/$/directory-listing/icons/" + HttpInternalObjects.GetDirectoryListingIconStr(extension) + "\">" + f.Name.HTMLEscape() + "</file>\n";
+                yield return "  <file link=\"" + f.Name.UrlEscape() + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
+                yield return "\" img=\"/$/directory-listing/icons/" + HttpInternalObjects.GetDirectoryListingIconStr(extension) + "\">" + f.Name.HtmlEscape() + "</file>\n";
             }
 
             yield return "</directory>\n";
@@ -507,7 +507,7 @@ namespace RT.Servers
         /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code, headers and message.</returns>
         public static HttpResponse ErrorResponse(HttpStatusCode statusCode, HttpResponseHeaders headers, string message)
         {
-            string statusCodeName = ("" + ((int) statusCode) + " " + statusCode.ToText()).HTMLEscape();
+            string statusCodeName = ("" + ((int) statusCode) + " " + statusCode.ToText()).HtmlEscape();
             headers.ContentType = "text/html; charset=utf-8";
 
             // We sometimes output error messages as soon as possible, even if we should normally wait for more data, esp. the POST content.
@@ -517,12 +517,12 @@ namespace RT.Servers
             string contentStr =
                 "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n" +
                 "<html>\n <head>\n  <title>HTTP " + statusCodeName + "</title>\n </head>\n <body>\n  <h1>" + statusCodeName + "</h1>\n" +
-                (message != null ? "  <p>" + message.HTMLEscape() + "</p>" : "") + "\n </body>\n</html>";
+                (message != null ? "  <p>" + message.HtmlEscape() + "</p>" : "") + "\n </body>\n</html>";
             return new HttpResponse
             {
                 Status = statusCode,
                 Headers = headers,
-                Content = new MemoryStream(contentStr.ToUTF8())
+                Content = new MemoryStream(contentStr.ToUtf8())
             };
         }
 
@@ -967,7 +967,7 @@ namespace RT.Servers
             {
                 socket.Send(new byte[] { (byte) '-', (byte) '-' });
                 socket.Send(boundary);
-                socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToASCII());
+                socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToAscii());
 
                 response.Content.Seek(r.Key, SeekOrigin.Begin);
                 long bytesMissing = r.Value - r.Key + 1;
@@ -1049,7 +1049,7 @@ namespace RT.Servers
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here
                 if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
-                    socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToASCII());
+                    socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToAscii());
 
                 // Read the contents of the POST request
                 if (contentLengthSoFar >= req.Headers.ContentLength.Value)
@@ -1166,7 +1166,7 @@ namespace RT.Servers
             {
                 Status = HttpStatusCode._500_InternalServerError,
                 Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
-                Content = new MemoryStream(exceptionAsString(e, true).ToUTF8())
+                Content = new MemoryStream(exceptionAsString(e, true).ToUtf8())
             };
         }
 
@@ -1176,7 +1176,7 @@ namespace RT.Servers
                 throw exception;
 
             byte[] outp = exceptionAsString(exception,
-                contentType.StartsWith("text/html") || contentType.StartsWith("application/xhtml")).ToUTF8();
+                contentType.StartsWith("text/html") || contentType.StartsWith("application/xhtml")).ToUtf8();
             output.Write(outp, 0, outp.Length);
             output.Close();
         }
@@ -1191,9 +1191,9 @@ namespace RT.Servers
                 while (exception != null)
                 {
                     exceptionText += first ? "" : "<hr />";
-                    exceptionText += "<h3>" + exception.GetType().FullName.HTMLEscape() + "</h3>";
-                    exceptionText += "<p>" + exception.Message.HTMLEscape() + "</p>";
-                    exceptionText += "<pre>" + exception.StackTrace.HTMLEscape() + "</pre>";
+                    exceptionText += "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
+                    exceptionText += "<p>" + exception.Message.HtmlEscape() + "</p>";
+                    exceptionText += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
                     exception = exception.InnerException;
                     first = false;
                 }

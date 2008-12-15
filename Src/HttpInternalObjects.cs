@@ -182,7 +182,7 @@ namespace RT.Servers
         {
             if (_directoryListingXslByteArray == null)
             {
-                _directoryListingXslByteArray = _directoryListingXslString.ToUTF8();
+                _directoryListingXslByteArray = _directoryListingXslString.ToUtf8();
                 _directoryListingXslString = null; // free some memory?
             }
             return _directoryListingXslByteArray;

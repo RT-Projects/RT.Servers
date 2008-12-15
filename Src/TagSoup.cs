@@ -91,7 +91,7 @@ namespace RT.TagSoup
                     yield return " " + s + "=\"" + s + "\"";
                 }
                 else
-                    yield return " " + fixFieldName(field.Name) + "=\"" + val.ToString().HTMLEscape() + "\"";
+                    yield return " " + fixFieldName(field.Name) + "=\"" + val.ToString().HtmlEscape() + "\"";
             }
             if (tagPrinted && AllowXhtmlEmpty && (TagContents == null || TagContents.Count == 0))
             {
@@ -128,7 +128,7 @@ namespace RT.TagSoup
 
             if (o is string)
             {
-                yield return (o as string).HTMLEscape();
+                yield return (o as string).HtmlEscape();
                 yield break;
             }
 

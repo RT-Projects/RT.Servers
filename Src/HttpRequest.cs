@@ -483,8 +483,8 @@ namespace RT.Servers
 
             var fnAdd = new Action<string, string>((key, val) =>
             {
-                key = key.URLUnescape();
-                val = val.URLUnescape();
+                key = key.UrlUnescape();
+                val = val.UrlUnescape();
                 if (key.EndsWith("[]"))
                     fc.ArrayCache.AddSafe(key.Remove(key.Length - 2), val);
                 else

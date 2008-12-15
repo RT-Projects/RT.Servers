@@ -98,7 +98,7 @@ namespace RT.Servers
         {
             try
             {
-                File.WriteAllBytes(filePath, this.ToString().ToUTF8());
+                File.WriteAllBytes(filePath, this.ToString().ToUtf8());
             }
             catch (IOException)
             {

@@ -1482,7 +1482,7 @@ namespace RT.TagSoup.XhtmlTags
         public override IEnumerable<string> ToEnumerable()
         {
             yield return @"<style type=""text/css"" media=""";
-            yield return media.HTMLEscape();
+            yield return media.HtmlEscape();
             yield return @""">/*<![CDATA[*/ @import """;
             yield return ImportFrom;
             yield return @"""; /*]]>*/</style>";
