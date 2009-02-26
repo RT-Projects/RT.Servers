@@ -119,6 +119,13 @@ namespace RT.Servers
                 throw new ArgumentException("The domain parameter must not be null. If the handler should apply to all domains, use the constructor that takes only a HttpRequestHandler.", "domain");
             init(domain, null, null, false, false, handler);
         }
+
+        /// <summary>Initialises a request handler to be hooked to all paths on all domains and all sub-domains.</summary>
+        /// <param name="handler">The request handler to hook.</param>
+        public HttpRequestHandlerHook(HttpRequestHandler handler)
+        {
+            init(null, null, null, false, false, handler);
+        }
     }
 
     /// <summary>
@@ -165,7 +172,7 @@ namespace RT.Servers
         public List<HttpRequestHandlerHook> RequestHandlerHooks = new List<HttpRequestHandlerHook>();
 
         /// <summary>If set, various debug events will be logged to here.</summary>
-        public LoggerBase Log;
+        public LoggerBase Log = new ConsoleLogger();
 
         /// <summary>
         /// Shuts the HTTP server down, optionally either gracefully (allowing still-running requests to complete)
@@ -1118,6 +1125,13 @@ namespace RT.Servers
             }
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
+            /*
+            if (req.Content != null)
+            {
+                Log.Info(req.Content.ReadAllText(Encoding.ASCII));
+                throw new Exception();
+            }
+            */
 
             if (_opt.ReturnExceptionsToClient)
             {
