@@ -2,12 +2,19 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using RT.TagSoup;
+using RT.Util.Streams;
 
 namespace RT.Servers
 {
     /// <summary>
-    /// Encapsulates all supported HTTP response headers. A request handler can set these appropriately to cause the server to emit the required headers.
+    /// Encapsulates all supported HTTP response headers. A request handler can set these
+    /// appropriately to cause the server to emit the required headers. See Remarks
+    /// for a list of headers which are set by default.
     /// </summary>
+    /// <remarks>
+    /// By default, ContentType is set to "text/html; charset=utf-8".
+    /// </remarks>
     public class HttpResponseHeaders
     {
 
@@ -24,7 +31,7 @@ namespace RT.Servers
         public HttpContentDisposition ContentDisposition;
         public string ContentMD5;
         public HttpContentRange? ContentRange;
-        public string ContentType;
+        public string ContentType = "text/html; charset=utf-8";
         public DateTime? Date;
         public string ETag;
         public DateTime? LastModified;
@@ -144,6 +151,7 @@ namespace RT.Servers
 
         /// <summary>
         /// The HTTP response headers which are to be sent back to the HTTP client as part of this HTTP response.
+        /// If not set or modified, will default to a standard set of headers - see <see cref="HttpResponseHeaders"/>.
         /// </summary>
         public HttpResponseHeaders Headers = new HttpResponseHeaders();
 
@@ -158,5 +166,31 @@ namespace RT.Servers
         /// Internal field for <see cref="HttpServer"/> to access the original request that this is the response for.
         /// </summary>
         internal HttpRequest OriginalRequest;
+
+        /// <summary>
+        /// Default constructor which does not initialise the <see cref="Content"/>. Headers are
+        /// always created and set to default values.
+        /// </summary>
+        public HttpResponse()
+        {
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified enumerable using a
+        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
+        /// </summary>
+        public HttpResponse(IEnumerable<string> enumerable)
+        {
+            Content = new DynamicContentStream(enumerable);
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified HTML using a
+        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
+        /// </summary>
+        public HttpResponse(Tag html)
+        {
+            Content = new DynamicContentStream(html.ToEnumerable());
+        }
     }
 }
