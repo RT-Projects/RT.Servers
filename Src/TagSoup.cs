@@ -9,7 +9,7 @@ namespace RT.TagSoup
     /// <summary>
     /// Abstract base class for an HTML or XHTML tag.
     /// </summary>
-    public abstract class TagSoup
+    public abstract class Tag
     {
         /// <summary>Remembers the contents of this tag.</summary>
         protected List<object> TagContents = null;
@@ -42,7 +42,7 @@ namespace RT.TagSoup
         ///     </list>
         ///     <para>Using objects of type <c>Func&lt;...&gt;</c> is a convenient way to defer execution to ensure maximally responsive output.</para>
         /// </remarks>
-        public TagSoup _(params object[] contents)
+        public Tag _(params object[] contents)
         {
             if (TagContents == null)
                 TagContents = new List<object>(contents);
@@ -95,7 +95,7 @@ namespace RT.TagSoup
             }
             if (tagPrinted && AllowXhtmlEmpty && (TagContents == null || TagContents.Count == 0))
             {
-                yield return "/>";
+                yield return "/>\n";
                 yield break;
             }
             if (tagPrinted)
@@ -108,7 +108,7 @@ namespace RT.TagSoup
                     yield return s;
             }
             if (EndTag)
-                yield return "</" + TagName + ">";
+                yield return "</" + TagName + ">\n";
         }
 
         /// <summary>Converts the entire tag tree into a single string.</summary>
@@ -132,9 +132,9 @@ namespace RT.TagSoup
                 yield break;
             }
 
-            if (o is TagSoup)
+            if (o is Tag)
             {
-                foreach (string str in (o as TagSoup).ToEnumerable())
+                foreach (string str in (o as Tag).ToEnumerable())
                     yield return str;
                 yield break;
             }

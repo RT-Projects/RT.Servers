@@ -6,7 +6,7 @@ using System.Text;
 namespace RT.TagSoup.HtmlTags
 {
     /// <summary>Abstract base class for HTML tags.</summary>
-    public abstract class HtmlTag : TagSoup
+    public abstract class HtmlTag : Tag
     {
         /// <summary>Constructs an HTML tag.</summary>
         /// <param name="Contents">Contents of the tag.</param>

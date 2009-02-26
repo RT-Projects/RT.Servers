@@ -8,7 +8,7 @@ using RT.Util.ExtensionMethods;
 namespace RT.TagSoup.XhtmlTags
 {
     /// <summary>Abstract base class for XHTML tags.</summary>
-    public abstract class XhtmlTag : TagSoup
+    public abstract class XhtmlTag : Tag
     {
         /// <summary>Constructs an XHTML tag.</summary>
         /// <param name="contents">Contents of the tag.</param>
