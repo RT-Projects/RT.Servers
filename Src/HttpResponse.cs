@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using RT.TagSoup;
 using RT.Util.Streams;
+using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
@@ -144,10 +145,10 @@ namespace RT.Servers
     public class HttpResponse
     {
         /// <summary>
-        /// The HTTP status code. For example, HTTP 200 OK, HTTP 404 Not Found, HTTP 500 Internal Server Error.
-        /// If not set, HTTP 200 OK is assumed as the default.
+        /// The HTTP status code. For example, 200 OK, 404 Not Found, 500 Internal Server Error.
+        /// Default is 200 OK.
         /// </summary>
-        public HttpStatusCode Status;
+        public HttpStatusCode Status = HttpStatusCode._200_OK;
 
         /// <summary>
         /// The HTTP response headers which are to be sent back to the HTTP client as part of this HTTP response.
@@ -182,6 +183,15 @@ namespace RT.Servers
         public HttpResponse(IEnumerable<string> enumerable)
         {
             Content = new DynamicContentStream(enumerable);
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
+        /// and then using a <see cref="MemoryStream"/>. Headers are created and set to default values.
+        /// </summary>
+        public HttpResponse(string content)
+        {
+            Content = new MemoryStream(content.ToUtf8());
         }
 
         /// <summary>

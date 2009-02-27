@@ -6,12 +6,6 @@ namespace RT.Servers
     /// </summary>
     public enum HttpStatusCode
     {
-        /// <summary>
-        /// Default value to capture the case where no status code is provided.
-        /// The server will then default to <see cref="_200_OK"/> before sending the headers.
-        /// </summary>
-        None = 0,
-
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
         // Informational 1xx

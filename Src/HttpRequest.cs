@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
+using System.Net;
 
 namespace RT.Servers
 {
@@ -123,6 +124,11 @@ namespace RT.Servers
         /// After the first call to any of these, file uploads will already have been processed.
         /// </summary>
         public string TempDir;
+
+        /// <summary>
+        /// Identifies the client that sent this request.
+        /// </summary>
+        public IPEndPoint OriginIP;
 
         /// <summary>
         /// Contains a stream providing read access to the content of a POST request.

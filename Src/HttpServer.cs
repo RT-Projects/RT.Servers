@@ -12,6 +12,7 @@ using System.Collections;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 using RT.Util;
+using System.Net;
 
 namespace RT.Servers
 {
@@ -675,10 +676,6 @@ namespace RT.Servers
 
             try
             {
-                // If no status is given, by default assume 200 OK
-                if (response.Status == HttpStatusCode.None)
-                    response.Status = HttpStatusCode._200_OK;
-
                 // If no Content-Type is given and there is no Location header, use default
                 if (response.Headers.ContentType == null && response.Headers.Location == null)
                     response.Headers.ContentType = _opt.DefaultContentType;
@@ -997,7 +994,7 @@ namespace RT.Servers
             sw.Log("HandleRequestAfterHeaders() - enter");
 
             string[] lines = headers.Split(new string[] { "\r\n" }, StringSplitOptions.None);
-            req = new HttpRequest();
+            req = new HttpRequest() { OriginIP = socket.RemoteEndPoint as IPEndPoint };
             if (lines.Length < 2)
                 return ErrorResponse(HttpStatusCode._400_BadRequest);
 
