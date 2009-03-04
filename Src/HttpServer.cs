@@ -173,7 +173,7 @@ namespace RT.Servers
         public List<HttpRequestHandlerHook> RequestHandlerHooks = new List<HttpRequestHandlerHook>();
 
         /// <summary>If set, various debug events will be logged to here.</summary>
-        public LoggerBase Log = new ConsoleLogger();
+        public LoggerBase Log;
 
         /// <summary>
         /// Shuts the HTTP server down, optionally either gracefully (allowing still-running requests to complete)
