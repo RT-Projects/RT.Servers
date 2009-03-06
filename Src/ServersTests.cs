@@ -11,8 +11,9 @@ using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 using System.Globalization;
 using System.IO.Compression;
+using System.Reflection;
 
-namespace ServersTests
+namespace RT.Servers
 {
     // Things this doesn't yet test:
     // * Expect: 100-continue / 100 Continue
@@ -24,12 +25,77 @@ namespace ServersTests
 
         static void Main(string[] args)
         {
-            var sts = new ServersTestSuite();
-            sts.TestParsePost();
-            sts.TestSomeRequests();
-            sts.TestKeepaliveAndChunked();
+            foreach (var ty in Assembly.GetExecutingAssembly().GetExportedTypes().Where(t => t.GetCustomAttributes(typeof(TestFixtureAttribute), true).Any()))
+            {
+                Console.WriteLine("Testing type: " + ty);
+                var sts = Activator.CreateInstance(ty);
+
+                foreach (var meth in ty.GetMethods().Where(m => m.GetCustomAttributes(typeof(TestFixtureSetUpAttribute), false).Any()))
+                {
+                    Console.WriteLine("-- Running setup: " + meth.Name);
+                    meth.Invoke(sts, new object[] { });
+                }
+
+                foreach (var meth in ty.GetMethods().Where(m => m.GetCustomAttributes(typeof(TestAttribute), false).Any()))
+                {
+                    Console.WriteLine("-- Running test: " + meth.Name);
+                    meth.Invoke(sts, new object[] { });
+                }
+
+                foreach (var meth in ty.GetMethods().Where(m => m.GetCustomAttributes(typeof(TestFixtureTearDownAttribute), false).Any()))
+                {
+                    Console.WriteLine("-- Running teardown: " + meth.Name);
+                    meth.Invoke(sts, new object[] { });
+                }
+            }
+
+            Console.WriteLine("");
             Console.WriteLine("Tests passed; press Enter to exit.");
             Console.ReadLine();
+        }
+
+        [Test]
+        public void TestParseGet()
+        {
+            string testQueryString1 = "apple=bravery&cooking=dinner&elephant=foxtrot&ghost=hangman";
+            string testQueryString2 = "apple=" + "!@#$".UrlEscape() + "&cooking=" + "%^&*".UrlEscape() + "&elephant=" + "()=+".UrlEscape() + "&ghost=" + "абвгд".UrlEscape();
+            string testQueryString3 = "apple[]=" + "!@#$".UrlEscape() + "&apple%5b%5d=" + "%^&*".UrlEscape() + "&apple%5b]=" + "()=+".UrlEscape() + "&ghost[%5d=" + "абвгд".UrlEscape();
+
+            for (int chunksize = 1; chunksize < Math.Max(Math.Max(testQueryString1.Length, testQueryString2.Length), testQueryString3.Length); chunksize++)
+            {
+                var dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString1)), chunksize));
+                Assert.AreEqual(4, dic.Count);
+                Assert.IsTrue(dic.ContainsKey("apple"));
+                Assert.IsTrue(dic.ContainsKey("cooking"));
+                Assert.IsTrue(dic.ContainsKey("elephant"));
+                Assert.IsTrue(dic.ContainsKey("ghost"));
+                Assert.AreEqual("bravery", dic["apple"]);
+                Assert.AreEqual("dinner", dic["cooking"]);
+                Assert.AreEqual("foxtrot", dic["elephant"]);
+                Assert.AreEqual("hangman", dic["ghost"]);
+
+                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString2)), chunksize));
+                Assert.AreEqual(4, dic.Count);
+                Assert.IsTrue(dic.ContainsKey("apple"));
+                Assert.IsTrue(dic.ContainsKey("cooking"));
+                Assert.IsTrue(dic.ContainsKey("elephant"));
+                Assert.IsTrue(dic.ContainsKey("ghost"));
+                Assert.AreEqual("!@#$", dic["apple"]);
+                Assert.AreEqual("%^&*", dic["cooking"]);
+                Assert.AreEqual("()=+", dic["elephant"]);
+                Assert.AreEqual("абвгд", dic["ghost"]);
+
+                var dic2 = HttpRequest.ParseQueryArrayParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString3)), chunksize));
+                Assert.AreEqual(2, dic2.Count);
+                Assert.IsTrue(dic2.ContainsKey("apple"));
+                Assert.IsTrue(dic2.ContainsKey("ghost"));
+                Assert.AreEqual(3, dic2["apple"].Count);
+                Assert.IsTrue(dic2["apple"].Contains("!@#$"));
+                Assert.IsTrue(dic2["apple"].Contains("%^&*"));
+                Assert.IsTrue(dic2["apple"].Contains("()=+"));
+                Assert.AreEqual(1, dic2["ghost"].Count);
+                Assert.IsTrue(dic2["ghost"].Contains("абвгд"));
+            }
         }
 
         [Test]
@@ -158,9 +224,9 @@ Content-Type: text/html
         public void TestSomeRequests()
         {
             HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", TestHandlerStatic));
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", TestHandlerDynamic));
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/64kfile", TestHandler64KFile));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", handlerStatic));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", handlerDynamic));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/64kfile", handler64KFile));
             instance.StartListening(false);
             try
             {
@@ -259,8 +325,8 @@ Content-Type: text/html
             for (int i = 5; i <= 1024; i += 1019)
             {
                 instance = new HttpServer(new HttpServerOptions { Port = _port, UseFileUploadAtSize = i });
-                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", TestHandlerStatic));
-                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", TestHandlerDynamic));
+                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", handlerStatic));
+                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", handlerDynamic));
                 instance.StartListening(false);
 
                 try
@@ -307,7 +373,7 @@ Content-Type: text/html
         public void TestKeepaliveAndChunked()
         {
             HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", TestHandlerDynamic));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", handlerDynamic));
             instance.StartListening(false);
 
             TcpClient cl = new TcpClient();
@@ -316,16 +382,16 @@ Content-Type: text/html
             Socket sck = cl.Client;
 
             // Run three consecutive requests within the same connection using Connection: Keep-alive
-            TestKeepaliveAndChunkedPrivate(sck);
-            TestKeepaliveAndChunkedPrivate(sck);
-            TestKeepaliveAndChunkedPrivate(sck);
+            keepaliveAndChunkedPrivate(sck);
+            keepaliveAndChunkedPrivate(sck);
+            keepaliveAndChunkedPrivate(sck);
 
             sck.Close();
             cl.Close();
             instance.StopListening();
         }
 
-        private void TestKeepaliveAndChunkedPrivate(Socket sck)
+        private void keepaliveAndChunkedPrivate(Socket sck)
         {
             sck.Send("GET /dynamic?aktion=list&showonly=scheduled&limitStart=0&filtermask_t=&filtermask_g=&filtermask_s=&size_max=*&size_min=*&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&orderby=time_desc&showonly=recordings HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToAscii());
 
@@ -371,7 +437,7 @@ Content-Type: text/html
             Assert.AreEqual("GET:\naktion => \"list\"\nshowonly => \"recordings\"\nlimitStart => \"0\"\nfiltermask_t => \"\"\nfiltermask_g => \"\"\nfiltermask_s => \"\"\nsize_max => \"*\"\nsize_min => \"*\"\nlang => \"\"\narchivemonth => \"200709\"\nformat_wmv => \"true\"\nformat_avi => \"true\"\nformat_hq => \"\"\nformat_mp4 => \"\"\norderby => \"time_desc\"\n", reconstruct);
         }
 
-        private IEnumerable<string> GenerateGetPostFilesOutput(HttpRequest req)
+        private IEnumerable<string> generateGetPostFilesOutput(HttpRequest req)
         {
             if (req.Get.Count > 0)
                 yield return "GET:\n";
@@ -399,27 +465,27 @@ Content-Type: text/html
             }
         }
 
-        private HttpResponse TestHandlerStatic(HttpRequest req)
+        private HttpResponse handlerStatic(HttpRequest req)
         {
             return new HttpResponse
             {
                 Status = HttpStatusCode._200_OK,
                 Headers = new HttpResponseHeaders { ContentType = "text/plain; charset=utf-8" },
-                Content = new MemoryStream(GenerateGetPostFilesOutput(req).Join("").ToUtf8())
+                Content = new MemoryStream(generateGetPostFilesOutput(req).Join("").ToUtf8())
             };
         }
 
-        private HttpResponse TestHandlerDynamic(HttpRequest req)
+        private HttpResponse handlerDynamic(HttpRequest req)
         {
             return new HttpResponse
             {
                 Status = HttpStatusCode._200_OK,
                 Headers = new HttpResponseHeaders { ContentType = "text/plain; charset=utf-8" },
-                Content = new DynamicContentStream(GenerateGetPostFilesOutput(req), false)
+                Content = new DynamicContentStream(generateGetPostFilesOutput(req), false)
             };
         }
 
-        private HttpResponse TestHandler64KFile(HttpRequest req)
+        private HttpResponse handler64KFile(HttpRequest req)
         {
             byte[] largeFile = new byte[65536];
             for (int i = 0; i < 65536; i++)

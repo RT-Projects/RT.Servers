@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using RT.Util.ExtensionMethods;
-using System.Net;
 
 namespace RT.Servers
 {
@@ -161,21 +161,6 @@ namespace RT.Servers
         public HttpRequest(Stream content)
         {
             Content = content;
-
-            // Default values. I don't understand why I have to set them here.
-            _url = null;
-            GetFieldsCache = new FieldsCache();
-            PostFieldsCache = new FieldsCache();
-            BaseUrl = null;
-            RestUrl = null;
-            Method = HttpMethod.Get;
-            Headers = new HttpRequestHeaders();
-            Handler = null;
-            TemporaryFile = null;
-            TempDir = null;
-            Domain = null;
-            BaseDomain = null;
-            RestDomain = null;
         }
 
         /// <summary>
@@ -472,7 +457,29 @@ namespace RT.Servers
             return fc;
         }
 
-        private FieldsCache parseQueryParameters(Stream s)
+        /// <summary>
+        /// Decodes an ASCII-encoded stream of characters into key-value pairs.
+        /// </summary>
+        /// <param name="s">Stream to read from.</param>
+        /// <returns>A dictionary containing only the single-valued keys. For array-valued keys, use <see cref="ParseQueryArrayParameters"/>.</returns>
+        public static Dictionary<string, string> ParseQueryValueParameters(Stream s)
+        {
+            FieldsCache fc = parseQueryParameters(s);
+            return fc.ValueCache;
+        }
+
+        /// <summary>
+        /// Decodes an ASCII-encoded stream of characters into key-value pairs.
+        /// </summary>
+        /// <param name="s">Stream to read from.</param>
+        /// <returns>A dictionary containing only the array-valued keys. For single-valued keys, use <see cref="ParseQueryValueParameters"/>.</returns>
+        public static Dictionary<string, List<string>> ParseQueryArrayParameters(Stream s)
+        {
+            FieldsCache fc = parseQueryParameters(s);
+            return fc.ArrayCache;
+        }
+
+        private static FieldsCache parseQueryParameters(Stream s)
         {
             FieldsCache fc = new FieldsCache
             {
@@ -497,6 +504,7 @@ namespace RT.Servers
                     fc.ValueCache[key] = val;
             });
 
+            bool inKey = true;
             while (bytesRead > 0)
             {
                 while (bufferIndex < bytesRead)
@@ -506,24 +514,36 @@ namespace RT.Servers
                         i++;
                     if (i == bytesRead)
                     {
-                        if (curValue != null)
-                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
-                        else
+                        if (inKey)
                             curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                        else
+                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
                         bufferIndex = i;
                     }
                     else if (buffer[i] == (byte) '=')
                     {
-                        curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
-                        curValue = "";
+                        if (inKey)
+                        {
+                            curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curValue = "";
+                            inKey = false;
+                        }
+                        else
+                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex) + "=";
                         bufferIndex = i + 1;
                     }
                     else if (buffer[i] == (byte) '&')
                     {
-                        curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
-                        fnAdd(curKey, curValue);
-                        curKey = "";
-                        curValue = null;
+                        if (inKey)
+                            curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex) + "&";
+                        else
+                        {
+                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                            fnAdd(curKey, curValue);
+                            curKey = "";
+                            curValue = null;
+                            inKey = true;
+                        }
                         bufferIndex = i + 1;
                     }
                 }
