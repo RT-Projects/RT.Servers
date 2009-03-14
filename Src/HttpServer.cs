@@ -715,7 +715,7 @@ namespace RT.Servers
                     response.Headers.Connection = HttpConnection.KeepAlive;
 
                 // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 1 MB
-                if (contentLengthKnown && contentLength < 1024 * 1024 && response.Status == HttpStatusCode._200_OK && response.Content.CanSeek)
+                if (contentLengthKnown && contentLength > 1024 * 1024 && response.Status == HttpStatusCode._200_OK && response.Content.CanSeek)
                 {
                     response.Headers.AcceptRanges = HttpAcceptRanges.Bytes;
 
