@@ -95,11 +95,11 @@ namespace RT.TagSoup
             }
             if (tagPrinted && AllowXhtmlEmpty && (TagContents == null || TagContents.Count == 0))
             {
-                yield return "\n/>";
+                yield return "/>";
                 yield break;
             }
             if (tagPrinted)
-                yield return "\n>";
+                yield return ">";
             foreach (object content in TagContents)
             {
                 if (content == null)
@@ -108,7 +108,7 @@ namespace RT.TagSoup
                     yield return s;
             }
             if (EndTag)
-                yield return "</" + TagName + "\n>";
+                yield return "</" + TagName + ">";
         }
 
         /// <summary>Converts the entire tag tree into a single string.</summary>

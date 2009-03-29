@@ -202,5 +202,35 @@ namespace RT.Servers
         {
             Content = new DynamicContentStream(html.ToEnumerable());
         }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified enumerable using a
+        /// <see cref="DynamicContentStream"/>.
+        /// </summary>
+        public HttpResponse(IEnumerable<string> enumerable, HttpResponseHeaders headers)
+        {
+            Content = new DynamicContentStream(enumerable);
+            Headers = headers;
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
+        /// and then using a <see cref="MemoryStream"/>.
+        /// </summary>
+        public HttpResponse(string content, HttpResponseHeaders headers)
+        {
+            Content = new MemoryStream(content.ToUtf8());
+            Headers = headers;
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified HTML using a
+        /// <see cref="DynamicContentStream"/>.
+        /// </summary>
+        public HttpResponse(Tag html, HttpResponseHeaders headers)
+        {
+            Content = new DynamicContentStream(html.ToEnumerable());
+            Headers = headers;
+        }
     }
 }
