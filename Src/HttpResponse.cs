@@ -180,6 +180,36 @@ namespace RT.Servers
         /// Initialises <see cref="Content"/> to serve the specified enumerable using a
         /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
         /// </summary>
+        public HttpResponse(IEnumerable<string> enumerable, HttpStatusCode status)
+        {
+            Content = new DynamicContentStream(enumerable);
+            Status = status;
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
+        /// and then using a <see cref="MemoryStream"/>. Headers are created and set to default values.
+        /// </summary>
+        public HttpResponse(string content, HttpStatusCode status)
+        {
+            Content = new MemoryStream(content.ToUtf8());
+            Status = status;
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified HTML using a
+        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
+        /// </summary>
+        public HttpResponse(Tag html, HttpStatusCode status)
+        {
+            Content = new DynamicContentStream(html.ToEnumerable());
+            Status = status;
+        }
+
+        /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified enumerable using a
+        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
+        /// </summary>
         public HttpResponse(IEnumerable<string> enumerable)
         {
             Content = new DynamicContentStream(enumerable);

@@ -16,6 +16,32 @@ namespace RT.TagSoup.HtmlTags
         public override bool AllowXhtmlEmpty { get { return false; } }
     }
 
+    /// <summary>Special class to help construct an HTML <c>&lt;TABLE&gt;</c> element
+    /// without needing to instantiate all intermediate row and cell tags.</summary>
+    public class HtmlTable : TABLE
+    {
+        /// <summary>If set to a value other than null, causes all rows and cells within the generated table to have the specified CSS class.</summary>
+        public string _AllClasses;
+
+        /// <summary>Constructs an HTML table in which all rows and cells have the same CSS class.</summary>
+        /// <param name="classOnAllTags">Optional. If non-null, all rows and cells within the generated table have the specified CSS class.</param>
+        /// <param name="rows">Rows (arrays of cell contents).</param>
+        public HtmlTable(string classOnAllTags, params object[][] rows)
+        {
+            if (classOnAllTags != null)
+                class_ = classOnAllTags;
+            List<object> rowTags = new List<object>();
+            foreach (object[] row in rows)
+            {
+                List<object> cellTags = new List<object>();
+                foreach (object cell in row)
+                    cellTags.Add(classOnAllTags == null ? new TD(cell) : new TD(cell) { class_ = classOnAllTags });
+                rowTags.Add(classOnAllTags == null ? new TR(cellTags.ToArray()) : new TR(cellTags.ToArray()) { class_ = classOnAllTags });
+            }
+            TagContents = rowTags;
+        }
+    }
+
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
     public enum align { _, left, center, right, justify, char_ }
