@@ -240,14 +240,12 @@ Content-Type: text/html
                 resp = GetTestResponse("GET /static?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
                 Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                 Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
                 Assert.IsTrue(resp.Headers.Contains("Content-Length: 35"));
                 Assert.AreEqual("GET:\nx => \"y\"\nz => \" \"\nzig => \"==\"\n", resp.Content.FromUtf8());
 
                 resp = GetTestResponse("GET /static?x[]=1&x%5B%5D=%20&x%5b%5d=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
                 Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                 Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
                 Assert.IsTrue(resp.Headers.Contains("Content-Length: 31"));
                 Assert.AreEqual("\nGETArr:\nx => [\"1\", \" \", \"==\"]\n", resp.Content.FromUtf8());
 
@@ -335,7 +333,6 @@ Content-Type: text/html
                     Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                     Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
                     Assert.IsTrue(resp.Headers.Contains("Content-Length: 68"));
-                    Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
                     Assert.AreEqual("\nPOST:\nx => \"y\"\nz => \" \"\nzig => \"==\"\n\nPOSTArr:\na => [\"1\", \"2\", \"3\"]\n", resp.Content.FromUtf8());
 
                     resp = GetTestResponse("POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: 20\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d");
@@ -352,7 +349,6 @@ Content-Type: text/html
                     Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                     Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
                     Assert.IsTrue(resp.Headers.Contains("Content-Length: " + expectedResponse.Length));
-                    Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
                     Assert.AreEqual(expectedResponse, resp.Content.FromUtf8());
 
                     resp = GetTestResponse("POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent);
