@@ -61,7 +61,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Contains the part of the URL that follows the path where the request handler is hooked.
-        /// <see cref="BaseUrl"/> + RestURL is equal to <see cref="Url"/>.
+        /// <see cref="BaseUrl"/> + RestUrl is equal to <see cref="Url"/>.
         /// </summary>
         /// <example>
         ///     Consider the following example code:
@@ -76,7 +76,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Contains the part of the URL to which the request handler is hooked.
-        /// BaseURL + <see cref="RestUrl"/> is equal to <see cref="Url"/>.
+        /// BaseUrl + <see cref="RestUrl"/> is equal to <see cref="Url"/>.
         /// For an example, see <see cref="RestUrl"/>.
         /// </summary>
         public string BaseUrl;
