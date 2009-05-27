@@ -1426,7 +1426,7 @@ namespace RT.TagSoup.HtmlTags
     }
     public class STYLEImport : HtmlTag
     {
-        public STYLEImport(params object[] contents) : base(contents) { }
+        public STYLEImport(string importFrom) : base() { ImportFrom = importFrom; }
         public override string TagName { get { return "STYLE"; } }
         public string ImportFrom;
         public string media;
@@ -1575,7 +1575,7 @@ namespace RT.TagSoup.HtmlTags
         public override string TagName { get { return "TEXTAREA"; } }
         public string accesskey;
         public string class_;
-        public string cols;
+        public int cols;
         public dir dir;
         public string disabled;
         public string id;
@@ -1596,7 +1596,7 @@ namespace RT.TagSoup.HtmlTags
         public string onmouseup;
         public string onselect;
         public string readonly_;
-        public string rows;
+        public int rows;
         public string style;
         public string tabindex;
         public string title;

@@ -156,7 +156,7 @@ namespace RT.TagSoup
                 yield break;
             }
 
-            yield return "Unrecognised object: " + o.ToString();
+            yield return o.ToString();
         }
 
         /// <summary>Converts a C#-compatible field name into an HTML/XHTML-compatible one.</summary>

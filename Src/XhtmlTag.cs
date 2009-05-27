@@ -1625,7 +1625,7 @@ namespace RT.TagSoup.XhtmlTags
         public override string TagName { get { return "textarea"; } }
         public string accesskey;
         public string class_;
-        public string cols;
+        public int cols;
         public dir dir;
         public bool disabled;
         public string id;
@@ -1646,7 +1646,7 @@ namespace RT.TagSoup.XhtmlTags
         public string onmouseup;
         public string onselect;
         public bool readonly_;
-        public string rows;
+        public int rows;
         public string style;
         public string tabindex;
         public string title;
