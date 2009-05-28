@@ -92,9 +92,9 @@ namespace RT.Servers
         /// <param name="path">If null, the handler applies to all URL paths. Otherwise, the handler applies to this
         /// path and all subpaths or to this path only, depending on the value of <paramref name="specificPath"/>.</param>
         /// <param name="specificDomain">If false, the handler applies to all subdomains of the domain specified by
-        /// <paramref name="Domain"/>. Otherwise it applies to the specific domain only.</param>
+        /// <paramref name="domain"/>. Otherwise it applies to the specific domain only.</param>
         /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
-        /// <paramref name="Path"/>. Otherwise it applies to the specific path only.</param>
+        /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
         /// <param name="handler">The request handler to hook.</param>
         public HttpRequestHandlerHook(string domain, int? port, string path, bool specificDomain, bool specificPath, HttpRequestHandler handler)
         {
@@ -109,6 +109,18 @@ namespace RT.Servers
             if (path == null)
                 throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HttpRequestHandler.", "path");
             init(null, null, path, false, false, handler);
+        }
+
+        /// <summary>Initialises a request handler to be hooked to a specific path (URL fragment), but any domain or port.</summary>
+        /// <param name="path">Path (URL fragment) for which this handler should be used (for example, "/users").</param>
+        /// <param name="handler">The request handler to hook.</param>
+        /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
+        /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
+        public HttpRequestHandlerHook(string path, HttpRequestHandler handler, bool specificPath)
+        {
+            if (path == null)
+                throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HttpRequestHandler.", "path");
+            init(null, null, path, false, specificPath, handler);
         }
 
         /// <summary>Initialises a request handler to be hooked to a specific domain and all sub-domains, but any path or port.</summary>
@@ -259,7 +271,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Creates a handler which will serve the file specified in <paramref name="Filepath"/>.
+        /// Creates a handler which will serve the file specified in <paramref name="filePath"/>.
         /// Use in a <see cref="HttpRequestHandlerHook"/> and add to <see cref="RequestHandlerHooks"/>.
         /// See also: <see cref="CreateFileSystemHandler"/>.
         /// </summary>
@@ -269,7 +281,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Creates a handler which will redirect the browser to <paramref name="NewURL"/>.
+        /// Creates a handler which will redirect the browser to <paramref name="newUrl"/>.
         /// To be used in conjunction with <see cref="HttpRequestHandlerHook"/> to add to <see cref="RequestHandlerHooks"/>.
         /// </summary>
         public HttpRequestHandler CreateRedirectHandler(string newUrl)
