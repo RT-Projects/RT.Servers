@@ -1,18 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Collections;
+using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
-using RT.Util;
-using System.Net;
 
 namespace RT.Servers
 {
