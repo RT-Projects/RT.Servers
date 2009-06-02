@@ -442,7 +442,7 @@ Content-Type: text/html
             if (req.GetArr.Count > 0)
                 yield return "\nGETArr:\n";
             foreach (var kvp in req.GetArr)
-                yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").Join(", ") + "]\n";
+                yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").JoinString(", ") + "]\n";
             if (req.Post.Count > 0)
                 yield return "\nPOST:\n";
             foreach (var kvp in req.Post)
@@ -450,7 +450,7 @@ Content-Type: text/html
             if (req.PostArr.Count > 0)
                 yield return "\nPOSTArr:\n";
             foreach (var kvp in req.PostArr)
-                yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").Join(", ") + "]\n";
+                yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").JoinString(", ") + "]\n";
             if (req.FileUploads.Count > 0)
                 yield return "\nFiles:\n";
             foreach (var kvp in req.FileUploads)
@@ -467,7 +467,7 @@ Content-Type: text/html
             {
                 Status = HttpStatusCode._200_OK,
                 Headers = new HttpResponseHeaders { ContentType = "text/plain; charset=utf-8" },
-                Content = new MemoryStream(generateGetPostFilesOutput(req).Join("").ToUtf8())
+                Content = new MemoryStream(generateGetPostFilesOutput(req).JoinString("").ToUtf8())
             };
         }
 
