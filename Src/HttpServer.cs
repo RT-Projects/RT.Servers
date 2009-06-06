@@ -1392,7 +1392,7 @@ namespace RT.Servers
 
                         req.Handler = hook.Handler;
                         req.BaseUrl = hook.Path == null ? "" : hook.Path;
-                        req.RestUrl = hook.Path == null ? url : url.Substring(hook.Path.Length);
+                        req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
                         req.Domain = host;
                         req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
                         req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
