@@ -1240,141 +1240,26 @@ namespace RT.Servers
             if (headerName == null)
                 return;
 
-            if (req.Headers.AllHeaders == null)
-                req.Headers.AllHeaders = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
-            req.Headers.AllHeaders[headerName] = headerValue;
+            if (!req.Headers.ParseAndAddHeader(headerName, headerValue))
+                return; // the header was not recognised so just do nothing. It has been added to UnrecognisedHeaders etc.
 
             string nameLower = headerName.ToLowerInvariant();
-            string valueLower = headerValue.ToLowerInvariant();
-            int intOutput;
 
-            if (nameLower == "accept")
-                req.Headers.Accept = splitAndSortByQ(headerValue);
-            else if (nameLower == "accept-charset")
-                req.Headers.AcceptCharset = splitAndSortByQ(headerValue);
-            else if (nameLower == "accept-encoding")
+            // Special actions when we encounter certain headers
+            if (nameLower == "content-type" && req.Method == HttpMethod.Post)
             {
-                string[] strList = splitAndSortByQ(headerValue.ToLowerInvariant());
-                var list = new List<HttpContentEncoding>();
-                foreach (string str in strList)
-                {
-                    if (str == "compress") list.Add(HttpContentEncoding.Compress);
-                    else if (str == "deflate") list.Add(HttpContentEncoding.Deflate);
-                    else if (str == "gzip") list.Add(HttpContentEncoding.Gzip);
-                }
-                req.Headers.AcceptEncoding = list.ToArray();
-            }
-            else if (nameLower == "accept-language")
-                req.Headers.AcceptLanguage = splitAndSortByQ(headerValue);
-            else if (nameLower == "connection")
-            {
-                var values = splitAndSortByQ(valueLower);
-                if (values.Contains("close"))
-                    req.Headers.Connection = HttpConnection.Close;
-                else if (values.Contains("keep-alive") || values.Contains("keepalive"))
-                    req.Headers.Connection = HttpConnection.KeepAlive;
-            }
-            else if (nameLower == "content-length" && int.TryParse(headerValue, out intOutput))
-                req.Headers.ContentLength = intOutput;
-            else if (nameLower == "content-type")
-            {
-                if (req.Method == HttpMethod.Post)
-                {
-                    if (valueLower == "application/x-www-form-urlencoded")
-                        req.Headers.ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
-                    else
-                    {
-                        Match m = Regex.Match(valueLower, @"^multipart/form-data\s*;\s*boundary=");
-                        if (m.Success)
-                        {
-                            req.Headers.ContentType = HttpPostContentType.MultipartFormData;
-                            req.Headers.ContentMultipartBoundary = headerValue.Substring(m.Length);
-                        }
-                        else
-                            throw new InvalidRequestException(ErrorResponse(HttpStatusCode._501_NotImplemented));
-                    }
-                }
-            }
-            else if (nameLower == "cookie")
-            {
-                Cookie prevCookie = new Cookie { Name = null };
-                while (headerValue.Length > 0)
-                {
-                    string key, value;
-                    Match m = Regex.Match(headerValue, @"^\s*(\$?\w+)=([^;]*)(;\s*|$)");
-                    if (m.Success)
-                    {
-                        key = m.Groups[1].Value;
-                        value = m.Groups[2].Value;
-                    }
-                    else
-                    {
-                        m = Regex.Match(headerValue, @"^\s*(\$?\w+)=""([^""]*)""(;\s*|$)");
-                        if (m.Success)
-                        {
-                            key = m.Groups[1].Value;
-                            value = m.Groups[2].Value;
-                        }
-                        else
-                        {
-                            if (headerValue.Contains(';'))
-                            {
-                                // Invalid syntax; try to continue parsing at the next ";"
-                                headerValue = headerValue.Substring(headerValue.IndexOf(';') + 1);
-                                continue;
-                            }
-                            else
-                                // Completely invalid syntax; ignore the rest of this header
-                                return;
-                        }
-                    }
-                    headerValue = headerValue.Substring(m.Groups[0].Length);
-
-                    if (key == "$Version")
-                        continue;   // ignore that.
-
-                    if (req.Headers.Cookie == null)
-                        req.Headers.Cookie = new Dictionary<string, Cookie>();
-
-                    if (key == "$Path" && prevCookie.Name != null)
-                    {
-                        prevCookie.Path = value;
-                        req.Headers.Cookie[prevCookie.Name] = prevCookie;
-                    }
-                    else if (key == "$Domain" && prevCookie.Name != null)
-                    {
-                        prevCookie.Domain = value;
-                        req.Headers.Cookie[prevCookie.Name] = prevCookie;
-                    }
-                    else if (key == "$Expires" && prevCookie.Name != null)
-                    {
-                        DateTime output;
-                        if (DateTime.TryParse(headerValue, out output))
-                        {
-                            prevCookie.Expires = output;
-                            req.Headers.Cookie[prevCookie.Name] = prevCookie;
-                        }
-                    }
-                    else
-                    {
-                        prevCookie = new Cookie { Name = key, Value = value };
-                        req.Headers.Cookie[key] = prevCookie;
-                    }
-                }
+                if (req.Headers.ContentType == HttpPostContentType.None)
+                    throw new InvalidRequestException(ErrorResponse(HttpStatusCode._501_NotImplemented, @"""Content-Type"" value """ + headerValue + @""" is not supported. Only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported."));
             }
             else if (nameLower == "host")
             {
-                // Can't have more than one "Host" header
-                if (req.Headers.Host != null)
-                    throw new InvalidRequestException(ErrorResponse(HttpStatusCode._400_BadRequest));
-
                 // For performance reasons, we check if we have a handler for this domain/URL as soon as possible.
                 // If we find out that we don't, stop processing here and immediately output an error
                 if (req.Url.StartsWith("/$/"))
                     req.Handler = internalHandler;
                 else
                 {
-                    string host = valueLower;
+                    string host = req.Headers.Host;
                     int port = 80;
                     if (host.Contains(":"))
                     {
@@ -1402,82 +1287,12 @@ namespace RT.Servers
                         req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
                     }
                 }
-                req.Headers.Host = valueLower;
             }
             else if (nameLower == "expect")
             {
-                string hv = headerValue;
-                var expect = new Dictionary<string, string>();
-                while (hv.Length > 0)
-                {
-                    Match m = Regex.Match(hv, @"(^[^;=""]*?)\s*(;\s*|$)");
-                    if (m.Success)
-                    {
-                        expect.Add(m.Groups[1].Value.ToLowerInvariant(), "1");
-                        hv = hv.Substring(m.Length);
-                    }
-                    else
-                    {
-                        m = Regex.Match(hv, @"^([^;=""]*?)\s*=\s*([^;=""]*?)\s*(;\s*|$)");
-                        if (m.Success)
-                        {
-                            expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value.ToLowerInvariant());
-                            hv = hv.Substring(m.Length);
-                        }
-                        else
-                        {
-                            m = Regex.Match(hv, @"^([^;=""]*?)\s*=\s*""([^""]*)""\s*(;\s*|$)");
-                            if (m.Success)
-                            {
-                                expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value);
-                                hv = hv.Substring(m.Length);
-                            }
-                            else
-                            {
-                                expect.Add(hv, "1");
-                                hv = "";
-                            }
-                        }
-                    }
-                }
-                req.Headers.Expect = expect;
-                foreach (var kvp in expect)
+                foreach (var kvp in req.Headers.Expect)
                     if (kvp.Key != "100-continue")
                         throw new InvalidRequestException(ErrorResponse(HttpStatusCode._417_ExpectationFailed));
-            }
-            else if (nameLower == "if-modified-since")
-            {
-                DateTime output;
-                if (DateTime.TryParse(headerValue, out output))
-                    req.Headers.IfModifiedSince = output;
-            }
-            else if (nameLower == "if-none-match")
-                req.Headers.IfNoneMatch = valueLower;
-            else if (nameLower == "range" && valueLower.StartsWith("bytes="))
-            {
-                string[] rangesStr = valueLower.Split(',');
-                HttpRange[] ranges = new HttpRange[rangesStr.Length];
-                for (int i = 0; i < rangesStr.Length; i++)
-                {
-                    if (rangesStr[i] == null || rangesStr[i].Length < 2)
-                        return;
-                    Match m = Regex.Match(rangesStr[i], @"(\d*)-(\d*)");
-                    if (!m.Success)
-                        return;
-                    if (m.Groups[1].Length > 0)
-                        ranges[i].From = int.Parse(m.Groups[1].Value);
-                    if (m.Groups[2].Length > 0)
-                        ranges[i].To = int.Parse(m.Groups[2].Value);
-                }
-                req.Headers.Range = ranges;
-            }
-            else if (nameLower == "user-agent")
-                req.Headers.UserAgent = headerValue;
-            else
-            {
-                if (req.Headers.UnrecognisedHeaders == null)
-                    req.Headers.UnrecognisedHeaders = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
-                req.Headers.UnrecognisedHeaders[headerName] = headerValue;
             }
         }
 
@@ -1502,28 +1317,6 @@ namespace RT.Servers
             }
 
             return ErrorResponse(HttpStatusCode._404_NotFound);
-        }
-
-        private string[] splitAndSortByQ(string value)
-        {
-            var split = Regex.Split(value, @"\s*,\s*");
-            var items = new SortedList<float, List<string>>();
-            foreach (string item in split)
-            {
-                float q = 0;
-                string nItem = item;
-                if (item.Contains(";"))
-                {
-                    var match = Regex.Match(item, @";\s*q=(\d+(\.\d+)?)");
-                    if (match.Success)
-                        q = 1 - float.Parse(match.Groups[1].Value);
-                    nItem = item.Remove(item.IndexOf(';'));
-                }
-                if (!items.ContainsKey(q))
-                    items[q] = new List<string>();
-                items[q].Add(nItem);
-            }
-            return items.SelectMany(kvp => kvp.Value).ToArray();
         }
 
         /// <summary>

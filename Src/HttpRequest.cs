@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using RT.Util.Collections;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
@@ -17,15 +18,56 @@ namespace RT.Servers
     public delegate HttpResponse HttpRequestHandler(HttpRequest request);
 
     /// <summary>
+    /// Encapsulates a value with a Q rating, where Q is between 0 and 1. Provides a comparer such
+    /// that the values with Q = 1 are the smallest.
+    /// </summary>
+    public struct QValue<T> : IComparable<QValue<T>>
+    {
+        private float _q;
+        private T _value;
+
+        /// <summary>Constructs a new q value</summary>
+        public QValue(float q, T value)
+        {
+            _q = q;
+            _value = value;
+        }
+
+        /// <summary>Gets the Q number</summary>
+        public float Q
+        {
+            get { return _q; }
+        }
+
+        /// <summary>Gets the value via an implicit conversion</summary>
+        public static implicit operator T(QValue<T> qv)
+        {
+            return qv._value;
+        }
+
+        /// <summary>Compares the Q number of this Q-value to the other one.</summary>
+        public int CompareTo(QValue<T> other)
+        {
+            return -this._q.CompareTo(other._q);
+        }
+
+        /// <summary>Converts the q value to a string.</summary>
+        public override string ToString()
+        {
+            return "{0}; q={1:0.0}".Fmt(_value, _q);
+        }
+    }
+
+    /// <summary>
     /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
     /// </summary>
     public class HttpRequestHeaders
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
-        public string[] Accept;
-        public string[] AcceptCharset;
-        public HttpContentEncoding[] AcceptEncoding;
-        public string[] AcceptLanguage;
+        public ListSorted<QValue<string>> Accept;
+        public ListSorted<QValue<string>> AcceptCharset;
+        public ListSorted<QValue<HttpContentEncoding>> AcceptEncoding;
+        public ListSorted<QValue<string>> AcceptLanguage;
         public HttpConnection Connection;
         public long? ContentLength;                 // required only for POST
         public HttpPostContentType ContentType;     // required only for POST
@@ -35,14 +77,296 @@ namespace RT.Servers
         public string Host;
         public DateTime? IfModifiedSince;
         public string IfNoneMatch;
-        public HttpRange[] Range;
+        public List<HttpRange> Range;
         public string UserAgent;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
         /// <summary>Stores all the headers of the request as raw strings.</summary>
-        public Dictionary<string, string> AllHeaders;
+        public List<KeyValuePair<string, string>> AllHeaders = new List<KeyValuePair<string, string>>();
         /// <summary>Stores the header values pertaining to headers not supported by <see cref="HttpRequestHeaders"/> as raw strings.</summary>
-        public Dictionary<string, string> UnrecognisedHeaders;
+        public List<KeyValuePair<string, string>> UnrecognisedHeaders = new List<KeyValuePair<string, string>>();
+
+        /// <summary>
+        /// Parses the specified header and stores it in this instance. If the header is not recognised in any way
+        /// it will be stored in <see cref="UnrecognisedHeaders"/>. Returns whether the header was recognised.
+        /// </summary>
+        /// <param name="name">Header name</param>
+        /// <param name="value">Header value</param>
+        public bool ParseAndAddHeader(string name, string value)
+        {
+            string nameLower = name.ToLowerInvariant();
+            int intOutput;
+            bool recognised = false;
+
+            try
+            {
+                if (nameLower == "accept")
+                {
+                    splitAndAddByQ(ref Accept, value);
+                    recognised = true;
+                }
+                else if (nameLower == "accept-charset")
+                {
+                    splitAndAddByQ(ref AcceptCharset, value);
+                    recognised = true;
+                }
+                else if (nameLower == "accept-encoding")
+                {
+                    splitAndAddByQ(ref AcceptEncoding, value, HttpEnumsParser.ParseHttpContentEncoding);
+                    recognised = true;
+                }
+                else if (nameLower == "accept-language")
+                {
+                    splitAndAddByQ(ref AcceptLanguage, value);
+                    recognised = true;
+                }
+                else if (nameLower == "connection" && Connection == HttpConnection.None)
+                {
+                    Connection = HttpEnumsParser.ParseHttpConnection(value);
+                    recognised = true;
+                }
+                else if (nameLower == "content-length" && ContentLength == null && int.TryParse(value, out intOutput))
+                {
+                    ContentLength = intOutput;
+                    recognised = true;
+                }
+                else if (nameLower == "content-type")
+                {
+                    if (string.Equals(value, "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
+                        recognised = true;
+                    }
+                    else
+                    {
+                        Match m = Regex.Match(value, @"^multipart/form-data\s*;\s*boundary=", RegexOptions.IgnoreCase);
+                        if (m.Success)
+                        {
+                            ContentType = HttpPostContentType.MultipartFormData;
+                            ContentMultipartBoundary = value.Substring(m.Length);
+                            recognised = true;
+                        }
+                    }
+                }
+                else if (nameLower == "cookie")
+                {
+                    ParseAndAddCookies(ref Cookie, value);
+                    recognised = true;
+                }
+                else if (nameLower == "host" && Host == null)
+                {
+                    Host = value.ToLowerInvariant();
+                    recognised = true;
+                }
+                else if (nameLower == "expect")
+                {
+                    string hv = value;
+                    Expect = new Dictionary<string, string>();
+                    while (hv.Length > 0)
+                    {
+                        Match m = Regex.Match(hv, @"(^[^;=""]*?)\s*(;\s*|$)");
+                        if (m.Success)
+                        {
+                            Expect.Add(m.Groups[1].Value.ToLowerInvariant(), "1");
+                            hv = hv.Substring(m.Length);
+                        }
+                        else
+                        {
+                            m = Regex.Match(hv, @"^([^;=""]*?)\s*=\s*([^;=""]*?)\s*(;\s*|$)");
+                            if (m.Success)
+                            {
+                                Expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value.ToLowerInvariant());
+                                hv = hv.Substring(m.Length);
+                            }
+                            else
+                            {
+                                m = Regex.Match(hv, @"^([^;=""]*?)\s*=\s*""([^""]*)""\s*(;\s*|$)");
+                                if (m.Success)
+                                {
+                                    Expect.Add(m.Groups[1].Value.ToLowerInvariant(), m.Groups[2].Value);
+                                    hv = hv.Substring(m.Length);
+                                }
+                                else
+                                {
+                                    Expect.Add(hv, "1");
+                                    hv = "";
+                                }
+                            }
+                        }
+                    }
+                    recognised = true;
+                }
+                else if (nameLower == "if-modified-since" && IfModifiedSince == null)
+                {
+                    DateTime output;
+                    if (DateTime.TryParse(value, out output))
+                    {
+                        IfModifiedSince = output;
+                        recognised = true;
+                    }
+                }
+                else if (nameLower == "if-none-match" && IfNoneMatch == null)
+                {
+                    IfNoneMatch = value.ToLowerInvariant();
+                    recognised = true;
+                }
+                else if (nameLower == "range" && value.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase))
+                {
+                    ParseAndAddRange(ref Range, value);
+                    recognised = true;
+                }
+                else if (nameLower == "user-agent" && UserAgent == null)
+                {
+                    UserAgent = value;
+                    recognised = true;
+                }
+            }
+            catch
+            {
+                // Ignore absolutely any error; the header will just simply be unrecognised.
+            }
+
+            AllHeaders.Add(new KeyValuePair<string, string>(name, value));
+
+            if (!recognised)
+                UnrecognisedHeaders.Add(new KeyValuePair<string, string>(name, value));
+
+            return recognised;
+        }
+
+        /// <summary>
+        /// Parses the cookie header and adds the cookies to the specified cookie dictionary.
+        /// </summary>
+        public static void ParseAndAddCookies(ref Dictionary<string, Cookie> cookies, string cookieHeaderValue)
+        {
+            Cookie prevCookie = new Cookie { Name = null };
+            while (cookieHeaderValue.Length > 0)
+            {
+                string key, value;
+                Match m = Regex.Match(cookieHeaderValue, @"^\s*(\$?\w+)=([^;]*)(;\s*|$)");
+                if (m.Success)
+                {
+                    key = m.Groups[1].Value;
+                    value = m.Groups[2].Value;
+                }
+                else
+                {
+                    m = Regex.Match(cookieHeaderValue, @"^\s*(\$?\w+)=""([^""]*)""(;\s*|$)");
+                    if (m.Success)
+                    {
+                        key = m.Groups[1].Value;
+                        value = m.Groups[2].Value;
+                    }
+                    else
+                    {
+                        if (cookieHeaderValue.Contains(';'))
+                        {
+                            // Invalid syntax; try to continue parsing at the next ";"
+                            cookieHeaderValue = cookieHeaderValue.Substring(cookieHeaderValue.IndexOf(';') + 1);
+                            continue;
+                        }
+                        else
+                            // Completely invalid syntax; ignore the rest of this header
+                            return;
+                    }
+                }
+                cookieHeaderValue = cookieHeaderValue.Substring(m.Groups[0].Length);
+
+                if (key == "$Version")
+                    continue;   // ignore that.
+
+                if (cookies == null)
+                    cookies = new Dictionary<string, Cookie>();
+
+                if (key == "$Path" && prevCookie.Name != null)
+                {
+                    prevCookie.Path = value;
+                    cookies[prevCookie.Name] = prevCookie;
+                }
+                else if (key == "$Domain" && prevCookie.Name != null)
+                {
+                    prevCookie.Domain = value;
+                    cookies[prevCookie.Name] = prevCookie;
+                }
+                else if (key == "$Expires" && prevCookie.Name != null)
+                {
+                    DateTime output;
+                    if (DateTime.TryParse(cookieHeaderValue, out output))
+                    {
+                        prevCookie.Expires = output;
+                        cookies[prevCookie.Name] = prevCookie;
+                    }
+                }
+                else
+                {
+                    prevCookie = new Cookie { Name = key, Value = value };
+                    cookies[key] = prevCookie;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Parses the specified Range header and adds the ranges to the specified ranges list.
+        /// </summary>
+        public static void ParseAndAddRange(ref List<HttpRange> ranges, string rangeHeaderValue)
+        {
+            foreach (var rangeStr in rangeHeaderValue.ToLowerInvariant().Split(','))
+            {
+                if (rangeStr == null || rangeStr.Length < 2)
+                    return;
+                Match m = Regex.Match(rangeStr, @"(\d*)-(\d*)");
+                if (!m.Success)
+                    return;
+                if (ranges == null)
+                    ranges = new List<HttpRange>();
+                var range = new HttpRange();
+                if (m.Groups[1].Length > 0)
+                    range.From = int.Parse(m.Groups[1].Value);
+                if (m.Groups[2].Length > 0)
+                    range.To = int.Parse(m.Groups[2].Value);
+                ranges.Add(range);
+            }
+        }
+
+        private static void splitAndAddByQ(ref ListSorted<QValue<string>> parsedList, string headerValue)
+        {
+            if (parsedList == null)
+                parsedList = new ListSorted<QValue<string>>();
+            var split = Regex.Split(headerValue, @"\s*,\s*");
+            foreach (string item in split)
+            {
+                float q = 0;
+                string nItem = item;
+                if (item.Contains(";"))
+                {
+                    var match = Regex.Match(item, @";\s*q=(\d+(\.\d+)?)");
+                    if (match.Success)
+                        q = 1 - float.Parse(match.Groups[1].Value);
+                    nItem = item.Remove(item.IndexOf(';'));
+                }
+                parsedList.Add(new QValue<string>(q, nItem));
+            }
+        }
+
+        private static void splitAndAddByQ<T>(ref ListSorted<QValue<T>> parsedList, string headerValue, Func<string, T> converter)
+        {
+            if (parsedList == null)
+                parsedList = new ListSorted<QValue<T>>();
+            var split = Regex.Split(headerValue, @"\s*,\s*");
+            foreach (string item in split)
+            {
+                float q = 0;
+                string nItem = item;
+                if (item.Contains(";"))
+                {
+                    var match = Regex.Match(item, @";\s*q=(\d+(\.\d+)?)");
+                    if (match.Success)
+                        q = 1 - float.Parse(match.Groups[1].Value);
+                    nItem = item.Remove(item.IndexOf(';'));
+                }
+                parsedList.Add(new QValue<T>(q, converter(nItem)));
+            }
+        }
     }
 
     /// <summary>

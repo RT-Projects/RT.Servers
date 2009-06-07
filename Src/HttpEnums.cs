@@ -1,4 +1,6 @@
-﻿
+﻿using System;
+using System.Text.RegularExpressions;
+
 namespace RT.Servers
 {
 
@@ -109,4 +111,47 @@ namespace RT.Servers
 
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
+    /// <summary>
+    /// Implements parse routines for the HttpEnums. These routines are preferred to <see cref="Enum.Parse(System.Type, string)"/>
+    /// because no reflection is involved.
+    /// </summary>
+    public static class HttpEnumsParser
+    {
+        private static bool eq(string s1, string s2)
+        {
+            return string.Equals(s1, s2, StringComparison.OrdinalIgnoreCase);
+        }
+    
+        /// <summary>
+        /// Parses the Content-Encoding header. Throws an exception if the value is not valid.
+        /// </summary>
+        public static HttpContentEncoding ParseHttpContentEncoding(string value)
+        {
+            if (eq(value, "gzip")) return HttpContentEncoding.Gzip;
+            else if (eq(value, "compress")) return HttpContentEncoding.Compress;
+            else if (eq(value, "deflate")) return HttpContentEncoding.Deflate;
+            else throw new ArgumentException(@"""Content-Encoding"" value """ + value + @""" is not valid. Valid values: ""gzip"", ""compress"", ""deflate"".");
+        }
+
+        /// <summary>
+        /// Parses the Connection header. Throws an exception if the value is not valid.
+        /// As long as exactly one of the valid values is contained in a comma-separated version returns the value
+        /// and ignores all other values.
+        /// </summary>
+        public static HttpConnection ParseHttpConnection(string value)
+        {
+            bool hasClose = false, hasKeepalive = false;
+            foreach (var str in Regex.Split(value.Trim(), @"\s*,\s*"))
+            {
+                hasClose |= eq(str, "close");
+                hasKeepalive |= eq(str, "keep-alive");
+            }
+            if (hasClose == hasKeepalive)
+                throw new ArgumentException(@"""Connection"" value """ + value + @""" could not be parsed.");
+            else if (hasClose)
+                return HttpConnection.Close;
+            else
+                return HttpConnection.KeepAlive;
+        }
+    }
 }
