@@ -1037,7 +1037,7 @@ namespace RT.Servers
                         if (!match.Success)
                             return ErrorResponse(HttpStatusCode._400_BadRequest);
                         parseHeader(lastHeader, valueSoFar, ref req);
-                        lastHeader = match.Groups[1].Value.ToLowerInvariant();
+                        lastHeader = match.Groups[1].Value;
                         valueSoFar = match.Groups[2].Value.Trim();
                     }
                 }
@@ -1235,20 +1235,24 @@ namespace RT.Servers
             return exceptionText;
         }
 
-        // Expects HeaderName in lower-case
         private void parseHeader(string headerName, string headerValue, ref HttpRequest req)
         {
             if (headerName == null)
                 return;
 
+            if (req.Headers.AllHeaders == null)
+                req.Headers.AllHeaders = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+            req.Headers.AllHeaders[headerName] = headerValue;
+
+            string nameLower = headerName.ToLowerInvariant();
             string valueLower = headerValue.ToLowerInvariant();
             int intOutput;
 
-            if (headerName == "accept")
+            if (nameLower == "accept")
                 req.Headers.Accept = splitAndSortByQ(headerValue);
-            else if (headerName == "accept-charset")
+            else if (nameLower == "accept-charset")
                 req.Headers.AcceptCharset = splitAndSortByQ(headerValue);
-            else if (headerName == "accept-encoding")
+            else if (nameLower == "accept-encoding")
             {
                 string[] strList = splitAndSortByQ(headerValue.ToLowerInvariant());
                 var list = new List<HttpContentEncoding>();
@@ -1260,9 +1264,9 @@ namespace RT.Servers
                 }
                 req.Headers.AcceptEncoding = list.ToArray();
             }
-            else if (headerName == "accept-language")
+            else if (nameLower == "accept-language")
                 req.Headers.AcceptLanguage = splitAndSortByQ(headerValue);
-            else if (headerName == "connection")
+            else if (nameLower == "connection")
             {
                 var values = splitAndSortByQ(valueLower);
                 if (values.Contains("close"))
@@ -1270,9 +1274,9 @@ namespace RT.Servers
                 else if (values.Contains("keep-alive") || values.Contains("keepalive"))
                     req.Headers.Connection = HttpConnection.KeepAlive;
             }
-            else if (headerName == "content-length" && int.TryParse(headerValue, out intOutput))
+            else if (nameLower == "content-length" && int.TryParse(headerValue, out intOutput))
                 req.Headers.ContentLength = intOutput;
-            else if (headerName == "content-type")
+            else if (nameLower == "content-type")
             {
                 if (req.Method == HttpMethod.Post)
                 {
@@ -1291,7 +1295,7 @@ namespace RT.Servers
                     }
                 }
             }
-            else if (headerName == "cookie")
+            else if (nameLower == "cookie")
             {
                 Cookie prevCookie = new Cookie { Name = null };
                 while (headerValue.Length > 0)
@@ -1358,7 +1362,7 @@ namespace RT.Servers
                     }
                 }
             }
-            else if (headerName == "host")
+            else if (nameLower == "host")
             {
                 // Can't have more than one "Host" header
                 if (req.Headers.Host != null)
@@ -1400,7 +1404,7 @@ namespace RT.Servers
                 }
                 req.Headers.Host = valueLower;
             }
-            else if (headerName == "expect")
+            else if (nameLower == "expect")
             {
                 string hv = headerValue;
                 var expect = new Dictionary<string, string>();
@@ -1441,15 +1445,15 @@ namespace RT.Servers
                     if (kvp.Key != "100-continue")
                         throw new InvalidRequestException(ErrorResponse(HttpStatusCode._417_ExpectationFailed));
             }
-            else if (headerName == "if-modified-since")
+            else if (nameLower == "if-modified-since")
             {
                 DateTime output;
                 if (DateTime.TryParse(headerValue, out output))
                     req.Headers.IfModifiedSince = output;
             }
-            else if (headerName == "if-none-match")
+            else if (nameLower == "if-none-match")
                 req.Headers.IfNoneMatch = valueLower;
-            else if (headerName == "range" && valueLower.StartsWith("bytes="))
+            else if (nameLower == "range" && valueLower.StartsWith("bytes="))
             {
                 string[] rangesStr = valueLower.Split(',');
                 HttpRange[] ranges = new HttpRange[rangesStr.Length];
@@ -1467,13 +1471,13 @@ namespace RT.Servers
                 }
                 req.Headers.Range = ranges;
             }
-            else if (headerName == "user-agent")
+            else if (nameLower == "user-agent")
                 req.Headers.UserAgent = headerValue;
             else
             {
                 if (req.Headers.UnrecognisedHeaders == null)
-                    req.Headers.UnrecognisedHeaders = new Dictionary<string, string>();
-                req.Headers.UnrecognisedHeaders.Add(headerName, headerValue);
+                    req.Headers.UnrecognisedHeaders = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+                req.Headers.UnrecognisedHeaders[headerName] = headerValue;
             }
         }
 

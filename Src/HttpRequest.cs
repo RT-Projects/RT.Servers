@@ -39,6 +39,8 @@ namespace RT.Servers
         public string UserAgent;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
+        /// <summary>Stores all the headers of the request as raw strings.</summary>
+        public Dictionary<string, string> AllHeaders;
         /// <summary>Stores the header values pertaining to headers not supported by <see cref="HttpRequestHeaders"/> as raw strings.</summary>
         public Dictionary<string, string> UnrecognisedHeaders;
     }
