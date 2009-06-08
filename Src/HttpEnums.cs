@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
@@ -121,7 +122,7 @@ namespace RT.Servers
         {
             return string.Equals(s1, s2, StringComparison.OrdinalIgnoreCase);
         }
-    
+
         /// <summary>
         /// Parses the Content-Encoding header. Throws an exception if the value is not valid.
         /// </summary>
@@ -130,7 +131,7 @@ namespace RT.Servers
             if (eq(value, "gzip")) return HttpContentEncoding.Gzip;
             else if (eq(value, "compress")) return HttpContentEncoding.Compress;
             else if (eq(value, "deflate")) return HttpContentEncoding.Deflate;
-            else throw new ArgumentException(@"""Content-Encoding"" value """ + value + @""" is not valid. Valid values: ""gzip"", ""compress"", ""deflate"".");
+            else throw new ArgumentException(@"""Content-Encoding"" value ""{0}"" is not valid. Valid values: ""gzip"", ""compress"", ""deflate"".".Fmt(value));
         }
 
         /// <summary>
@@ -147,7 +148,7 @@ namespace RT.Servers
                 hasKeepalive |= eq(str, "keep-alive");
             }
             if (hasClose == hasKeepalive)
-                throw new ArgumentException(@"""Connection"" value """ + value + @""" could not be parsed.");
+                throw new ArgumentException(@"""Connection"" value ""{0}"" could not be parsed.".Fmt(value));
             else if (hasClose)
                 return HttpConnection.Close;
             else

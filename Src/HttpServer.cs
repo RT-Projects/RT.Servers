@@ -1240,7 +1240,7 @@ namespace RT.Servers
             if (headerName == null)
                 return;
 
-            if (!req.Headers.ParseAndAddHeader(headerName, headerValue))
+            if (!req.Headers.parseAndAddHeader(headerName, headerValue))
                 return; // the header was not recognised so just do nothing. It has been added to UnrecognisedHeaders etc.
 
             string nameLower = headerName.ToLowerInvariant();
@@ -1249,7 +1249,7 @@ namespace RT.Servers
             if (nameLower == "content-type" && req.Method == HttpMethod.Post)
             {
                 if (req.Headers.ContentType == HttpPostContentType.None)
-                    throw new InvalidRequestException(ErrorResponse(HttpStatusCode._501_NotImplemented, @"""Content-Type"" value """ + headerValue + @""" is not supported. Only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported."));
+                    throw new InvalidRequestException(ErrorResponse(HttpStatusCode._501_NotImplemented, @"""Content-Type"" value ""{0}"" is not supported. Only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.".Fmt(headerValue)));
             }
             else if (nameLower == "host")
             {

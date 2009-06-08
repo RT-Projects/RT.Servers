@@ -92,7 +92,7 @@ namespace RT.Servers
         /// </summary>
         /// <param name="name">Header name</param>
         /// <param name="value">Header value</param>
-        public bool ParseAndAddHeader(string name, string value)
+        internal bool parseAndAddHeader(string name, string value)
         {
             string nameLower = name.ToLowerInvariant();
             int intOutput;
@@ -150,7 +150,7 @@ namespace RT.Servers
                 }
                 else if (nameLower == "cookie")
                 {
-                    ParseAndAddCookies(ref Cookie, value);
+                    parseAndAddCookies(ref Cookie, value);
                     recognised = true;
                 }
                 else if (nameLower == "host" && Host == null)
@@ -212,7 +212,7 @@ namespace RT.Servers
                 }
                 else if (nameLower == "range" && value.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase))
                 {
-                    ParseAndAddRange(ref Range, value);
+                    parseAndAddRange(ref Range, value);
                     recognised = true;
                 }
                 else if (nameLower == "user-agent" && UserAgent == null)
@@ -237,7 +237,7 @@ namespace RT.Servers
         /// <summary>
         /// Parses the cookie header and adds the cookies to the specified cookie dictionary.
         /// </summary>
-        public static void ParseAndAddCookies(ref Dictionary<string, Cookie> cookies, string cookieHeaderValue)
+        private static void parseAndAddCookies(ref Dictionary<string, Cookie> cookies, string cookieHeaderValue)
         {
             Cookie prevCookie = new Cookie { Name = null };
             while (cookieHeaderValue.Length > 0)
@@ -308,7 +308,7 @@ namespace RT.Servers
         /// <summary>
         /// Parses the specified Range header and adds the ranges to the specified ranges list.
         /// </summary>
-        public static void ParseAndAddRange(ref List<HttpRange> ranges, string rangeHeaderValue)
+        private static void parseAndAddRange(ref List<HttpRange> ranges, string rangeHeaderValue)
         {
             foreach (var rangeStr in rangeHeaderValue.ToLowerInvariant().Split(','))
             {
