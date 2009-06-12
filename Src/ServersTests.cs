@@ -12,6 +12,7 @@ using RT.Util.Streams;
 using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
+using RT.Util;
 
 namespace RT.Servers
 {
@@ -25,33 +26,27 @@ namespace RT.Servers
 
         static void Main(string[] args)
         {
-            foreach (var ty in Assembly.GetExecutingAssembly().GetExportedTypes().Where(t => t.GetCustomAttributes(typeof(TestFixtureAttribute), true).Any()))
+            if (false)
             {
-                Console.WriteLine("Testing type: " + ty);
-                var sts = Activator.CreateInstance(ty);
-
-                foreach (var meth in ty.GetMethods().Where(m => m.GetCustomAttributes(typeof(TestFixtureSetUpAttribute), false).Any()))
-                {
-                    Console.WriteLine("-- Running setup: " + meth.Name);
-                    meth.Invoke(sts, new object[] { });
-                }
-
-                foreach (var meth in ty.GetMethods().Where(m => m.GetCustomAttributes(typeof(TestAttribute), false).Any()))
-                {
-                    Console.WriteLine("-- Running test: " + meth.Name);
-                    meth.Invoke(sts, new object[] { });
-                }
-
-                foreach (var meth in ty.GetMethods().Where(m => m.GetCustomAttributes(typeof(TestFixtureTearDownAttribute), false).Any()))
-                {
-                    Console.WriteLine("-- Running teardown: " + meth.Name);
-                    meth.Invoke(sts, new object[] { });
-                }
+                Testing.GenerateTestingCode(@"..\..\main\common\Servers\ServersTests.cs", "Run Tests", Assembly.GetExecutingAssembly().GetExportedTypes(),
+                    typeof(TestFixtureAttribute), typeof(TestFixtureSetUpAttribute), typeof(TestAttribute), typeof(TestFixtureTearDownAttribute));
             }
-
-            Console.WriteLine("");
-            Console.WriteLine("Tests passed; press Enter to exit.");
-            Console.ReadLine();
+            else
+            {
+                #region Run Tests
+                Console.WriteLine("");
+                Console.WriteLine("Testing type: RT.Servers.ServersTestSuite");
+                var test1 = new RT.Servers.ServersTestSuite();
+                Console.WriteLine("-- Running test: TestParseGet");
+                test1.TestParseGet();
+                Console.WriteLine("-- Running test: TestParsePost");
+                test1.TestParsePost();
+                Console.WriteLine("-- Running test: TestSomeRequests");
+                test1.TestSomeRequests();
+                Console.WriteLine("-- Running test: TestKeepaliveAndChunked");
+                test1.TestKeepaliveAndChunked();
+                #endregion
+            }
         }
 
         [Test]
