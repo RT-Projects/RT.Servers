@@ -36,15 +36,15 @@ namespace RT.Servers
                 #region Run Tests
                 Console.WriteLine("");
                 Console.WriteLine("Testing type: RT.Servers.ServersTestSuite");
-                var test1 = new RT.Servers.ServersTestSuite();
+                var doServersTestSuite = new RT.Servers.ServersTestSuite();
                 Console.WriteLine("-- Running test: TestParseGet");
-                test1.TestParseGet();
+                doServersTestSuite.TestParseGet();
                 Console.WriteLine("-- Running test: TestParsePost");
-                test1.TestParsePost();
+                doServersTestSuite.TestParsePost();
                 Console.WriteLine("-- Running test: TestSomeRequests");
-                test1.TestSomeRequests();
+                doServersTestSuite.TestSomeRequests();
                 Console.WriteLine("-- Running test: TestKeepaliveAndChunked");
-                test1.TestKeepaliveAndChunked();
+                doServersTestSuite.TestKeepaliveAndChunked();
                 #endregion
             }
         }
