@@ -64,10 +64,10 @@ namespace RT.Servers
                 Assert.IsTrue(dic.ContainsKey("cooking"));
                 Assert.IsTrue(dic.ContainsKey("elephant"));
                 Assert.IsTrue(dic.ContainsKey("ghost"));
-                Assert.AreEqual("bravery", dic["apple"]);
-                Assert.AreEqual("dinner", dic["cooking"]);
-                Assert.AreEqual("foxtrot", dic["elephant"]);
-                Assert.AreEqual("hangman", dic["ghost"]);
+                Assert.AreEqual("bravery", dic["apple"].Value);
+                Assert.AreEqual("dinner", dic["cooking"].Value);
+                Assert.AreEqual("foxtrot", dic["elephant"].Value);
+                Assert.AreEqual("hangman", dic["ghost"].Value);
 
                 dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString2)), chunksize));
                 Assert.AreEqual(4, dic.Count);
@@ -75,21 +75,21 @@ namespace RT.Servers
                 Assert.IsTrue(dic.ContainsKey("cooking"));
                 Assert.IsTrue(dic.ContainsKey("elephant"));
                 Assert.IsTrue(dic.ContainsKey("ghost"));
-                Assert.AreEqual("!@#$", dic["apple"]);
-                Assert.AreEqual("%^&*", dic["cooking"]);
-                Assert.AreEqual("()=+", dic["elephant"]);
-                Assert.AreEqual("абвгд", dic["ghost"]);
+                Assert.AreEqual("!@#$", dic["apple"].Value);
+                Assert.AreEqual("%^&*", dic["cooking"].Value);
+                Assert.AreEqual("()=+", dic["elephant"].Value);
+                Assert.AreEqual("абвгд", dic["ghost"].Value);
 
-                var dic2 = HttpRequest.ParseQueryArrayParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString3)), chunksize));
-                Assert.AreEqual(2, dic2.Count);
-                Assert.IsTrue(dic2.ContainsKey("apple"));
-                Assert.IsTrue(dic2.ContainsKey("ghost"));
-                Assert.AreEqual(3, dic2["apple"].Count);
-                Assert.IsTrue(dic2["apple"].Contains("!@#$"));
-                Assert.IsTrue(dic2["apple"].Contains("%^&*"));
-                Assert.IsTrue(dic2["apple"].Contains("()=+"));
-                Assert.AreEqual(1, dic2["ghost"].Count);
-                Assert.IsTrue(dic2["ghost"].Contains("абвгд"));
+                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString3)), chunksize));
+                Assert.AreEqual(2, dic.Count);
+                Assert.IsTrue(dic.ContainsKey("apple[]"));
+                Assert.IsTrue(dic.ContainsKey("ghost[]"));
+                Assert.AreEqual(3, dic["apple[]"].Count);
+                Assert.IsTrue(dic["apple[]"].Contains("!@#$"));
+                Assert.IsTrue(dic["apple[]"].Contains("%^&*"));
+                Assert.IsTrue(dic["apple[]"].Contains("()=+"));
+                Assert.AreEqual(1, dic["ghost[]"].Count);
+                Assert.IsTrue(dic["ghost[]"].Contains("абвгд"));
             }
         }
 
@@ -175,10 +175,10 @@ Content-Type: text/html
                 Assert.AreEqual(1, Files.Count);
 
                 Assert.IsTrue(Posts.ContainsKey("y"));
-                Assert.AreEqual(@"This is what should be found in ""y"" at the end of the test.", Posts["y"]);
+                Assert.AreEqual(@"This is what should be found in ""y"" at the end of the test.", Posts["y"].Value);
                 Assert.IsTrue(Posts.ContainsKey("What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"));
                 Assert.AreEqual("\r\n<CRLF>(this)<CRLF>\r\n",
-                    Posts["What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"]);
+                    Posts["What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"].Value);
             }
         }
 
@@ -235,21 +235,21 @@ Content-Type: text/html
                 resp = GetTestResponse("GET /static?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
                 Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                 Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 35"));
-                Assert.AreEqual("GET:\nx => \"y\"\nz => \" \"\nzig => \"==\"\n", resp.Content.FromUtf8());
+                Assert.IsTrue(resp.Headers.Contains("Content-Length: 41"));
+                Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", resp.Content.FromUtf8());
 
                 resp = GetTestResponse("GET /static?x[]=1&x%5B%5D=%20&x%5b%5d=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
                 Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                 Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 31"));
-                Assert.AreEqual("\nGETArr:\nx => [\"1\", \" \", \"==\"]\n", resp.Content.FromUtf8());
+                Assert.IsTrue(resp.Headers.Contains("Content-Length: 29"));
+                Assert.AreEqual("GET:\nx[] => [\"1\", \" \", \"==\"]\n", resp.Content.FromUtf8());
 
                 resp = GetTestResponse("GET /dynamic?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
                 Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                 Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
                 Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("content-length:")));
                 Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("accept-ranges:")));
-                Assert.AreEqual("GET:\nx => \"y\"\nz => \" \"\nzig => \"==\"\n", resp.Content.FromUtf8());
+                Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", resp.Content.FromUtf8());
 
                 resp = GetTestResponse("POST /static HTTP/1.1\r\nHost: localhost\r\n\r\n");
                 Assert.AreEqual("HTTP/1.1 411 Length Required", resp.Headers[0]);
@@ -327,18 +327,18 @@ Content-Type: text/html
                     TestResponse resp = GetTestResponse("POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: 48\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d&a[]=1&a%5B%5D=2&%61%5b%5d=3");
                     Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                     Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                    Assert.IsTrue(resp.Headers.Contains("Content-Length: 68"));
-                    Assert.AreEqual("\nPOST:\nx => \"y\"\nz => \" \"\nzig => \"==\"\n\nPOSTArr:\na => [\"1\", \"2\", \"3\"]\n", resp.Content.FromUtf8());
+                    Assert.IsTrue(resp.Headers.Contains("Content-Length: 66"));
+                    Assert.AreEqual("\nPOST:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\na[] => [\"1\", \"2\", \"3\"]\n", resp.Content.FromUtf8());
 
                     resp = GetTestResponse("POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: 20\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d");
                     Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
                     Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
                     Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("content-length:")));
                     Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("accept-ranges:")));
-                    Assert.AreEqual("\nPOST:\nx => \"y\"\nz => \" \"\nzig => \"==\"\n", resp.Content.FromUtf8());
+                    Assert.AreEqual("\nPOST:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", resp.Content.FromUtf8());
 
                     string postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
-                    string expectedResponse = "\nPOST:\nx => \"y\"\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" }\n";
+                    string expectedResponse = "\nPOST:\nx => [\"y\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" }\n";
 
                     resp = GetTestResponse("POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent);
                     Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
@@ -425,7 +425,7 @@ Content-Type: text/html
             } while (chunkLen > 0);
 
             Assert.AreEqual("", response);
-            Assert.AreEqual("GET:\naktion => \"list\"\nshowonly => \"recordings\"\nlimitStart => \"0\"\nfiltermask_t => \"\"\nfiltermask_g => \"\"\nfiltermask_s => \"\"\nsize_max => \"*\"\nsize_min => \"*\"\nlang => \"\"\narchivemonth => \"200709\"\nformat_wmv => \"true\"\nformat_avi => \"true\"\nformat_hq => \"\"\nformat_mp4 => \"\"\norderby => \"time_desc\"\n", reconstruct);
+            Assert.AreEqual("GET:\naktion => [\"list\"]\nshowonly => [\"scheduled\", \"recordings\"]\nlimitStart => [\"0\"]\nfiltermask_t => [\"\"]\nfiltermask_g => [\"\"]\nfiltermask_s => [\"\"]\nsize_max => [\"*\"]\nsize_min => [\"*\"]\nlang => [\"\", \"\"]\narchivemonth => [\"200709\", \"200709\"]\nformat_wmv => [\"true\", \"true\"]\nformat_avi => [\"true\", \"true\"]\nformat_hq => [\"\", \"\"]\nformat_mp4 => [\"\", \"\"]\norderby => [\"time_desc\"]\n", reconstruct);
         }
 
         private IEnumerable<string> generateGetPostFilesOutput(HttpRequest req)
@@ -433,19 +433,11 @@ Content-Type: text/html
             if (req.Get.Count > 0)
                 yield return "GET:\n";
             foreach (var kvp in req.Get)
-                yield return kvp.Key + " => \"" + kvp.Value + "\"\n";
-            if (req.GetArr.Count > 0)
-                yield return "\nGETArr:\n";
-            foreach (var kvp in req.GetArr)
-                yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").JoinString(", ") + "]\n";
+                yield return kvp.Key + " => " + kvp.Value + "\n";
             if (req.Post.Count > 0)
                 yield return "\nPOST:\n";
             foreach (var kvp in req.Post)
-                yield return kvp.Key + " => \"" + kvp.Value + "\"\n";
-            if (req.PostArr.Count > 0)
-                yield return "\nPOSTArr:\n";
-            foreach (var kvp in req.PostArr)
-                yield return kvp.Key + " => [" + kvp.Value.Select(x => "\"" + x + "\"").JoinString(", ") + "]\n";
+                yield return kvp.Key + " => " + kvp.Value + "\n";
             if (req.FileUploads.Count > 0)
                 yield return "\nFiles:\n";
             foreach (var kvp in req.FileUploads)

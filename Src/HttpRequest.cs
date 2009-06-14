@@ -377,8 +377,7 @@ namespace RT.Servers
     {
         private struct FieldsCache
         {
-            public Dictionary<string, string> ValueCache;
-            public Dictionary<string, List<string>> ArrayCache;
+            public NameValuesCollection<string> ValueCache;
             public Dictionary<string, FileUpload> FileCache;
         }
         private string _url;
@@ -517,64 +516,31 @@ namespace RT.Servers
         /// <summary>
         /// Provides access to GET query parameters that are individual values.
         /// </summary>
-        /// <seealso cref="GetArr"/>
-        public Dictionary<string, string> Get
+        public NameValuesCollection<string> Get
         {
             get
             {
-                if (!_url.Contains('?'))
-                    return new Dictionary<string, string>();
                 if (GetFieldsCache.ValueCache == null)
-                    GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
-                return GetFieldsCache.ValueCache;
-            }
-        }
-
-        /// <summary>
-        /// Provides access to GET query parameters that are arrays.
-        /// </summary>
-        /// <seealso cref="Get"/>
-        public Dictionary<string, List<string>> GetArr
-        {
-            get
-            {
-                if (!_url.Contains('?'))
-                    return new Dictionary<string, List<string>>();
-                if (GetFieldsCache.ArrayCache == null)
-                    GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
-                return GetFieldsCache.ArrayCache;
+                {
+                    if (_url.Contains('?'))
+                        GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
+                    else
+                        GetFieldsCache = parseQueryParameters(null);
+                }
+                return GetFieldsCache.ValueCache.AsReadOnly();
             }
         }
 
         /// <summary>
         /// Provides access to POST query parameters that are individual values (empty if the request is not a POST request).
         /// </summary>
-        /// <seealso cref="PostArr"/>
-        public Dictionary<string, string> Post
+        public NameValuesCollection<string> Post
         {
             get
             {
-                if (Content == null)
-                    return new Dictionary<string, string>();
                 if (PostFieldsCache.ValueCache == null)
                     PostFieldsCache = parsePostParameters();
-                return PostFieldsCache.ValueCache;
-            }
-        }
-
-        /// <summary>
-        /// Provides access to POST query parameters that are arrays (empty if the request is not a POST request).
-        /// </summary>
-        /// <seealso cref="Post"/>
-        public Dictionary<string, List<string>> PostArr
-        {
-            get
-            {
-                if (Content == null)
-                    return new Dictionary<string, List<string>>();
-                if (PostFieldsCache.ArrayCache == null)
-                    PostFieldsCache = parsePostParameters();
-                return PostFieldsCache.ArrayCache;
+                return PostFieldsCache.ValueCache.AsReadOnly();
             }
         }
 
@@ -585,8 +551,6 @@ namespace RT.Servers
         {
             get
             {
-                if (Content == null)
-                    return new Dictionary<string, FileUpload>();
                 if (PostFieldsCache.FileCache == null)
                     PostFieldsCache = parsePostParameters();
                 return PostFieldsCache.FileCache;
@@ -599,10 +563,11 @@ namespace RT.Servers
                 return parseQueryParameters(Content);
             FieldsCache fc = new FieldsCache
             {
-                ArrayCache = new Dictionary<string, List<string>>(),
-                ValueCache = new Dictionary<string, string>(),
+                ValueCache = new NameValuesCollection<string>(),
                 FileCache = new Dictionary<string, FileUpload>()
             };
+            if (Content == null)
+                return fc;
 
             // An excessively long boundary is going to screw up the following algorithm.
             // (Actually a limit of up to 65527 would work, but I think 1024 is more than enough.)
@@ -725,13 +690,8 @@ namespace RT.Servers
                             // Note that CurrentWritingStream is either a MemoryStream or a FileStream.
                             // If it is a FileStream, then the relevant entry to fc.FileCache has already been made.
                             // Only if it is a MemoryStream, we need to process the stuff here.
-                            if (currentWritingStream is MemoryStream && currentFieldName.EndsWith("[]"))
-                                fc.ArrayCache.AddSafe(
-                                    currentFieldName.Remove(currentFieldName.Length - 2),
-                                    Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray())
-                                );
-                            else if (currentWritingStream is MemoryStream)
-                                fc.ValueCache[currentFieldName] = Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray());
+                            if (currentWritingStream is MemoryStream)
+                                fc.ValueCache[currentFieldName].Add(Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray()));
 
                             if (end)
                                 break;
@@ -787,32 +747,21 @@ namespace RT.Servers
         /// Decodes an ASCII-encoded stream of characters into key-value pairs.
         /// </summary>
         /// <param name="s">Stream to read from.</param>
-        /// <returns>A dictionary containing only the single-valued keys. For array-valued keys, use <see cref="ParseQueryArrayParameters"/>.</returns>
-        public static Dictionary<string, string> ParseQueryValueParameters(Stream s)
+        public static NameValuesCollection<string> ParseQueryValueParameters(Stream s)
         {
             FieldsCache fc = parseQueryParameters(s);
             return fc.ValueCache;
-        }
-
-        /// <summary>
-        /// Decodes an ASCII-encoded stream of characters into key-value pairs.
-        /// </summary>
-        /// <param name="s">Stream to read from.</param>
-        /// <returns>A dictionary containing only the array-valued keys. For single-valued keys, use <see cref="ParseQueryValueParameters"/>.</returns>
-        public static Dictionary<string, List<string>> ParseQueryArrayParameters(Stream s)
-        {
-            FieldsCache fc = parseQueryParameters(s);
-            return fc.ArrayCache;
         }
 
         private static FieldsCache parseQueryParameters(Stream s)
         {
             FieldsCache fc = new FieldsCache
             {
-                ValueCache = new Dictionary<string, string>(),
-                ArrayCache = new Dictionary<string, List<string>>(),
+                ValueCache = new NameValuesCollection<string>(),
                 FileCache = new Dictionary<string, FileUpload>()
             };
+            if (s == null)
+                return fc;
 
             byte[] buffer = new byte[65536];
             int bytesRead = s.Read(buffer, 0, buffer.Length);
@@ -824,10 +773,7 @@ namespace RT.Servers
             {
                 key = key.UrlUnescape();
                 val = val.UrlUnescape();
-                if (key.EndsWith("[]"))
-                    fc.ArrayCache.AddSafe(key.Remove(key.Length - 2), val);
-                else
-                    fc.ValueCache[key] = val;
+                fc.ValueCache[key].Add(val);
             });
 
             bool inKey = true;
