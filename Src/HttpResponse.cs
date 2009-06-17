@@ -5,6 +5,7 @@ using System.Text;
 using RT.TagSoup;
 using RT.Util.Streams;
 using RT.Util.ExtensionMethods;
+using System.Linq;
 
 namespace RT.Servers
 {
@@ -24,7 +25,7 @@ namespace RT.Servers
         public HttpAcceptRanges AcceptRanges;
         public int? Age; // in seconds
         public string[] Allow;  // usually: { "GET", "HEAD", "POST" }
-        public HttpCacheControl CacheControl;
+        public HttpCacheControl[] CacheControl;
         public HttpConnection Connection;
         public HttpContentEncoding ContentEncoding;
         public string ContentLanguage;
@@ -35,8 +36,10 @@ namespace RT.Servers
         public string ContentType = "text/html; charset=utf-8";
         public DateTime? Date;
         public string ETag;
+        public DateTime? Expires;
         public DateTime? LastModified;
         public string Location; // used in redirection
+        public string Pragma;
         public string Server;
         public List<Cookie> SetCookie;
         public HttpTransferEncoding TransferEncoding;
@@ -56,36 +59,32 @@ namespace RT.Servers
                 b.Append("Age: " + Age.Value + "\r\n");
             if (Allow != null)
                 b.Append("Allow: " + string.Join(", ", Allow));
-            if (CacheControl.State != HttpCacheControlState.None)
+            if (CacheControl != null)
             {
-                b.Append("Cache-Control: ");
-                if (CacheControl.State == HttpCacheControlState.MaxAge && CacheControl.IntParameter != null)
-                    b.Append("max-age=" + CacheControl.IntParameter.Value);
-                else if (CacheControl.State == HttpCacheControlState.MaxStale && CacheControl.IntParameter != null)
-                    b.Append("max-stale=" + CacheControl.IntParameter.Value);
-                else if (CacheControl.State == HttpCacheControlState.MaxStale)
-                    b.Append("max-stale");
-                else if (CacheControl.State == HttpCacheControlState.MinFresh && CacheControl.IntParameter != null)
-                    b.Append("min-fresh=" + CacheControl.IntParameter.Value);
-                else if (CacheControl.State == HttpCacheControlState.MustRevalidate)
-                    b.Append("must-revalidate");
-                else if (CacheControl.State == HttpCacheControlState.NoCache)
-                    b.Append("no-cache");
-                else if (CacheControl.State == HttpCacheControlState.NoStore)
-                    b.Append("no-store");
-                else if (CacheControl.State == HttpCacheControlState.NoTransform)
-                    b.Append("no-transform");
-                else if (CacheControl.State == HttpCacheControlState.OnlyIfCached)
-                    b.Append("only-if-cached");
-                else if (CacheControl.State == HttpCacheControlState.Private && CacheControl.StringParameter != null)
-                    b.Append("private=\"" + CacheControl.StringParameter + "\"");
-                else if (CacheControl.State == HttpCacheControlState.ProxyRevalidate)
-                    b.Append("proxy-revalidate");
-                else if (CacheControl.State == HttpCacheControlState.Public)
-                    b.Append("public");
-                else if (CacheControl.State == HttpCacheControlState.SMaxAge && CacheControl.IntParameter != null)
-                    b.Append("s-maxage=" + CacheControl.IntParameter.Value);
-                b.Append("\r\n");
+                var coll = CacheControl.Where(c => c.State != HttpCacheControlState.None).SelectMany(c =>
+                    c.State == HttpCacheControlState.MaxAge && c.IntParameter != null ? new[] { "max-age=" + c.IntParameter.Value } :
+                    c.State == HttpCacheControlState.MaxStale && c.IntParameter != null ? new[] { "max-stale=" + c.IntParameter.Value } :
+                    c.State == HttpCacheControlState.MaxStale ? new[] { "max-stale" } :
+                    c.State == HttpCacheControlState.MinFresh && c.IntParameter != null ? new[] { "min-fresh=" + c.IntParameter.Value } :
+                    c.State == HttpCacheControlState.MustRevalidate ? new[] { "must-revalidate" } :
+                    c.State == HttpCacheControlState.NoCache ? new[] { "no-cache" } :
+                    c.State == HttpCacheControlState.NoStore ? new[] { "no-store" } :
+                    c.State == HttpCacheControlState.NoTransform ? new[] { "no-transform" } :
+                    c.State == HttpCacheControlState.OnlyIfCached ? new[] { "only-if-cached" } :
+                    c.State == HttpCacheControlState.PostCheck && c.IntParameter != null ? new[] { "post-check=" + c.IntParameter.Value } :
+                    c.State == HttpCacheControlState.PreCheck && c.IntParameter != null ? new[] { "pre-check=" + c.IntParameter.Value } :
+                    c.State == HttpCacheControlState.Private && c.StringParameter != null ? new[] { "private=\"" + c.StringParameter + "\"" } :
+                    c.State == HttpCacheControlState.ProxyRevalidate ? new[] { "proxy-revalidate" } :
+                    c.State == HttpCacheControlState.Public ? new[] { "public" } :
+                    c.State == HttpCacheControlState.SMaxAge && c.IntParameter != null ? new[] { "s-maxage=" + c.IntParameter.Value } :
+                    new string[0]
+                );
+                if (coll.Any())
+                {
+                    b.Append("Cache-Control: ");
+                    b.Append(coll.JoinString(", "));
+                    b.Append("\r\n");
+                }
             }
             if (Connection != HttpConnection.None)
             {
@@ -112,10 +111,14 @@ namespace RT.Servers
                 b.Append("Date: " + Date.Value.ToString("r" /* = RFC1123 */) + "\r\n");
             if (ETag != null)
                 b.Append("ETag: " + ETag + "\r\n");
+            if (Expires != null)
+                b.Append("Expires: " + Expires.Value.ToString("r" /* = RFC1123 */) + "\r\n");
             if (LastModified != null)
                 b.Append("Last-Modified: " + LastModified.Value.ToString("r" /* = RFC1123 */) + "\r\n");
             if (Location != null)
                 b.Append("Location: " + Location + "\r\n");
+            if (Pragma != null)
+                b.Append("Pragma: " + Pragma + "\r\n");
             if (Server != null)
                 b.Append("Server: " + Server + "\r\n");
             if (SetCookie != null)

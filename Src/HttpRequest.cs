@@ -445,7 +445,7 @@ namespace RT.Servers
 
         /// <summary>
         /// The directory to use for temporary files if the request is a POST request and contains a file upload.
-        /// This can be set before <see cref="FileUploads"/>, <see cref="Post"/> or <see cref="PostArr"/> is called for the first time.
+        /// This can be set before <see cref="FileUploads"/> and <see cref="Post"/> are called for the first time.
         /// After the first call to any of these, file uploads will already have been processed.
         /// </summary>
         public string TempDir;

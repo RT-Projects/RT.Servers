@@ -87,6 +87,7 @@ namespace RT.TagSoup.HtmlTags
         public shape shape;
         public string style;
         public string tabindex;
+        public string target;
         public string title;
         public string type;
     }
@@ -329,6 +330,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public btype type;
         public string value;
+        public string target;
     }
     public class CAPTION : HtmlTag
     {
@@ -649,6 +651,7 @@ namespace RT.TagSoup.HtmlTags
         public string onsubmit;
         public string style;
         public string title;
+        public string target;
     }
     public class H1 : HtmlTag
     {
@@ -910,6 +913,7 @@ namespace RT.TagSoup.HtmlTags
         public string onselect;
         public string onchange;
         public string accept;
+        public string target;
     }
     public class INS : HtmlTag
     {
@@ -1320,6 +1324,18 @@ namespace RT.TagSoup.HtmlTags
         public string src;
         public string type;
     }
+    public class SCRIPTLiteral : HtmlTag
+    {
+        public SCRIPTLiteral(string literal) : base() { Literal = literal; }
+        public override string TagName { get { return "SCRIPT"; } }
+        public string Literal;
+        public override IEnumerable<string> ToEnumerable()
+        {
+            yield return @"<SCRIPT type=""text/javascript"">";
+            yield return Literal;
+            yield return @"</SCRIPT>";
+        }
+    }
     public class SELECT : HtmlTag
     {
         public SELECT(params object[] contents) : base(contents) { }
@@ -1438,6 +1454,18 @@ namespace RT.TagSoup.HtmlTags
             yield return @">@import """;
             yield return ImportFrom;
             yield return @""";</STYLE>";
+        }
+    }
+    public class STYLELiteral : HtmlTag
+    {
+        public STYLELiteral(string literal) : base() { Literal = literal; }
+        public override string TagName { get { return "STYLE"; } }
+        public string Literal;
+        public override IEnumerable<string> ToEnumerable()
+        {
+            yield return @"<STYLE type=""text/css"">";
+            yield return Literal;
+            yield return @"</STYLE>";
         }
     }
     public class SUB : HtmlTag
@@ -1720,6 +1748,27 @@ namespace RT.TagSoup.HtmlTags
     {
         public TT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TT"; } }
+        public string class_;
+        public dir dir;
+        public string id;
+        public string lang;
+        public string onclick;
+        public string ondblclick;
+        public string onkeydown;
+        public string onkeypress;
+        public string onkeyup;
+        public string onmousedown;
+        public string onmousemove;
+        public string onmouseout;
+        public string onmouseover;
+        public string onmouseup;
+        public string style;
+        public string title;
+    }
+    public class U : HtmlTag
+    {
+        public U(params object[] contents) : base(contents) { }
+        public override string TagName { get { return "U"; } }
         public string class_;
         public dir dir;
         public string id;

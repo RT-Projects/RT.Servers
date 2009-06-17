@@ -68,7 +68,7 @@ namespace RT.Servers
     /// <summary>
     /// Contains all relevant information about a file upload contained in an HTTP POST request.
     /// </summary>
-    public struct FileUpload
+    public class FileUpload
     {
         /// <summary>The path and filename of the temporary file in the local file system where the uploaded file is stored.</summary>
         public string LocalTempFilename;

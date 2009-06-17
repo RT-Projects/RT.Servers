@@ -60,6 +60,9 @@ namespace RT.Servers
         NoStore,
         NoTransform,
         Private,    // StringParameter = field name, optional
+
+        PostCheck, // IntParameter
+        PreCheck,  // IntParameter
     }
 
     /// <summary>
