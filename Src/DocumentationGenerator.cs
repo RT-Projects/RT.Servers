@@ -225,8 +225,12 @@ namespace RT.Servers
         }
         private IEnumerable<object> friendlyTypeName(Type t, bool includeNamespaces, string baseURL, bool inclRef)
         {
-            if (t.IsByRef && inclRef)
-                yield return "ref ";
+            if (t.IsByRef)
+            {
+                if (inclRef)
+                    yield return "ref ";
+                t = t.GetElementType();
+            }
 
             if (t.IsArray)
             {
@@ -347,7 +351,7 @@ namespace RT.Servers
             if (mi.IsGenericMethod)
             {
                 if (!indent) yield return new WBR();
-                yield return "<" + ", ".Join(mi.GetGenericArguments().Select(ga => ga.Name)) + ">";
+                yield return "<" + mi.GetGenericArguments().Select(ga => ga.Name).JoinString(", ") + ">";
             }
             if (parameterTypes || parameterNames)
             {
@@ -462,11 +466,14 @@ namespace RT.Servers
 
         private string stringifyParameterType(Type parameterType, MethodBase method, Type type)
         {
+            if (parameterType.IsByRef)
+                return stringifyParameterType(parameterType.GetElementType(), method, type) + "@";
+
             if (parameterType.IsArray)
                 return stringifyParameterType(parameterType.GetElementType(), method, type) + "[]";
 
             if (!parameterType.IsGenericType && !parameterType.IsGenericParameter)
-                return parameterType.FullName.Replace('&', '@');
+                return parameterType.FullName;
 
             if (parameterType.IsGenericParameter)
             {
@@ -498,10 +505,7 @@ namespace RT.Servers
                 string fullName = parameterType.GetGenericTypeDefinition().FullName;
                 fullName = fullName.Remove(fullName.LastIndexOf('`'));
                 while (fullName.EndsWith("`")) fullName = fullName.Remove(fullName.Length - 1);
-                return fullName.Replace('&', '@') + "{" + string.Join(",",
-                    parameterType.GetGenericArguments()
-                        .Select(ga => stringifyParameterType(ga, method, type))
-                        .ToArray()) + "}";
+                return fullName + "{" + parameterType.GetGenericArguments().Select(ga => stringifyParameterType(ga, method, type)).JoinString(",") + "}";
             }
 
             throw new Exception("I totally don't know what to do with this parameter type.");
