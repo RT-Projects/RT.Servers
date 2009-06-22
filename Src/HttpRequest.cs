@@ -433,14 +433,13 @@ namespace RT.Servers
         /// </summary>
         public string BaseDomain;
 
-        /// <summary>
-        /// The HTTP request method (GET, POST or HEAD).
-        /// </summary>
+        /// <summary>Specifies the HTTP protocol version that was used for this request.</summary>
+        public HttpProtocolVersion HttpVersion;
+
+        /// <summary>Specifies the HTTP request method (GET, POST or HEAD) that was used for thsi request.</summary>
         public HttpMethod Method;
 
-        /// <summary>
-        /// The HTTP request headers that were received and understood by <see cref="HttpServer"/>.
-        /// </summary>
+        /// <summary>Contains the HTTP request headers that were received and understood by <see cref="HttpServer"/>.</summary>
         public HttpRequestHeaders Headers = new HttpRequestHeaders();
 
         /// <summary>

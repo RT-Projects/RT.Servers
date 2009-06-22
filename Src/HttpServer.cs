@@ -720,12 +720,12 @@ namespace RT.Servers
                     catch (NotSupportedException) { }
                 }
 
-                bool useKeepAlive = keepAliveRequested;
+                bool useKeepAlive = keepAliveRequested && response.OriginalRequest.HttpVersion == HttpProtocolVersion.Http11;
                 if (useKeepAlive)
                     response.Headers.Connection = HttpConnection.KeepAlive;
 
                 // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 16 KB
-                if (contentLengthKnown && contentLength > 16 * 1024 && response.Status == HttpStatusCode._200_OK && response.Content.CanSeek)
+                if (response.OriginalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && response.Status == HttpStatusCode._200_OK && response.Content.CanSeek)
                 {
                     response.Headers.AcceptRanges = HttpAcceptRanges.Bytes;
 
@@ -785,7 +785,7 @@ namespace RT.Servers
                     }
                 }
 
-                bool useGzip = gzipRequested && !(contentLengthKnown && contentLength <= 1024);
+                bool useGzip = gzipRequested && !(contentLengthKnown && contentLength <= 1024) && response.OriginalRequest.HttpVersion == HttpProtocolVersion.Http11;
                 if (useGzip)
                     response.Headers.ContentEncoding = HttpContentEncoding.Gzip;
 
@@ -1009,11 +1009,12 @@ namespace RT.Servers
                 return ErrorResponse(HttpStatusCode._400_BadRequest);
 
             // Parse the method line
-            Match match = Regex.Match(lines[0], @"^(GET|POST|HEAD) ([^ ]+) HTTP/1.1$");
+            Match match = Regex.Match(lines[0], @"^(GET|POST|HEAD) ([^ ]+) HTTP/1.([01])$");
             if (!match.Success)
                 return ErrorResponse(HttpStatusCode._501_NotImplemented);
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
+            req.HttpVersion = match.Groups[3].Value == "0" ? HttpProtocolVersion.Http10 : HttpProtocolVersion.Http11;
             req.Method =
                 match.Groups[1].Value == "HEAD" ? HttpMethod.Head :
                 match.Groups[1].Value == "POST" ? HttpMethod.Post : HttpMethod.Get;

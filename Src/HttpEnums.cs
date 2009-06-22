@@ -7,9 +7,14 @@ namespace RT.Servers
 
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
-    /// <summary>
-    /// Contains values for the supported HTTP methods.
-    /// </summary>
+    /// <summary>Contains values for the supported HTTP protocol versions.</summary>
+    public enum HttpProtocolVersion
+    {
+        Http10,
+        Http11
+    }
+
+    /// <summary>Contains values for the supported HTTP methods.</summary>
     public enum HttpMethod
     {
         Get,
@@ -17,18 +22,14 @@ namespace RT.Servers
         Head
     }
 
-    /// <summary>
-    /// Contains values for the supported values of the Accept-Ranges HTTP request header.
-    /// </summary>
+    /// <summary>Contains values for the supported values of the Accept-Ranges HTTP request header.</summary>
     public enum HttpAcceptRanges
     {
         None,
         Bytes
     }
 
-    /// <summary>
-    /// Contains values for the supported values of the Connection HTTP request or response header.
-    /// </summary>
+    /// <summary>Contains values for the supported values of the Connection HTTP request or response header.</summary>
     public enum HttpConnection
     {
         None,
@@ -36,9 +37,7 @@ namespace RT.Servers
         KeepAlive
     }
 
-    /// <summary>
-    /// Contains values for the Cache-Control HTTP request or response header. None of these currently have any effect.
-    /// </summary>
+    /// <summary>Contains values for the Cache-Control HTTP request or response header. None of these currently have any effect.</summary>
     public enum HttpCacheControlState
     {
         None,
