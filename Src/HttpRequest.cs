@@ -513,7 +513,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Provides access to GET query parameters that are individual values.
+        /// Provides access to GET query parameters.
         /// </summary>
         public NameValuesCollection<string> Get
         {
@@ -531,7 +531,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Provides access to POST query parameters that are individual values (empty if the request is not a POST request).
+        /// Provides access to POST query parameters (empty if the request is not a POST request).
         /// </summary>
         public NameValuesCollection<string> Post
         {
