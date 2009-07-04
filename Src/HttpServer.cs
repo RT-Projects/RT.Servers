@@ -1061,6 +1061,8 @@ namespace RT.Servers
                     return ErrorResponse(HttpStatusCode._411_LengthRequired);
                 if (req.Headers.ContentLength.Value > _opt.MaxSizePostContent)
                     return ErrorResponse(HttpStatusCode._413_RequestEntityTooLarge);
+                if (req.Headers.ContentType == HttpPostContentType.None)
+                    return ErrorResponse(HttpStatusCode._501_NotImplemented, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.");
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here
                 if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
@@ -1247,12 +1249,7 @@ namespace RT.Servers
             string nameLower = headerName.ToLowerInvariant();
 
             // Special actions when we encounter certain headers
-            if (nameLower == "content-type" && req.Method == HttpMethod.Post)
-            {
-                if (req.Headers.ContentType == HttpPostContentType.None)
-                    throw new InvalidRequestException(ErrorResponse(HttpStatusCode._501_NotImplemented, @"""Content-Type"" value ""{0}"" is not supported. Only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.".Fmt(headerValue)));
-            }
-            else if (nameLower == "host")
+            if (nameLower == "host")
             {
                 // For performance reasons, we check if we have a handler for this domain/URL as soon as possible.
                 // If we find out that we don't, stop processing here and immediately output an error

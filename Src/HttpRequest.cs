@@ -132,7 +132,7 @@ namespace RT.Servers
                 }
                 else if (nameLower == "content-type")
                 {
-                    if (string.Equals(value, "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(value.Split(';')[0].Trim(), "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
                     {
                         ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                         recognised = true;
