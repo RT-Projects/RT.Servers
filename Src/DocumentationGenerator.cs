@@ -582,24 +582,33 @@ namespace RT.Servers
 
         private IEnumerable<object> generateMemberDocumentation(MemberInfo member, XElement document, HttpRequest req)
         {
+            bool isStatic =
+                member.MemberType == MemberTypes.Field && (member as FieldInfo).IsStatic ||
+                member.MemberType == MemberTypes.Method && (member as MethodInfo).IsStatic ||
+                member.MemberType == MemberTypes.Property && (member as PropertyInfo).GetGetMethod().IsStatic;
+
             yield return new H1(
                 member.MemberType == MemberTypes.Constructor ? "Constructor: " :
                 member.MemberType == MemberTypes.Event ? "Event: " :
-                member.MemberType == MemberTypes.Field && (member as FieldInfo).IsStatic ? "Static field: " :
-                member.MemberType == MemberTypes.Field ? "Field: " :
-                member.MemberType == MemberTypes.Method && (member as MethodInfo).IsStatic ? "Static method: " :
-                member.MemberType == MemberTypes.Method ? "Method: " :
-                member.MemberType == MemberTypes.Property ? "Property: " : "Member: ",
+                member.MemberType == MemberTypes.Field ? (isStatic ? "Static field: " : "Field: ") :
+                member.MemberType == MemberTypes.Method ? (isStatic ? "Static method: " : "Method: ") :
+                member.MemberType == MemberTypes.Property ? (isStatic ? "Static property: " : "Property: ") : "Member: ",
                 friendlyMemberName(member, true, false, true, false, false)
             );
             yield return new H2("Full definition");
-            yield return new PRE(friendlyMemberName(member, true, true, true, true, true, true, null, req.BaseUrl));
+            yield return new PRE((isStatic ? "static " : null), friendlyMemberName(member, true, true, true, true, true, true, null, req.BaseUrl));
 
             var summary = document == null ? null : document.Element("summary");
             if (summary != null)
             {
                 yield return new H2("Summary");
                 yield return interpretBlock(summary.Nodes(), req);
+            }
+            var remarks = document == null ? null : document.Element("remarks");
+            if (remarks != null)
+            {
+                yield return new H2("Remarks");
+                yield return interpretBlock(remarks.Nodes(), req);
             }
 
             if ((member.MemberType == MemberTypes.Constructor || member.MemberType == MemberTypes.Method)
@@ -640,7 +649,7 @@ namespace RT.Servers
                 friendlyTypeName(type, true)
             );
             if (document == null)
-                yield return new DIV("No documentation available for this class.") { class_ = "warning" };
+                yield return new DIV("No documentation available for this type.") { class_ = "warning" };
             else
             {
                 var summary = document.Element("summary");
@@ -649,18 +658,25 @@ namespace RT.Servers
                     yield return new H2("Summary");
                     yield return interpretBlock(summary.Nodes(), req);
                 }
+                var remarks = document.Element("remarks");
+                if (remarks != null)
+                {
+                    yield return new H2("Remarks");
+                    yield return interpretBlock(remarks.Nodes(), req);
+                }
             }
 
             foreach (var gr in _tree[type.Namespace][type.FullName].E3.GroupBy(kvp => new Tuple<MemberTypes, bool>(kvp.Value.E1.MemberType,
-                kvp.Value.E1.MemberType == MemberTypes.Method && ((MethodInfo) kvp.Value.E1).IsStatic)))
+                (kvp.Value.E1.MemberType == MemberTypes.Method && ((MethodInfo) kvp.Value.E1).IsStatic) || (kvp.Value.E1.MemberType == MemberTypes.Property && ((PropertyInfo) kvp.Value.E1).GetGetMethod().IsStatic))))
             {
                 yield return new H2(
                     gr.Key.E1 == MemberTypes.Constructor ? "Constructors" :
                     gr.Key.E1 == MemberTypes.Event ? "Events" :
                     gr.Key.E1 == MemberTypes.Field ? "Fields" :
                     gr.Key.E1 == MemberTypes.Method && gr.Key.E2 ? "Static methods" :
-                    gr.Key.E1 == MemberTypes.Method ? "Non-static methods" :
-                    gr.Key.E1 == MemberTypes.Property ? "Properties" : "Additional members"
+                    gr.Key.E1 == MemberTypes.Method ? "Instance methods" :
+                    gr.Key.E1 == MemberTypes.Property && gr.Key.E2 ? "Static properties" :
+                    gr.Key.E1 == MemberTypes.Property ? "Instance properties" : "Additional members"
                 );
                 yield return new TABLE { class_ = "doclist" }._(
                     gr.Select(kvp => new TR(
