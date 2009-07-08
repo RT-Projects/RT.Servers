@@ -610,6 +610,11 @@ namespace RT.Servers
                 yield return new H2("Remarks");
                 yield return interpretBlock(remarks.Nodes(), req);
             }
+            foreach (var example in document.Elements("example"))
+            {
+                yield return new H2("Example");
+                yield return interpretBlock(example.Nodes(), req);
+            }
 
             if ((member.MemberType == MemberTypes.Constructor || member.MemberType == MemberTypes.Method)
                     && (member as MethodBase).GetParameters().Any())
@@ -663,6 +668,11 @@ namespace RT.Servers
                 {
                     yield return new H2("Remarks");
                     yield return interpretBlock(remarks.Nodes(), req);
+                }
+                foreach (var example in document.Elements("example"))
+                {
+                    yield return new H2("Example");
+                    yield return interpretBlock(example.Nodes(), req);
                 }
             }
 
