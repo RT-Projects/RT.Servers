@@ -72,7 +72,7 @@ namespace RT.Servers
         public long? ContentLength;                 // required only for POST
         public HttpPostContentType ContentType;     // required only for POST
         public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HttpPostContentType.MultipartFormData
-        public Dictionary<string, Cookie> Cookie;
+        public Dictionary<string, Cookie> Cookie = new Dictionary<string,Cookie>();
         public Dictionary<string, string> Expect;
         public string Host;
         public DateTime? IfModifiedSince;
