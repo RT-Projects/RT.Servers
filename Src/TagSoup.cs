@@ -156,7 +156,7 @@ namespace RT.TagSoup
                 yield break;
             }
 
-            yield return o.ToString();
+            yield return o.ToString().HtmlEscape();
         }
 
         /// <summary>Converts a C#-compatible field name into an HTML/XHTML-compatible one.</summary>
