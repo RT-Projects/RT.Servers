@@ -900,13 +900,13 @@ namespace RT.TagSoup.HtmlTags
         public bool checked_;
         public bool disabled;
         public bool readonly_;
-        public int size;
-        public int maxlength;
+        public int? size;
+        public int? maxlength;
         public string src;
         public string alt;
         public string usemap;
         public bool ismap;
-        public int tabindex;
+        public int? tabindex;
         public string accesskey;
         public string onfocus;
         public string onblur;
@@ -1603,7 +1603,7 @@ namespace RT.TagSoup.HtmlTags
         public override string TagName { get { return "TEXTAREA"; } }
         public string accesskey;
         public string class_;
-        public int cols;
+        public int? cols;
         public dir dir;
         public string disabled;
         public string id;
@@ -1624,7 +1624,7 @@ namespace RT.TagSoup.HtmlTags
         public string onmouseup;
         public string onselect;
         public string readonly_;
-        public int rows;
+        public int? rows;
         public string style;
         public string tabindex;
         public string title;
