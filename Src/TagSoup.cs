@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using RT.Util.ExtensionMethods;
+using System.Linq;
 
 namespace RT.TagSoup
 {
@@ -72,9 +73,11 @@ namespace RT.TagSoup
                     continue;
                 object val = field.GetValue(this);
                 if (val == null) continue;
-                if (field.FieldType.IsEnum && val.ToString() == "_")
-                    continue;
                 if (val is bool && !((bool) val))
+                    continue;
+                bool isEnum = field.FieldType.IsEnum;
+                string valStr = val.ToString();
+                if (isEnum && valStr == "_")
                     continue;
 
                 if (!tagPrinted)
@@ -83,15 +86,15 @@ namespace RT.TagSoup
                     tagPrinted = true;
                 }
 
-                if (field.FieldType.IsEnum)
-                    yield return " " + fixFieldName(field.Name) + "=\"" + fixFieldName(val.ToString()) + "\"";
+                if (isEnum)
+                    yield return " " + fixFieldName(field.Name) + "=\"" + fixFieldName(valStr) + "\"";
                 else if (val is bool)
                 {
                     string s = fixFieldName(field.Name);
                     yield return " " + s + "=\"" + s + "\"";
                 }
                 else
-                    yield return " " + fixFieldName(field.Name) + "=\"" + val.ToString().HtmlEscape() + "\"";
+                    yield return " " + fixFieldName(field.Name) + "=\"" + valStr.HtmlEscape() + "\"";
             }
             if (tagPrinted && AllowXhtmlEmpty && (TagContents == null || TagContents.Count == 0))
             {
@@ -104,8 +107,11 @@ namespace RT.TagSoup
             {
                 if (content == null)
                     continue;
-                foreach (string s in stringify(content))
-                    yield return s;
+                if (content is string)
+                    yield return ((string) content).HtmlEscape();
+                else
+                    foreach (string s in stringify(content))
+                        yield return s;
             }
             if (EndTag)
                 yield return "</" + TagName + ">";
@@ -121,42 +127,27 @@ namespace RT.TagSoup
             return sb.ToString();
         }
 
+        private IEnumerable<string> Empty = Enumerable.Empty<string>();
+
         private IEnumerable<string> stringify(object o)
         {
             if (o == null)
-                yield break;
-
-            if (o is string)
-            {
-                yield return (o as string).HtmlEscape();
-                yield break;
-            }
+                return Empty;
 
             if (o is Tag)
-            {
-                foreach (string str in (o as Tag).ToEnumerable())
-                    yield return str;
-                yield break;
-            }
+                return ((Tag) o).ToEnumerable();
 
             if (o is IEnumerable)
-            {
-                foreach (object s in (o as IEnumerable))
-                    foreach (string str in stringify(s))
-                        yield return str;
-                yield break;
-            }
+                return ((IEnumerable) o).Cast<object>().SelectMany(s => stringify(s));
+
+            if (o is string)
+                return new[] { ((string) o).HtmlEscape() };
 
             Type t = o.GetType();
             if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Func<>))
-            {
-                object result = t.GetMethod("Invoke").Invoke(o, new object[] { });
-                foreach (string str in stringify(result))
-                    yield return str;
-                yield break;
-            }
+                return stringify(t.GetMethod("Invoke").Invoke(o, new object[] { }));
 
-            yield return o.ToString().HtmlEscape();
+            return new[] { o.ToString().HtmlEscape() };
         }
 
         /// <summary>Converts a C#-compatible field name into an HTML/XHTML-compatible one.</summary>
