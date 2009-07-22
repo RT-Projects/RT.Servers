@@ -1190,7 +1190,7 @@ namespace RT.Servers
             {
                 Status = HttpStatusCode._500_InternalServerError,
                 Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
-                Content = new MemoryStream(exceptionAsString(e, true).ToUtf8())
+                Content = new MemoryStream(ExceptionAsString(e, true).ToUtf8())
             };
         }
 
@@ -1199,13 +1199,19 @@ namespace RT.Servers
             if (exception is SocketException)
                 throw exception;
 
-            byte[] outp = exceptionAsString(exception,
+            byte[] outp = ExceptionAsString(exception,
                 contentType.StartsWith("text/html") || contentType.StartsWith("application/xhtml")).ToUtf8();
             output.Write(outp, 0, outp.Length);
             output.Close();
         }
 
-        private static string exceptionAsString(Exception exception, bool html)
+        /// <summary>
+        /// Generates a string describing the <paramref name="exception"/>, including the type, message
+        /// and stack trace, and iterating over the InnerException chain.
+        /// </summary>
+        /// <param name="exception">The exception to be described.</param>
+        /// <param name="html">If true, an HTML "DIV" tag will be returned with formatted info. Otherwise, a plaintext message is generated.</param>
+        public static string ExceptionAsString(Exception exception, bool html)
         {
             string exceptionText = "";
             bool first = true;
