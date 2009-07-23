@@ -103,6 +103,7 @@ namespace RT.TagSoup
             }
             if (tagPrinted)
                 yield return ">";
+            Exception toThrow = null;
             foreach (object content in TagContents)
             {
                 if (content == null)
@@ -110,11 +111,25 @@ namespace RT.TagSoup
                 if (content is string)
                     yield return ((string) content).HtmlEscape();
                 else
-                    foreach (string s in stringify(content))
-                        yield return s;
+                {
+                    IEnumerator<string> en = null;
+                    try { en = stringify(content).GetEnumerator(); }
+                    catch (Exception e) { toThrow = e; }
+                    while (toThrow == null)
+                    {
+                        bool hasNext = false;
+                        try { hasNext = en.MoveNext(); }
+                        catch (Exception e) { toThrow = e; }
+                        if (!hasNext)
+                            break;
+                        yield return en.Current;
+                    }
+                }
             }
             if (EndTag)
                 yield return "</" + TagName + ">";
+            if (toThrow != null)
+                throw toThrow;
         }
 
         /// <summary>Converts the entire tag tree into a single string.</summary>
