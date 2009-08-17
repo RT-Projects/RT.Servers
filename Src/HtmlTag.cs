@@ -14,6 +14,11 @@ namespace RT.TagSoup.HtmlTags
         public HtmlTag(params object[] Contents) { TagContents = new List<object>(Contents); }
         /// <summary>Returns false.</summary>
         public override bool AllowXhtmlEmpty { get { return false; } }
+        /// <summary>Creates a simple HTML document from the specified elements.</summary>
+        /// <param name="title">Title to use in the &lt;TITLE&gt; tag in the head.</param>
+        /// <param name="bodyContent">Contents of the &lt;BODY&gt; tag.</param>
+        /// <returns>An <see cref="HtmlTag"/> representing the entire HTML document.</returns>
+        public static HtmlTag HtmlDocument(object title, params object[] bodyContent) { return new HTML(new HEAD(new TITLE(title)), new BODY(bodyContent)); }
     }
 
     /// <summary>Special class to help construct an HTML <c>&lt;TABLE&gt;</c> element
