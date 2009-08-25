@@ -381,7 +381,7 @@ namespace RT.Servers
                 bool plainText = true;
                 for (int i = 0; i < bytesRead && plainText; i++)
                 {
-                    if (buf[i] < 10 || buf[i] == 11 || buf[i] == 12 || (buf[i] > 13 && buf[i] < 32))
+                    if (buf[i] < 32 && buf[i] != 9 && buf[i] != 10 && buf[i] != 13)
                         plainText = false;
                 }
                 mimeType = plainText ? "text/plain; charset=utf-8" : "application/octet-stream";
