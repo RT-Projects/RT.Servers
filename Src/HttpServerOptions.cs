@@ -83,7 +83,7 @@ namespace RT.Servers
             { "bmp", "image/bmp" },
 
             // Default
-            { "*", "application/octet-stream" }
+            { "*", "detect" }
         };
 
         /// <summary>

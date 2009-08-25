@@ -365,10 +365,28 @@ namespace RT.Servers
         public HttpResponse FileResponse(string filePath)
         {
             FileInfo f = new FileInfo(filePath);
-            string extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "*";
-            return FileResponse(filePath,
-                _opt.MimeTypes.ContainsKey(extension) ? _opt.MimeTypes[extension] :
-                _opt.MimeTypes.ContainsKey("*") ? _opt.MimeTypes["*"] : "application/octet-stream");
+            string extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "";
+            string mimeType = _opt.MimeTypes.ContainsKey(extension) ? _opt.MimeTypes[extension] : _opt.MimeTypes.ContainsKey("*") ? _opt.MimeTypes["*"] : "detect";
+
+            if (mimeType == "detect")
+            {
+                // Look at the first 1 KB. If there are special control characters in it, it's likely a binary file. Otherwise, output as text/plain.
+                byte[] buf = new byte[1024];
+                int bytesRead;
+                using (var s = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    bytesRead = s.Read(buf, 0, 1024);
+                    s.Close();
+                }
+                bool plainText = true;
+                for (int i = 0; i < bytesRead && plainText; i++)
+                {
+                    if (buf[i] < 10 || buf[i] == 11 || buf[i] == 12 || (buf[i] > 13 && buf[i] < 32))
+                        plainText = false;
+                }
+                mimeType = plainText ? "text/plain; charset=utf-8" : "application/octet-stream";
+            }
+            return FileResponse(filePath, mimeType);
         }
 
         /// <summary>
