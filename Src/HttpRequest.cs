@@ -72,7 +72,7 @@ namespace RT.Servers
         public long? ContentLength;                 // required only for POST
         public HttpPostContentType ContentType;     // required only for POST
         public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HttpPostContentType.MultipartFormData
-        public Dictionary<string, Cookie> Cookie = new Dictionary<string,Cookie>();
+        public Dictionary<string, Cookie> Cookie = new Dictionary<string, Cookie>();
         public Dictionary<string, string> Expect;
         public string Host;
         public DateTime? IfModifiedSince;
@@ -502,6 +502,14 @@ namespace RT.Servers
         public string UrlWithoutQuery
         {
             get { return _url.Contains('?') ? _url.Remove(_url.IndexOf('?')) : _url; }
+        }
+
+        /// <summary>
+        /// Returns the raw GET query parameters, if any
+        /// </summary>
+        public string Query
+        {
+            get { return _url.Contains('?') ? _url.Substring(_url.IndexOf('?') + 1) : null; }
         }
 
         /// <summary>

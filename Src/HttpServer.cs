@@ -164,9 +164,10 @@ namespace RT.Servers
         public HttpServerOptions Options { get { return _opt; } }
 
         /// <summary>
-        /// Returns a boolean specifying whether the server is currently running (listening).
+        /// Returns a boolean specifying whether the server is currently running (listening) in non-blocking mode.
+        /// If the server is running in blocking mode, this will return false even if it is listening.
         /// </summary>
-        public bool IsListening { get { return _listeningThread != null && _listeningThread.IsAlive; } }
+        public bool IsListeningThreadActive { get { return _listeningThread != null && _listeningThread.IsAlive; } }
 
         private TcpListener _listener;
         private Thread _listeningThread;
@@ -186,13 +187,15 @@ namespace RT.Servers
         public LoggerBase Log;
 
         /// <summary>
-        /// Shuts the HTTP server down, optionally either gracefully (allowing still-running requests to complete)
-        /// or brutally (aborting requests no matter where they are in their processing).
+        /// If the HTTP server is listening in non-blocking mode, shuts the HTTP server down, optionally either
+        /// gracefully (allowing still-running requests to complete) or brutally (aborting requests no matter where
+        /// they are in their processing). If the HTTP server is listening in blocking mode, nothing happens.
+        /// Blocking or non-blocking mode is determined by the parameter to <see cref="StartListening(bool)"/>.
         /// </summary>
         /// <param name="brutal">If true, requests currently executing in separate threads are aborted brutally.</param>
         public void StopListening(bool brutal)
         {
-            if (!IsListening)
+            if (!IsListeningThreadActive)
                 return;
             _listeningThread.Abort();
             _listeningThread = null;
@@ -209,8 +212,10 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Shuts the HTTP server down gracefully, allowing still-running requests to complete.
-        /// Use this method only if <see cref="StartListening"/> was called with the Blocking parameter set to false.
+        /// If the HTTP server is listening in non-blocking mode, shuts the HTTP server down, optionally either
+        /// gracefully (allowing still-running requests to complete) or brutally (aborting requests no matter where
+        /// they are in their processing). If the HTTP server is listening in blocking mode, nothing happens.
+        /// Blocking or non-blocking mode is determined by the parameter to <see cref="StartListening(bool)"/>.
         /// </summary>
         public void StopListening()
         {
@@ -220,14 +225,15 @@ namespace RT.Servers
         /// <summary>
         /// Runs the HTTP server.
         /// </summary>
-        /// <param name="blocking">If true, the method will continually wait for and handle incoming requests and never return.
-        /// If false, a separate thread is spawned in which the server will handle incoming requests,
-        /// and control is returned immediately.</param>
+        /// <param name="blocking">If true, the method will continually wait for and handle incoming requests
+        /// and never return. In this mode, <see cref="StopListening"/> cannot be used. If false, a separate thread
+        /// is spawned in which the server will handle incoming requests, and control is returned immediately.
+        /// You can then use <see cref="StopListening(bool)"/> to abort this thread either gracefully or brutally.</param>
         public void StartListening(bool blocking)
         {
-            if (IsListening && !blocking)
+            if (IsListeningThreadActive && !blocking)
                 return;
-            if (IsListening)
+            if (IsListeningThreadActive)
                 StopListening();
 
             _listener = new TcpListener(System.Net.IPAddress.Any, _opt.Port);
