@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -11,6 +10,7 @@ using System.Threading;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
+using ICSharpCode.SharpZipLib.GZip;
 
 namespace RT.Servers
 {
@@ -226,7 +226,7 @@ namespace RT.Servers
         /// Runs the HTTP server.
         /// </summary>
         /// <param name="blocking">If true, the method will continually wait for and handle incoming requests
-        /// and never return. In this mode, <see cref="StopListening"/> cannot be used. If false, a separate thread
+        /// and never return. In this mode, <see cref="StopListening(bool)"/> cannot be used. If false, a separate thread
         /// is spawned in which the server will handle incoming requests, and control is returned immediately.
         /// You can then use <see cref="StopListening(bool)"/> to abort this thread either gracefully or brutally.</param>
         public void StartListening(bool blocking)
@@ -809,7 +809,31 @@ namespace RT.Servers
                     }
                 }
 
-                bool useGzip = gzipRequested && !(contentLengthKnown && contentLength <= 1024) && response.OriginalRequest.HttpVersion == HttpProtocolVersion.Http11;
+                bool useGzip = response.UseGzip != UseGzipOption.DontUseGzip && gzipRequested && !(contentLengthKnown && contentLength <= 1024) && response.OriginalRequest.HttpVersion == HttpProtocolVersion.Http11;
+
+                if (useGzip && response.UseGzip == UseGzipOption.AutoDetect && contentLengthKnown && contentLength >= _opt.GzipAutodetectThreshold && response.Content.CanSeek)
+                {
+                    try
+                    {
+                        response.Content.Seek((contentLength - _opt.GzipAutodetectThreshold) / 2, SeekOrigin.Begin);
+                        byte[] buf = new byte[_opt.GzipAutodetectThreshold];
+                        response.Content.Read(buf, 0, _opt.GzipAutodetectThreshold);
+                        MemoryStream ms = new MemoryStream();
+                        GZipOutputStream gzTester = new GZipOutputStream(ms);
+                        gzTester.SetLevel(1);
+                        gzTester.Write(buf, 0, _opt.GzipAutodetectThreshold);
+                        gzTester.Close();
+                        ms.Close();
+                        var arr = ms.ToArray();
+                        var lastKB = arr.Skip(arr.Length - 1024).ToArray();
+                        File.WriteAllBytes(@"C:\temp\part_output_aftergzip.gz", arr);
+                        if (arr.Length >= 0.99 * _opt.GzipAutodetectThreshold)
+                            useGzip = false;
+                        response.Content.Seek(0, SeekOrigin.Begin);
+                    }
+                    catch { }
+                }
+
                 if (useGzip)
                     response.Headers.ContentEncoding = HttpContentEncoding.Gzip;
 
@@ -822,7 +846,8 @@ namespace RT.Servers
                     // In this case, do all the gzipping before sending the headers.
                     // After all we want to include the new (compressed) Content-Length.
                     MemoryStream ms = new MemoryStream();
-                    GZipStream gz = new GZipStream(ms, CompressionMode.Compress);
+                    GZipOutputStream gz = new GZipOutputStream(ms);
+                    gz.SetLevel(1);
                     byte[] contentReadBuffer = new byte[65536];
                     int bytes = response.Content.Read(contentReadBuffer, 0, 65536);
                     while (bytes > 0)
@@ -858,7 +883,8 @@ namespace RT.Servers
                     if (response.OriginalRequest.Method == HttpMethod.Head)
                         return useKeepAlive;
                     StreamOnSocket str = new StreamOnSocket(socket);
-                    output = new GZipStream(str, CompressionMode.Compress);
+                    output = new GZipOutputStream(str);
+                    ((GZipOutputStream) output).SetLevel(1);
                 }
                 else if (useGzip)
                 {
@@ -869,7 +895,8 @@ namespace RT.Servers
                     if (response.OriginalRequest.Method == HttpMethod.Head)
                         return useKeepAlive;
                     StreamOnSocket str = new StreamOnSocketChunked(socket);
-                    output = new GZipStream(str, CompressionMode.Compress);
+                    output = new GZipOutputStream(str);
+                    ((GZipOutputStream) output).SetLevel(1);
                 }
                 else if (useKeepAlive && !contentLengthKnown)
                 {

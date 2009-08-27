@@ -167,6 +167,11 @@ namespace RT.Servers
         public Stream Content;
 
         /// <summary>
+        /// Specifies whether gzip should be used.
+        /// </summary>
+        public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
+
+        /// <summary>
         /// Internal field for <see cref="HttpServer"/> to access the original request that this is the response for.
         /// </summary>
         internal HttpRequest OriginalRequest;

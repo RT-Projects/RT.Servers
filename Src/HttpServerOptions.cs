@@ -42,6 +42,12 @@ namespace RT.Servers
         public long GzipInMemoryUpToSize = 1024 * 1024;
 
         /// <summary>
+        /// If a file is larger than this, then the server will read a chunk from the middle of the file and gzip it to determine whether gzipping the whole file is worth it.
+        /// Otherwise it will default to using gzip either way.
+        /// </summary>
+        public int GzipAutodetectThreshold = 1024 * 1024;
+
+        /// <summary>
         /// The temporary directory to use for POST requests and file uploads. Default is <see cref="Path.GetTempPath"/>.
         /// </summary>
         public string TempDir = Path.GetTempPath();

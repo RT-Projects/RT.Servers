@@ -157,4 +157,23 @@ namespace RT.Servers
                 return HttpConnection.KeepAlive;
         }
     }
+
+    /// <summary>
+    /// Contains possible values for the <see cref="HttpResponse.UseGzip"/> options.
+    /// </summary>
+    public enum UseGzipOption
+    {
+        /// <summary>
+        /// Specifies that the server should look at a chunk in the middle of the file to determine whether it is worth gzipping.
+        /// </summary>
+        AutoDetect,
+        /// <summary>
+        /// Specifies not to use gzip for this response.
+        /// </summary>
+        DontUseGzip,
+        /// <summary>
+        /// Specifies to use gzip (if the client requested it).
+        /// </summary>
+        AlwaysUseGzip
+    }
 }
