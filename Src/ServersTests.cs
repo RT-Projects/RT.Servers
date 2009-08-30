@@ -292,7 +292,7 @@ Content-Type: text/html
                 Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
                 Assert.IsTrue(resp.Headers.Contains("Content-Type: application/octet-stream"));
                 Assert.IsTrue(resp.Headers.Contains("Content-Encoding: gzip"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 1222"));
+                Assert.IsTrue(resp.Headers.Any(h => h.StartsWith("Content-Length")));
                 GZipStream gz = new GZipStream(new MemoryStream(resp.Content), CompressionMode.Decompress);
                 for (int i = 0; i < 65536; i++)
                     Assert.AreEqual(i % 256, gz.ReadByte());
