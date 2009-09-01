@@ -10,6 +10,8 @@ namespace RT.Servers
     /// </summary>
     public static class HttpInternalObjects
     {
+        private static object lockObj = new object();
+
         /// <summary>
         /// XSL to use for directory listings. This will be converted to UTF-8, whitespace-optimised and cached before being output.
         /// This is the file that is returned at the URL /$/directory-listing/xsl.
@@ -151,9 +153,9 @@ namespace RT.Servers
         public static string RandomTempFilepath(string tempDir, out Stream fStream)
         {
             string dir = tempDir + (tempDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? "" : Path.DirectorySeparatorChar.ToString());
-            lock (Ut.Rnd)
+            lock (lockObj)
             {
-                int counter = Ut.Rnd.Next(1000);
+                int counter = Rnd.Next(1000);
                 // This seemingly bizarre construct tries to prevent race conditions between several threads/processes trying to create the same file.
                 while (true)
                 {
@@ -168,7 +170,7 @@ namespace RT.Servers
                     }
                     catch (IOException)
                     {
-                        counter += Ut.Rnd.Next(1000);
+                        counter += Rnd.Next(1000);
                     }
                 }
             }

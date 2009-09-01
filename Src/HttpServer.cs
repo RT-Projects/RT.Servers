@@ -1000,26 +1000,24 @@ namespace RT.Servers
 
             // Generate a random boundary token
             byte[] boundary = new byte[64];
-            lock (Ut.Rnd)
+
+            for (int i = 0; i < 64; i++)
             {
-                for (int i = 0; i < 64; i++)
-                {
-                    int r = Ut.Rnd.Next(16);
-                    boundary[i] = r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
-                }
+                int r = Rnd.Next(16);
+                boundary[i] = r < 10 ? ((byte) (r + '0')) : ((byte) (r + 'A' - 10));
             }
 
             // Calculate the total content length
             long cLength = 0;
             foreach (var r in ranges)
             {
-                cLength += 68;                  // "--$boundary\r\n"
-                cLength += 27 +                 // "Content-range: bytes $f-$l/$filesize\r\n\r\n"
+                cLength += 68;                  // "--{boundary}\r\n"
+                cLength += 27 +                 // "Content-range: bytes {f}-{l}/{filesize}\r\n\r\n"
                     r.Key.ToString().Length + r.Value.ToString().Length + totalFileSize.ToString().Length;
                 cLength += r.Key - r.Value + 1; // content
                 cLength += 2;                   // "\r\n"
             }
-            cLength += 70;                      // "--$boundary--\r\n"
+            cLength += 70;                      // "--{boundary}--\r\n"
 
             response.Headers.ContentLength = cLength;
             response.Headers.ContentType = "multipart/byteranges; boundary=" + Encoding.ASCII.GetString(boundary);
