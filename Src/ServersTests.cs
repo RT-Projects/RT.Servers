@@ -180,6 +180,9 @@ Content-Type: text/html
                 Assert.AreEqual("\r\n<CRLF>(this)<CRLF>\r\n",
                     Posts["What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"].Value);
             }
+
+            try { Directory.Delete(@"C:\temp\testresults"); }
+            catch { }
         }
 
         private struct TestResponse
