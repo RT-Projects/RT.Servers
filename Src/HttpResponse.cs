@@ -205,6 +205,17 @@ namespace RT.Servers
         }
 
         /// <summary>
+        /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
+        /// and then using a <see cref="MemoryStream"/>.
+        /// </summary>
+        public HttpResponse(string content, HttpStatusCode status, HttpResponseHeaders headers)
+        {
+            Content = new MemoryStream(content.ToUtf8());
+            Status = status;
+            Headers = headers;
+        }
+
+        /// <summary>
         /// Initialises <see cref="Content"/> to serve the specified HTML using a
         /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
         /// </summary>
