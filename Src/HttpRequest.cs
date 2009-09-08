@@ -395,7 +395,7 @@ namespace RT.Servers
         ///         MyServer.AddHandler(new HttpRequestHandlerHook { Path = "/homepages", Handler = MyHandler });
         ///     </code>
         ///     In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
-        ///     would have the RestURL field set to the value <c>/a/adam</c>. Note the leading slash.
+        ///     would have BaseURL set to <c>/homepages</c> and RestURL set to <c>/a/adam</c>. Note the leading slashes.
         /// </example>
         public string RestUrl;
 
