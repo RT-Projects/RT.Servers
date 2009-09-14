@@ -15,7 +15,8 @@
     <NoConfig>False</NoConfig>
     <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
     <PreBuildEvent />
-    <PostBuildEvent />
+    <PostBuildEvent>
+rd /s /q $(ProjectDir)obj</PostBuildEvent>
     <DocumentationFile>..\..\Builds\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
     <FileUpgradeFlags></FileUpgradeFlags>
     <UpgradeBackupLocation></UpgradeBackupLocation>
