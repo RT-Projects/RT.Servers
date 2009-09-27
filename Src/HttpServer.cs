@@ -824,10 +824,7 @@ namespace RT.Servers
                         gzTester.Write(buf, 0, _opt.GzipAutodetectThreshold);
                         gzTester.Close();
                         ms.Close();
-                        var arr = ms.ToArray();
-                        var lastKB = arr.Skip(arr.Length - 1024).ToArray();
-                        File.WriteAllBytes(@"C:\temp\part_output_aftergzip.gz", arr);
-                        if (arr.Length >= 0.99 * _opt.GzipAutodetectThreshold)
+                        if (ms.ToArray().Length >= 0.99 * _opt.GzipAutodetectThreshold)
                             useGzip = false;
                         response.Content.Seek(0, SeekOrigin.Begin);
                     }
