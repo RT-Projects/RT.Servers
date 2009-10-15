@@ -330,7 +330,8 @@ namespace RT.Servers
         private IEnumerable<object> friendlyMethodName(MemberInfo m, bool returnType, bool containingType, bool parameterTypes, bool parameterNames, bool namespaces, bool indent, string url, string baseUrl, bool isDelegate)
         {
             MethodBase mi = m as MethodBase;
-            if (isDelegate) yield return "delegate ";
+            if (isDelegate)
+                yield return "delegate ";
             if (returnType && m.MemberType != MemberTypes.Constructor)
             {
                 yield return friendlyTypeName(((MethodInfo) m).ReturnType, namespaces, baseUrl, false);
@@ -346,7 +347,7 @@ namespace RT.Servers
             if (m.MemberType != MemberTypes.Constructor && !isDelegate)
             {
                 if (containingType) yield return ".";
-                yield return new STRONG(url == null ? (object) m.Name : new A(m.Name) { href = url });
+                yield return new STRONG(url == null ? (object) cSharpCompatibleMethodName(m.Name, friendlyTypeName(((MethodInfo) m).ReturnType, false)) : new A(cSharpCompatibleMethodName(m.Name, friendlyTypeName(((MethodInfo) m).ReturnType, false))) { href = url });
             }
             if (mi.IsGenericMethod)
             {
@@ -370,6 +371,46 @@ namespace RT.Servers
                    );
                 }
                 yield return indent && mi.GetParameters().Any() ? "\n)" : ")";
+            }
+        }
+
+        private object cSharpCompatibleMethodName(string methodName, object returnType)
+        {
+            switch (methodName)
+            {
+                case "op_Implicit": return new object[] { "implicit operator ", returnType };
+                case "op_Explicit": return new object[] { "explicit operator ", returnType };
+
+                case "op_UnaryPlus":
+                case "op_Addition": return "operator+";
+                case "op_UnaryNegation":
+                case "op_Subtraction": return "operator-";
+
+                case "op_LogicalNot": return "operator!";
+                case "op_OnesComplement": return "operator~";
+                case "op_Increment": return "operator++";
+                case "op_Decrement": return "operator--";
+                case "op_True": return "operator true";
+                case "op_False": return "operator false";
+
+                case "op_Multiply": return "operator*";
+                case "op_Division": return "operator/";
+                case "op_Modulus": return "operator%";
+                case "op_BitwiseAnd": return "operator&";
+                case "op_BitwiseOr": return "operator|";
+                case "op_ExclusiveOr": return "operator^";
+                case "op_LeftShift": return "operator<<";
+                case "op_RightShift": return "operator>>";
+
+                case "op_Equality": return "operator==";
+                case "op_Inequality": return "operator!=";
+                case "op_LessThan": return "operator<";
+                case "op_GreaterThan": return "operator>";
+                case "op_LessThanOrEqual": return "operator<=";
+                case "op_GreaterThanOrEqual": return "operator>=";
+
+                default:
+                    return methodName;
             }
         }
 
@@ -598,22 +639,25 @@ namespace RT.Servers
             yield return new H2("Full definition");
             yield return new PRE((isStatic ? "static " : null), friendlyMemberName(member, true, true, true, true, true, true, null, req.BaseUrl));
 
-            var summary = document == null ? null : document.Element("summary");
-            if (summary != null)
+            if (document != null)
             {
-                yield return new H2("Summary");
-                yield return interpretBlock(summary.Nodes(), req);
-            }
-            var remarks = document == null ? null : document.Element("remarks");
-            if (remarks != null)
-            {
-                yield return new H2("Remarks");
-                yield return interpretBlock(remarks.Nodes(), req);
-            }
-            foreach (var example in document.Elements("example"))
-            {
-                yield return new H2("Example");
-                yield return interpretBlock(example.Nodes(), req);
+                var summary = document.Element("summary");
+                if (summary != null)
+                {
+                    yield return new H2("Summary");
+                    yield return interpretBlock(summary.Nodes(), req);
+                }
+                var remarks = document.Element("remarks");
+                if (remarks != null)
+                {
+                    yield return new H2("Remarks");
+                    yield return interpretBlock(remarks.Nodes(), req);
+                }
+                foreach (var example in document.Elements("example"))
+                {
+                    yield return new H2("Example");
+                    yield return interpretBlock(example.Nodes(), req);
+                }
             }
 
             if ((member.MemberType == MemberTypes.Constructor || member.MemberType == MemberTypes.Method)

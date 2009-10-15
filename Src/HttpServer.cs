@@ -1259,35 +1259,37 @@ namespace RT.Servers
         /// <param name="html">If true, an HTML "DIV" tag will be returned with formatted info. Otherwise, a plaintext message is generated.</param>
         public static string ExceptionAsString(Exception exception, bool html)
         {
-            string exceptionText = "";
             bool first = true;
             if (html)
             {
-                exceptionText += "<div class='exception'>";
+                string exceptionText = "";
                 while (exception != null)
                 {
-                    exceptionText += first ? "" : "<hr />";
-                    exceptionText += "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
-                    exceptionText += "<p>" + exception.Message.HtmlEscape() + "</p>";
-                    exceptionText += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
+                    var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
+                    exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
+                    exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
+                    exc += first ? "" : "<hr />";
+                    exceptionText = exc + exceptionText;
                     exception = exception.InnerException;
                     first = false;
                 }
-                exceptionText += "</div>";
+                return "<div class='exception'>" + exceptionText + "</div>";
             }
             else        // Assume plain text
             {
+                string exceptionText = "";
                 while (exception != null)
                 {
-                    exceptionText += first ? "\n\n\n" : "----------------------------------------------------------------------\n";
-                    exceptionText += exception.GetType().FullName + "\n\n";
-                    exceptionText += exception.Message + "\n\n";
-                    exceptionText += exception.StackTrace + "\n\n";
+                    var exc = exception.GetType().FullName + "\n\n";
+                    exc += exception.Message + "\n\n";
+                    exc += exception.StackTrace + "\n\n";
+                    exc += first ? "\n\n\n" : "\n----------------------------------------------------------------------\n";
+                    exceptionText = exc + exceptionText;
                     exception = exception.InnerException;
                     first = false;
                 }
+                return exceptionText;
             }
-            return exceptionText;
         }
 
         private void parseHeader(string headerName, string headerValue, ref HttpRequest req)

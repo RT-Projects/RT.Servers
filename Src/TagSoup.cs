@@ -129,7 +129,7 @@ namespace RT.TagSoup
             if (EndTag)
                 yield return "</" + TagName + ">";
             if (toThrow != null)
-                throw toThrow;
+                throw new TagSoupDeferredException(toThrow);
         }
 
         /// <summary>Converts the entire tag tree into a single string.</summary>
@@ -188,5 +188,10 @@ namespace RT.TagSoup
                     sb.Append(fn[i]);
             return sb.ToString();
         }
+    }
+
+    public class TagSoupDeferredException : Exception
+    {
+        public TagSoupDeferredException(Exception inner) : base(null, inner) { }
     }
 }

@@ -48,7 +48,7 @@ namespace RT.Servers
         /// <summary>Compares the Q number of this Q-value to the other one.</summary>
         public int CompareTo(QValue<T> other)
         {
-            return -this._q.CompareTo(other._q);
+            return -_q.CompareTo(other._q);
         }
 
         /// <summary>Converts the q value to a string.</summary>
