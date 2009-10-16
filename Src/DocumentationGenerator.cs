@@ -73,39 +73,49 @@ namespace RT.Servers
             }
         }
 
+        private List<string> _processedFiles = new List<string>();
+        public IEnumerable<string> ProcessedFiles { get { return _processedFiles; } }
+
         /// <summary>
         /// Initialises a <see cref="DocumentationGenerator"/> instance by searching the given path for XML and DLL files.
         /// All pairs of matching <c>*.dll</c> and <c>*.docs.xml</c> files are considered for documentation. The classes are extracted
         /// from the DLLs and grouped by namespaces.
         /// </summary>
-        /// <param name="path">Path containing DLL and XML files.</param>
-        public DocumentationGenerator(string path)
+        /// <param name="paths">Paths containing DLL and XML files.</param>
+        public DocumentationGenerator(params string[] paths)
         {
             _tree = new SortedDictionary<string, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>>();
             _typeDocumentation = new SortedDictionary<string, Tuple<Type, XElement>>();
             _memberDocumentation = new SortedDictionary<string, Tuple<MemberInfo, XElement>>();
+            _processedFiles = new List<string>();
 
-            foreach (var f in new DirectoryInfo(path).GetFiles("*.dll").Where(f => File.Exists(f.FullName.Remove(f.FullName.Length - 3) + "docs.xml")))
+            foreach (var path in paths)
             {
-                Assembly a = Assembly.LoadFile(f.FullName);
-                XElement e = XElement.Load(f.FullName.Remove(f.FullName.Length - 3) + "docs.xml");
-                foreach (var t in a.GetExportedTypes().Where(t => shouldTypeBeDisplayed(t)))
+                foreach (var f in new DirectoryInfo(path).GetFiles("*.dll").Where(f => File.Exists(f.FullName.Remove(f.FullName.Length - 3) + "docs.xml")))
                 {
-                    XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == "T:" + GetTypeFullName(t));
-                    _typeDocumentation.Add(GetTypeFullName(t), new Tuple<Type, XElement>(t, doc));
-                    if (!_tree.ContainsKey(t.Namespace))
-                        _tree[t.Namespace] = new SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>();
-
-                    _tree[t.Namespace][GetTypeFullName(t)] = new Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>(t,
-                        doc, new SortedDictionary<string, Tuple<MemberInfo, XElement>>(new memberComparer()));
-                    foreach (var mem in t.GetMembers(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
-                        .Where(m => m.DeclaringType == t && shouldMemberBeDisplayed(m)))
+                    var docsFile = f.FullName.Remove(f.FullName.Length - 3) + "docs.xml";
+                    _processedFiles.Add(f.FullName);
+                    _processedFiles.Add(docsFile);
+                    Assembly a = Assembly.LoadFile(f.FullName);
+                    XElement e = XElement.Load(docsFile);
+                    foreach (var t in a.GetExportedTypes().Where(t => shouldTypeBeDisplayed(t)))
                     {
-                        var dcmn = documentationCompatibleMemberName(mem);
-                        XElement mdoc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == dcmn);
-                        while (_memberDocumentation.ContainsKey(dcmn)) dcmn += "|";
-                        _tree[t.Namespace][GetTypeFullName(t)].E3[dcmn] = new Tuple<MemberInfo, XElement>(mem, mdoc);
-                        _memberDocumentation.Add(dcmn, new Tuple<MemberInfo, XElement>(mem, mdoc));
+                        XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == "T:" + GetTypeFullName(t));
+                        _typeDocumentation.Add(GetTypeFullName(t), new Tuple<Type, XElement>(t, doc));
+                        if (!_tree.ContainsKey(t.Namespace))
+                            _tree[t.Namespace] = new SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>();
+
+                        _tree[t.Namespace][GetTypeFullName(t)] = new Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>(t,
+                            doc, new SortedDictionary<string, Tuple<MemberInfo, XElement>>(new memberComparer()));
+                        foreach (var mem in t.GetMembers(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                            .Where(m => m.DeclaringType == t && shouldMemberBeDisplayed(m)))
+                        {
+                            var dcmn = documentationCompatibleMemberName(mem);
+                            XElement mdoc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == dcmn);
+                            while (_memberDocumentation.ContainsKey(dcmn)) dcmn += "|";
+                            _tree[t.Namespace][GetTypeFullName(t)].E3[dcmn] = new Tuple<MemberInfo, XElement>(mem, mdoc);
+                            _memberDocumentation.Add(dcmn, new Tuple<MemberInfo, XElement>(mem, mdoc));
+                        }
                     }
                 }
             }
