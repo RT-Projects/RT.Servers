@@ -100,20 +100,32 @@ namespace RT.Servers
                     XElement e = XElement.Load(docsFile);
                     foreach (var t in a.GetExportedTypes().Where(t => shouldTypeBeDisplayed(t)))
                     {
-                        XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == "T:" + GetTypeFullName(t));
-                        _typeDocumentation.Add(GetTypeFullName(t), new Tuple<Type, XElement>(t, doc));
+                        var typeFullName = GetTypeFullName(t);
+                        XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == "T:" + typeFullName);
+                        _typeDocumentation.Add(typeFullName, new Tuple<Type, XElement>(t, doc));
                         if (!_tree.ContainsKey(t.Namespace))
                             _tree[t.Namespace] = new SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>();
 
-                        _tree[t.Namespace][GetTypeFullName(t)] = new Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>(t,
+                        _tree[t.Namespace][typeFullName] = new Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>(t,
                             doc, new SortedDictionary<string, Tuple<MemberInfo, XElement>>(new memberComparer()));
                         foreach (var mem in t.GetMembers(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
                             .Where(m => m.DeclaringType == t && shouldMemberBeDisplayed(m)))
                         {
                             var dcmn = documentationCompatibleMemberName(mem);
                             XElement mdoc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == dcmn);
+
+                            // Special case: cast operators are allowed to have the same name (op_Implicit/op_Explicit) and the same parameter names, so need to disambiguate them.
                             while (_memberDocumentation.ContainsKey(dcmn)) dcmn += "|";
-                            _tree[t.Namespace][GetTypeFullName(t)].E3[dcmn] = new Tuple<MemberInfo, XElement>(mem, mdoc);
+
+                            // Special case: auto-generate documentation for an automatically-generated public default constructor without documentation
+                            if (mem is ConstructorInfo && mdoc == null)
+                            {
+                                var c = (ConstructorInfo) mem;
+                                if (c.IsPublic && c.GetParameters().Length == 0)
+                                    mdoc = new XElement("member", new XAttribute("name", dcmn), new XElement("summary", "Creates a new instance of ", new XElement("see", new XAttribute("cref", "T:" + typeFullName)), "."));
+                            }
+
+                            _tree[t.Namespace][typeFullName].E3[dcmn] = new Tuple<MemberInfo, XElement>(mem, mdoc);
                             _memberDocumentation.Add(dcmn, new Tuple<MemberInfo, XElement>(mem, mdoc));
                         }
                     }
