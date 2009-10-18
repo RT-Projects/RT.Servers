@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using RT.TagSoup.HtmlTags;
 using RT.Util.Collections;
@@ -101,7 +102,7 @@ namespace RT.Servers
                     foreach (var t in a.GetExportedTypes().Where(t => shouldTypeBeDisplayed(t)))
                     {
                         var typeFullName = GetTypeFullName(t);
-                        XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == "T:" + typeFullName);
+                        XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == typeFullName);
                         _typeDocumentation.Add(typeFullName, new Tuple<Type, XElement>(t, doc));
                         if (!_tree.ContainsKey(t.Namespace))
                             _tree[t.Namespace] = new SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>();
@@ -122,7 +123,7 @@ namespace RT.Servers
                             {
                                 var c = (ConstructorInfo) mem;
                                 if (c.IsPublic && c.GetParameters().Length == 0)
-                                    mdoc = new XElement("member", new XAttribute("name", dcmn), new XElement("summary", "Creates a new instance of ", new XElement("see", new XAttribute("cref", "T:" + typeFullName)), "."));
+                                    mdoc = new XElement("member", new XAttribute("name", dcmn), new XElement("summary", "Creates a new instance of ", new XElement("see", new XAttribute("cref", typeFullName)), "."));
                             }
 
                             _tree[t.Namespace][typeFullName].E3[dcmn] = new Tuple<MemberInfo, XElement>(mem, mdoc);
@@ -135,10 +136,7 @@ namespace RT.Servers
 
         private string GetTypeFullName(Type t)
         {
-            if (t.IsGenericType)
-                return t.GetGenericTypeDefinition().FullName;
-
-            return t.FullName;
+            return "T:" + (t.IsGenericType ? t.GetGenericTypeDefinition() : t).FullName.TrimEnd('&').Replace("+", ".");
         }
 
         /// <summary>
@@ -301,17 +299,23 @@ namespace RT.Servers
                     yield return outerTypes;
                 }
 
-                string ret = t.IsGenericType ? t.Name.Remove(t.Name.IndexOf('`')) : t.Name.TrimEnd('&');
-                if (baseURL != null && !t.IsGenericParameter && _typeDocumentation.ContainsKey(GetTypeFullName(t).TrimEnd('&')))
-                    yield return new A(ret) { href = baseURL + "/" + GetTypeFullName(t).TrimEnd('&').UrlEscape() };
+                // Determine whether this type has its own generic type parameters.
+                // This is different from being a generic type: a nested type of a generic type is automatically a generic type too, even though it doesn't have generic parameters of its own.
+                var hasGenericTypeParameters = t.Name.Contains('`');
+
+                string ret = hasGenericTypeParameters ? t.Name.Remove(t.Name.IndexOf('`')) : t.Name.TrimEnd('&');
+                if (baseURL != null && !t.IsGenericParameter && _typeDocumentation.ContainsKey(GetTypeFullName(t)))
+                    yield return new A(ret) { href = baseURL + "/" + GetTypeFullName(t).UrlEscape() };
                 else
                     yield return ret;
 
-                if (t.IsGenericType)
+                if (hasGenericTypeParameters)
                 {
                     yield return "<";
                     bool first = true;
-                    foreach (var ga in t.GetGenericArguments())
+                    // Need to skip the generic type parameters already declared by the parent type
+                    int skip = t.IsNested ? t.DeclaringType.GetGenericArguments().Length : 0;
+                    foreach (var ga in t.GetGenericArguments().Skip(skip))
                     {
                         if (!first) yield return ", ";
                         first = false;
@@ -332,6 +336,9 @@ namespace RT.Servers
         }
         private object friendlyMemberName(MemberInfo m, bool returnType, bool containingType, bool parameterTypes, bool parameterNames, bool namespaces, bool indent, string url, string baseUrl)
         {
+            if (m.MemberType == MemberTypes.NestedType)
+                return friendlyTypeName((Type) m, namespaces, baseUrl, false);
+
             if (m.MemberType == MemberTypes.Constructor || m.MemberType == MemberTypes.Method)
                 return new SPAN { class_ = m.MemberType.ToString() }._(
                     friendlyMethodName(m, returnType, containingType, parameterTypes, parameterNames, namespaces, indent, url, baseUrl, false)
@@ -492,7 +499,7 @@ namespace RT.Servers
             {
                 MethodBase mi = m as MethodBase;
                 sb.Append("M:");
-                sb.Append(mi.DeclaringType.FullName);
+                sb.Append(mi.DeclaringType.FullName.Replace("+", "."));
                 sb.Append(m.MemberType == MemberTypes.Method ? "." + mi.Name : ".#ctor");
                 if (mi.IsGenericMethod)
                 {
@@ -511,13 +518,13 @@ namespace RT.Servers
             else if (m.MemberType == MemberTypes.Field || m.MemberType == MemberTypes.Property || m.MemberType == MemberTypes.Event)
             {
                 sb.Append(m.MemberType == MemberTypes.Field ? "F:" : m.MemberType == MemberTypes.Property ? "P:" : "E:");
-                sb.Append(m.DeclaringType.FullName);
+                sb.Append(m.DeclaringType.FullName.Replace("+", "."));
                 sb.Append(".");
                 sb.Append(m.Name);
             }
             else if (m.MemberType == MemberTypes.NestedType)
             {
-                sb.Append(m.ToString());
+                sb.Append(GetTypeFullName((Type) m));
             }
             else
             {
@@ -536,7 +543,7 @@ namespace RT.Servers
                 return stringifyParameterType(parameterType.GetElementType(), method, type) + "[]";
 
             if (!parameterType.IsGenericType && !parameterType.IsGenericParameter)
-                return parameterType.FullName;
+                return parameterType.FullName.Replace("+", ".");
 
             if (parameterType.IsGenericParameter)
             {
@@ -565,10 +572,18 @@ namespace RT.Servers
 
             if (parameterType.IsGenericType)
             {
-                string fullName = parameterType.GetGenericTypeDefinition().FullName;
-                fullName = fullName.Remove(fullName.LastIndexOf('`'));
-                while (fullName.EndsWith("`")) fullName = fullName.Remove(fullName.Length - 1);
-                return fullName + "{" + parameterType.GetGenericArguments().Select(ga => stringifyParameterType(ga, method, type)).JoinString(",") + "}";
+                string fullName = parameterType.GetGenericTypeDefinition().FullName.Replace("+", ".");
+                string constructName = "";
+                Match m;
+                IEnumerable<Type> genericArguments = parameterType.GetGenericArguments();
+                while ((m = Regex.Match(fullName, @"`(\d+)")).Success)
+                {
+                    int num = int.Parse(m.Groups[1].Value);
+                    constructName += fullName.Substring(0, m.Index) + "{" + genericArguments.Take(num).Select(g => stringifyParameterType(g, method, type)).JoinString(",") + "}";
+                    fullName = fullName.Substring(m.Index + m.Length);
+                    genericArguments = genericArguments.Skip(num);
+                }
+                return constructName + fullName;
             }
 
             throw new Exception("I totally don't know what to do with this parameter type.");
@@ -613,7 +628,7 @@ namespace RT.Servers
                     if (mkvp.Value.E2 == null) css += " missing";
                     return mkvp.Value.E1.MemberType != MemberTypes.NestedType
                         ? new LI { class_ = css }._(new A(friendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + mkvp.Key.UrlEscape() })
-                        : generateTypeBullet(_tree[tkvp.Value.E1.Namespace].First(kvp => kvp.Key == ((Type) mkvp.Value.E1).FullName), type, req);
+                        : generateTypeBullet(_tree[tkvp.Value.E1.Namespace].First(kvp => kvp.Key == GetTypeFullName((Type) mkvp.Value.E1)), type, req);
                 }))
             );
         }
@@ -634,7 +649,7 @@ namespace RT.Servers
                 yield return new H2(gr.Key ? "Enums in this namespace" : "Classes and structs in this namespace");
                 yield return new TABLE { class_ = "doclist" }._(
                     gr.Select(kvp => new TR(
-                        new TD(new A(friendlyTypeName(kvp.Value.E1, false)) { href = req.BaseUrl + "/" + kvp.Value.E1.FullName.UrlEscape() }),
+                        new TD(new A(friendlyTypeName(kvp.Value.E1, false)) { href = req.BaseUrl + "/" + GetTypeFullName(kvp.Value.E1).UrlEscape() }),
                         new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
                             ? (object) new EM("No documentation available.")
                             : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
@@ -682,8 +697,7 @@ namespace RT.Servers
                 }
             }
 
-            if ((member.MemberType == MemberTypes.Constructor || member.MemberType == MemberTypes.Method)
-                    && (member as MethodBase).GetParameters().Any())
+            if ((member.MemberType == MemberTypes.Constructor || member.MemberType == MemberTypes.Method) && (member as MethodBase).GetParameters().Any())
             {
                 yield return new H2("Parameters");
                 yield return new TABLE { class_ = "doclist" }._(
@@ -705,20 +719,28 @@ namespace RT.Servers
                     })
                 );
             }
+
+            if (member.MemberType == MemberTypes.Method && ((MethodBase) member).IsGenericMethod)
+                yield return generateGenericTypeParameterTable(((MethodBase) member).GetGenericArguments(), document, req);
         }
 
         private IEnumerable<object> generateTypeDocumentation(Type type, XElement document, HttpRequest req)
         {
-            if (typeof(Delegate).IsAssignableFrom(type))
-            {
-                yield return generateDelegateDocumentation(type, document, req);
-                yield break;
-            }
+            bool isDelegate = typeof(Delegate).IsAssignableFrom(type);
 
             yield return new H1(
-                type.IsEnum ? "Enum: " : type.IsValueType ? "Struct: " : "Class: ",
+                isDelegate ? "Delegate: " : type.IsEnum ? "Enum: " : type.IsValueType ? "Struct: " : "Class: ",
                 friendlyTypeName(type, true)
             );
+
+            MethodInfo m = null;
+            if (isDelegate)
+            {
+                m = type.GetMethod("Invoke");
+                yield return new H2("Full definition");
+                yield return new PRE(friendlyMethodName(m, true, false, true, true, true, true, null, req.BaseUrl, true));
+            }
+
             if (document == null)
                 yield return new DIV("No documentation available for this type.") { class_ = "warning" };
             else
@@ -729,6 +751,38 @@ namespace RT.Servers
                     yield return new H2("Summary");
                     yield return interpretBlock(summary.Nodes(), req);
                 }
+
+                if (isDelegate && m.GetParameters().Any())
+                {
+                    yield return new H2("Parameters");
+                    yield return new TABLE { class_ = "doclist" }._(
+                        m.GetParameters().Select(pi =>
+                        {
+                            var docElem = document == null ? null : document.Elements("param")
+                                .Where(xe => xe.Attribute("name") != null && xe.Attribute("name").Value == pi.Name).FirstOrDefault();
+                            return new TR(
+                                new TD { class_ = "item" }._(
+                                    pi.IsOut ? "out " : null,
+                                    friendlyTypeName(pi.ParameterType, false, req.BaseUrl, !pi.IsOut),
+                                    " ",
+                                    new STRONG(pi.Name)
+                                ),
+                                new TD(docElem == null
+                                    ? (object) new EM("No documentation available.")
+                                    : interpretBlock(docElem.Nodes(), req))
+                            );
+                        })
+                    );
+                }
+
+                if (type.IsGenericType)
+                {
+                    var args = type.GetGenericArguments();
+                    if (type.DeclaringType != null && type.DeclaringType.IsGenericType)
+                        args = args.Skip(type.DeclaringType.GetGenericArguments().Length).ToArray();
+                    yield return generateGenericTypeParameterTable(args, document, req);
+                }
+
                 var remarks = document.Element("remarks");
                 if (remarks != null)
                 {
@@ -742,36 +796,55 @@ namespace RT.Servers
                 }
             }
 
-            foreach (var gr in _tree[type.Namespace][type.FullName].E3.GroupBy(kvp => new Tuple<MemberTypes, bool>(kvp.Value.E1.MemberType,
-                (kvp.Value.E1.MemberType == MemberTypes.Method && ((MethodInfo) kvp.Value.E1).IsStatic) || (kvp.Value.E1.MemberType == MemberTypes.Property && ((PropertyInfo) kvp.Value.E1).GetGetMethod().IsStatic))))
+            if (!isDelegate)
             {
-                yield return new H2(
-                    gr.Key.E1 == MemberTypes.Constructor ? "Constructors" :
-                    gr.Key.E1 == MemberTypes.Event ? "Events" :
-                    gr.Key.E1 == MemberTypes.Field ? "Fields" :
-                    gr.Key.E1 == MemberTypes.Method && gr.Key.E2 ? "Static methods" :
-                    gr.Key.E1 == MemberTypes.Method ? "Instance methods" :
-                    gr.Key.E1 == MemberTypes.Property && gr.Key.E2 ? "Static properties" :
-                    gr.Key.E1 == MemberTypes.Property ? "Instance properties" : "Additional members"
-                );
-                yield return new TABLE { class_ = "doclist" }._(
-                    gr.Select(kvp => new TR(
-                        new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.E1, true, false, true, true, false, false, req.BaseUrl + "/" + kvp.Key.UrlEscape(), req.BaseUrl)),
-                        new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
-                            ? (object) new EM("No documentation available.")
-                            : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
-                    ))
-                );
+                foreach (var gr in _tree[type.Namespace][GetTypeFullName(type)].E3.GroupBy(kvp => new Tuple<MemberTypes, bool>(kvp.Value.E1.MemberType,
+                    (kvp.Value.E1.MemberType == MemberTypes.Method && ((MethodInfo) kvp.Value.E1).IsStatic) || (kvp.Value.E1.MemberType == MemberTypes.Property && ((PropertyInfo) kvp.Value.E1).GetGetMethod().IsStatic))))
+                {
+                    yield return new H2(
+                        gr.Key.E1 == MemberTypes.Constructor ? "Constructors" :
+                        gr.Key.E1 == MemberTypes.Event ? "Events" :
+                        gr.Key.E1 == MemberTypes.Field ? "Fields" :
+                        gr.Key.E1 == MemberTypes.Method && gr.Key.E2 ? "Static methods" :
+                        gr.Key.E1 == MemberTypes.Method ? "Instance methods" :
+                        gr.Key.E1 == MemberTypes.Property && gr.Key.E2 ? "Static properties" :
+                        gr.Key.E1 == MemberTypes.Property ? "Instance properties" :
+                        gr.Key.E1 == MemberTypes.NestedType ? "Nested types" : "Additional members"
+                    );
+                    yield return new TABLE { class_ = "doclist" }._(
+                        gr.Select(kvp => new TR(
+                            new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.E1, true, false, true, true, false, false, req.BaseUrl + "/" + kvp.Key.UrlEscape(), req.BaseUrl)),
+                            new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
+                                ? (object) new EM("No documentation available.")
+                                : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
+                        ))
+                    );
+                }
             }
         }
 
-        private IEnumerable<object> generateDelegateDocumentation(Type type, XElement document, HttpRequest req)
+        private IEnumerable<object> generateGenericTypeParameterTable(Type[] genericTypeArguments, XElement document, HttpRequest req)
         {
-            yield return new H1("Delegate: ", friendlyTypeName(type, true));
-
-            MethodInfo m = type.GetMethod("Invoke");
-            yield return new H2("Full definition");
-            yield return new PRE(friendlyMethodName(m, true, false, true, true, true, true, null, req.BaseUrl, true));
+            if (!genericTypeArguments.Any())
+                yield break;
+            yield return new H2("Generic type parameters");
+            yield return new TABLE { class_ = "doclist" }._(
+                genericTypeArguments.Select(gta =>
+                {
+                    var constraints = gta.GetGenericParameterConstraints();
+                    var docElem = document == null ? null : document.Elements("typeparam")
+                        .Where(xe => xe.Attribute("name") != null && xe.Attribute("name").Value == gta.Name).FirstOrDefault();
+                    return new TR(
+                        new TD { class_ = "item" }._(new STRONG(gta.Name)),
+                        new TD(
+                            docElem == null ? (object) new EM("No documentation available.") : interpretBlock(docElem.Nodes(), req),
+                            constraints == null || constraints.Length == 0 ? null :
+                            constraints.Length > 0 ? new object[] { new BR(), new EM("Must be derived from:"), ' ', friendlyTypeName(constraints[0], true, req.BaseUrl, false), 
+                                constraints.Skip(1).Select(c => new object[] { ", ", friendlyTypeName(constraints[0], true, req.BaseUrl, false) }) } : null
+                        )
+                    );
+                })
+            );
         }
 
         private IEnumerable<object> interpretBlock(IEnumerable<XNode> nodes, HttpRequest req)
@@ -820,11 +893,8 @@ namespace RT.Servers
                     if (inElem.Name == "see" && inElem.Attribute("cref") != null)
                     {
                         string token = inElem.Attribute("cref").Value;
-                        if (token.StartsWith("T:") && _typeDocumentation.ContainsKey(token.Substring(2)))
-                        {
-                            token = token.Substring(2);
+                        if (_typeDocumentation.ContainsKey(token))
                             yield return new A(friendlyTypeName(_typeDocumentation[token].E1, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
-                        }
                         else if (_memberDocumentation.ContainsKey(token))
                             yield return new A(friendlyMemberName(_memberDocumentation[token].E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
                         else
