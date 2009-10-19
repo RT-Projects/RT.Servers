@@ -74,8 +74,13 @@ namespace RT.Servers
             }
         }
 
-        private List<string> _processedFiles = new List<string>();
-        public IEnumerable<string> ProcessedFiles { get { return _processedFiles; } }
+        /// <summary>
+        /// Initialises a <see cref="DocumentationGenerator"/> instance by searching the given path for XML and DLL files.
+        /// All pairs of matching <c>*.dll</c> and <c>*.docs.xml</c> files are considered for documentation. The classes are extracted
+        /// from the DLLs and grouped by namespaces.
+        /// </summary>
+        /// <param name="paths">Paths containing DLL and XML files.</param>
+        public DocumentationGenerator(string[] paths) : this(paths, null) { }
 
         /// <summary>
         /// Initialises a <see cref="DocumentationGenerator"/> instance by searching the given path for XML and DLL files.
@@ -83,21 +88,27 @@ namespace RT.Servers
         /// from the DLLs and grouped by namespaces.
         /// </summary>
         /// <param name="paths">Paths containing DLL and XML files.</param>
-        public DocumentationGenerator(params string[] paths)
+        /// <param name="copyDllFilesTo">Path to copy DLL files to prior to loading them into memory. If null, original DLLs are loaded.</param>
+        public DocumentationGenerator(string[] paths, string copyDllFilesTo)
         {
             _tree = new SortedDictionary<string, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>>();
             _typeDocumentation = new SortedDictionary<string, Tuple<Type, XElement>>();
             _memberDocumentation = new SortedDictionary<string, Tuple<MemberInfo, XElement>>();
-            _processedFiles = new List<string>();
 
             foreach (var path in paths)
             {
                 foreach (var f in new DirectoryInfo(path).GetFiles("*.dll").Where(f => File.Exists(f.FullName.Remove(f.FullName.Length - 3) + "docs.xml")))
                 {
                     var docsFile = f.FullName.Remove(f.FullName.Length - 3) + "docs.xml";
-                    _processedFiles.Add(f.FullName);
-                    _processedFiles.Add(docsFile);
-                    Assembly a = Assembly.LoadFile(f.FullName);
+                    Assembly a;
+                    if (copyDllFilesTo != null)
+                    {
+                        var newFullPath = Path.Combine(copyDllFilesTo, f.Name);
+                        File.Copy(f.FullName, newFullPath);
+                        a = Assembly.LoadFile(newFullPath);
+                    }
+                    else
+                        a = Assembly.LoadFile(f.FullName);
                     XElement e = XElement.Load(docsFile);
                     foreach (var t in a.GetExportedTypes().Where(t => shouldTypeBeDisplayed(t)))
                     {
