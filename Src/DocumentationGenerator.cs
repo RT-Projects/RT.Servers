@@ -7,7 +7,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using RT.TagSoup.HtmlTags;
-using RT.Util.Collections;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 
@@ -18,34 +17,51 @@ namespace RT.Servers
     /// </summary>
     public class DocumentationGenerator
     {
-        private SortedDictionary<string, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>> _tree;
-        private SortedDictionary<string, Tuple<Type, XElement>> _typeDocumentation;
-        private SortedDictionary<string, Tuple<MemberInfo, XElement>> _memberDocumentation;
+        private class namespaceInfo
+        {
+            public SortedDictionary<string, typeInfo> Types;
+        }
+
+        private class typeInfo
+        {
+            public Type Type;
+            public XElement Documentation;
+            public SortedDictionary<string, memberInfo> Members;
+        }
+
+        private class memberInfo
+        {
+            public MemberInfo Member;
+            public XElement Documentation;
+        }
+
+        private SortedDictionary<string, namespaceInfo> _namespaces;
+        private SortedDictionary<string, typeInfo> _types;
+        private SortedDictionary<string, memberInfo> _members;
 
         private static string _css = @"
-            body { font-family: ""Verdana"", sans-serif; font-size: 9pt; margin: 0; }
+            body { font-family: ""Calibri"", ""Verdana"", sans-serif; font-size: 11pt; margin: .5em; }
             .namespace a { font-weight: bold; }
             .sidebar li.type { font-weight: bold; }
             .sidebar li.type > ul { font-weight: normal; }
             .sidebar li { padding-left: 1em; text-indent: -1em; }
-            .sidebar li.Constructor { background: #dfd; }
-            .sidebar li.Method { background: #ddf; }
-            .sidebar li.Property { background: #fdf; }
-            .sidebar li.Event { background: #fdd; }
-            .sidebar li.Field { background: #ffd; }
-            .sidebar ul.legend { display: block; margin: 0; padding: 0.3em 0; }
-            .sidebar ul.legend li { display: inline; font-weight: bold; padding: 0.3em 0.7em; }
-            .sidebar > ul { clear: left; padding-left: 2em; padding-top: 1em; }
+            .sidebar li.Constructor, .sidebar ul.legend span.Constructor { background: #bfb; }
+            .sidebar li.Method, .sidebar ul.legend span.Method { background: #cdf; }
+            .sidebar li.Property, .sidebar ul.legend span.Property { background: #fcf; }
+            .sidebar li.Event, .sidebar ul.legend span.Event { background: #faa; }
+            .sidebar li.Field, .sidebar ul.legend span.Field { background: #ee8; }
+            .sidebar div.legend, .sidebar div.tree { background: #f8f8f8; border: 1px solid black; -moz-border-radius: 5px; padding: .5em; margin-bottom: .7em; }
+            .sidebar div.legend p { text-align: center; font-weight: bold; margin: .5em 0; }
+            .sidebar ul.legend, .sidebar ul.tree { margin: .5em 0; padding: 0 0 0 2em; }
+            .sidebar ul.legend li span { padding: 0 1.5em; margin-right: .5em; }
             ul { padding-left: 1.5em; margin-bottom: 1em; }
             li.member { padding-right: 1em; }
             li.member, li.type { list-style-image: url(data:image/png;base64,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); }
             li.member.missing, li.type.missing { list-style-image: url(data:image/png;base64,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); }
             table { border-collapse: collapse; }
             table.layout { border: hidden; width: 100%; margin: 0; }
-            table.layout td { border: 1px solid black; vertical-align: top; padding: 0; }
-            table.layout td.sidebar { padding: 0; }
-            table.layout td.content { width: 100%; padding: 1em 1em 5em 1.5em; }
-            textarea { width: 100%; height: 100%; }
+            table.layout td { vertical-align: top; padding: 0; }
+            table.layout td.content { width: 100%; padding: 1em 1em 0em 1.5em; }
             table.doclist td { border: 1px solid #ccc; padding: 1em 2em; background: #eee; }
             td p:first-child { margin-top: 0; }
             td p:last-child { margin-bottom: 0; }
@@ -91,9 +107,9 @@ namespace RT.Servers
         /// <param name="copyDllFilesTo">Path to copy DLL files to prior to loading them into memory. If null, original DLLs are loaded.</param>
         public DocumentationGenerator(string[] paths, string copyDllFilesTo)
         {
-            _tree = new SortedDictionary<string, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>>();
-            _typeDocumentation = new SortedDictionary<string, Tuple<Type, XElement>>();
-            _memberDocumentation = new SortedDictionary<string, Tuple<MemberInfo, XElement>>();
+            _namespaces = new SortedDictionary<string, namespaceInfo>();
+            _types = new SortedDictionary<string, typeInfo>();
+            _members = new SortedDictionary<string, memberInfo>();
 
             foreach (var path in paths)
             {
@@ -114,12 +130,12 @@ namespace RT.Servers
                     {
                         var typeFullName = GetTypeFullName(t);
                         XElement doc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == typeFullName);
-                        _typeDocumentation.Add(typeFullName, new Tuple<Type, XElement>(t, doc));
-                        if (!_tree.ContainsKey(t.Namespace))
-                            _tree[t.Namespace] = new SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>>();
 
-                        _tree[t.Namespace][typeFullName] = new Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>(t,
-                            doc, new SortedDictionary<string, Tuple<MemberInfo, XElement>>(new memberComparer()));
+                        if (!_namespaces.ContainsKey(t.Namespace))
+                            _namespaces[t.Namespace] = new namespaceInfo { Types = new SortedDictionary<string, typeInfo>() };
+
+                        var typeinfo = new typeInfo { Type = t, Documentation = doc, Members = new SortedDictionary<string, memberInfo>(new memberComparer()) };
+
                         foreach (var mem in t.GetMembers(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
                             .Where(m => m.DeclaringType == t && shouldMemberBeDisplayed(m)))
                         {
@@ -127,7 +143,7 @@ namespace RT.Servers
                             XElement mdoc = e.Element("members").Elements("member").FirstOrDefault(n => n.Attribute("name").Value == dcmn);
 
                             // Special case: cast operators are allowed to have the same name (op_Implicit/op_Explicit) and the same parameter names, so need to disambiguate them.
-                            while (_memberDocumentation.ContainsKey(dcmn)) dcmn += "|";
+                            while (_members.ContainsKey(dcmn)) dcmn += "|";
 
                             // Special case: auto-generate documentation for an automatically-generated public default constructor without documentation
                             if (mem is ConstructorInfo && mdoc == null)
@@ -137,9 +153,13 @@ namespace RT.Servers
                                     mdoc = new XElement("member", new XAttribute("name", dcmn), new XElement("summary", "Creates a new instance of ", new XElement("see", new XAttribute("cref", typeFullName)), "."));
                             }
 
-                            _tree[t.Namespace][typeFullName].E3[dcmn] = new Tuple<MemberInfo, XElement>(mem, mdoc);
-                            _memberDocumentation.Add(dcmn, new Tuple<MemberInfo, XElement>(mem, mdoc));
+                            var memDoc = new memberInfo { Member = mem, Documentation = mdoc };
+                            typeinfo.Members[dcmn] = memDoc;
+                            _members[dcmn] = memDoc;
                         }
+
+                        _namespaces[t.Namespace].Types[typeFullName] = typeinfo;
+                        _types[typeFullName] = typeinfo;
                     }
                 }
             }
@@ -171,32 +191,34 @@ namespace RT.Servers
                     MemberInfo member = null;
 
                     string token = req.RestUrl.Substring(1).UrlUnescape();
-                    if (_tree.ContainsKey(token))
+                    if (_namespaces.ContainsKey(token))
                         ns = token;
-                    else if (_typeDocumentation.ContainsKey(token))
+                    else if (_types.ContainsKey(token))
                     {
-                        type = _typeDocumentation[token].E1;
+                        type = _types[token].Type;
                         ns = type.Namespace;
                     }
-                    else if (_memberDocumentation.ContainsKey(token))
+                    else if (_members.ContainsKey(token))
                     {
-                        member = _memberDocumentation[token].E1;
+                        member = _members[token].Member;
                         type = member.DeclaringType;
                         ns = type.Namespace;
                     }
 
                     HttpStatusCode status = ns == null && req.RestUrl.Length > 1 ? HttpStatusCode._404_NotFound : HttpStatusCode._200_OK;
 
+                    var isstatic = isStatic(member);
                     var html = new HTML(
                         new HEAD(
                             new TITLE(
                                 member != null ? (
                                     member.MemberType == MemberTypes.Constructor ? "Constructor: " :
                                     member.MemberType == MemberTypes.Event ? "Event: " :
-                                    member.MemberType == MemberTypes.Field && (member as FieldInfo).IsStatic ? "Static field: " :
+                                    member.MemberType == MemberTypes.Field && isstatic ? "Static field: " :
                                     member.MemberType == MemberTypes.Field ? "Field: " :
-                                    member.MemberType == MemberTypes.Method && (member as MethodInfo).IsStatic ? "Static method: " :
+                                    member.MemberType == MemberTypes.Method && isstatic ? "Static method: " :
                                     member.MemberType == MemberTypes.Method ? "Method: " :
+                                    member.MemberType == MemberTypes.Property && isstatic ? "Static property: " :
                                     member.MemberType == MemberTypes.Property ? "Property: " : "Member: "
                                 ) : type != null ? (
                                     type.IsEnum ? "Enum: " : type.IsValueType ? "Struct: " : typeof(Delegate).IsAssignableFrom(type) ? "Delegate: " : "Class: "
@@ -212,25 +234,30 @@ namespace RT.Servers
                             new TABLE { class_ = "layout" }._(
                                 new TR(
                                     new TD { class_ = "sidebar" }._(
-                                        new UL { class_ = "legend" }._(
-                                            new LI("Constructor") { class_ = "Constructor" },
-                                            new LI("Method") { class_ = "Method" },
-                                            new LI("Property") { class_ = "Property" },
-                                            new LI("Event") { class_ = "Event" },
-                                            new LI("Field") { class_ = "Field" }
+                                        new DIV { class_ = "tree" }._(
+                                            new UL(_namespaces.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = req.BaseUrl + "/" + nkvp.Key.UrlEscape() },
+                                                ns == null || ns != nkvp.Key ? (object) "" :
+                                                new UL(nkvp.Value.Types.Where(tkvp => !tkvp.Value.Type.IsNested).Select(tkvp => generateTypeBullet(tkvp.Key, type, req)))
+                                            )))
                                         ),
-                                        new UL(_tree.Select(nkvp => new LI { class_ = "namespace" }._(new A(nkvp.Key) { href = req.BaseUrl + "/" + nkvp.Key.UrlEscape() },
-                                            ns == null || ns != nkvp.Key ? (object) "" :
-                                            new UL(nkvp.Value.Where(tkvp => !tkvp.Value.E1.IsNested).Select(tkvp => generateTypeBullet(tkvp, type, req)))
-                                        )))
+                                        new DIV { class_ = "legend" }._(
+                                            new P("Legend"),
+                                            new UL { class_ = "legend" }._(
+                                                new LI(new SPAN { class_ = "Constructor" }, "Constructor"),
+                                                new LI(new SPAN { class_ = "Method" }, "Method"),
+                                                new LI(new SPAN { class_ = "Property" }, "Property"),
+                                                new LI(new SPAN { class_ = "Event" }, "Event"),
+                                                new LI(new SPAN { class_ = "Field" }, "Field")
+                                            )
+                                        )
                                     ),
                                     new TD { class_ = "content" }._(
-                                        member != null && _memberDocumentation.ContainsKey(token) ?
-                                            (object) generateMemberDocumentation(_memberDocumentation[token].E1, _memberDocumentation[token].E2, req) :
-                                        type != null && _typeDocumentation.ContainsKey(token) ?
-                                            (object) generateTypeDocumentation(_typeDocumentation[token].E1, _typeDocumentation[token].E2, req) :
-                                        ns != null && _tree.ContainsKey(ns) ?
-                                            (object) generateNamespaceDocumentation(ns, _tree[ns], req) :
+                                        member != null && _members.ContainsKey(token) ?
+                                            (object) generateMemberDocumentation(_members[token].Member, _members[token].Documentation, req) :
+                                        type != null && _types.ContainsKey(token) ?
+                                            (object) generateTypeDocumentation(_types[token].Type, _types[token].Documentation, req) :
+                                        ns != null && _namespaces.ContainsKey(ns) ?
+                                            (object) generateNamespaceDocumentation(ns, req) :
                                         req.RestUrl == "/"
                                             ? new DIV("Select an item from the list on the left.") { class_ = "warning" }
                                             : new DIV("No documentation available for this item.") { class_ = "warning" }
@@ -315,7 +342,7 @@ namespace RT.Servers
                 var hasGenericTypeParameters = t.Name.Contains('`');
 
                 string ret = hasGenericTypeParameters ? t.Name.Remove(t.Name.IndexOf('`')) : t.Name.TrimEnd('&');
-                if (baseURL != null && !t.IsGenericParameter && _typeDocumentation.ContainsKey(GetTypeFullName(t)))
+                if (baseURL != null && !t.IsGenericParameter && _types.ContainsKey(GetTypeFullName(t)))
                     yield return new A(ret) { href = baseURL + "/" + GetTypeFullName(t).UrlEscape() };
                 else
                     yield return ret;
@@ -383,7 +410,7 @@ namespace RT.Servers
                 yield return new STRONG(friendlyTypeName(mi.DeclaringType, namespaces, baseUrl, false));
             else if (containingType || m.MemberType == MemberTypes.Constructor)
                 yield return friendlyTypeName(mi.DeclaringType, namespaces, baseUrl, false);
-            if (!indent) yield return new WBR();
+            if (!indent && (mi.IsGenericMethod || (parameterNames && mi.GetParameters().Any()))) yield return new WBR();
             if (m.MemberType != MemberTypes.Constructor && !isDelegate)
             {
                 if (containingType) yield return ".";
@@ -397,7 +424,7 @@ namespace RT.Servers
             if (parameterTypes || parameterNames)
             {
                 yield return indent && mi.GetParameters().Any() ? "(\n    " : "(";
-                if (!indent) yield return new WBR();
+                if (!indent && mi.GetParameters().Any()) yield return new WBR();
                 bool first = true;
                 foreach (var p in mi.GetParameters())
                 {
@@ -607,7 +634,7 @@ namespace RT.Servers
             if (!member.Name.StartsWith("get_") && !member.Name.StartsWith("set_"))
                 return false;
             string partName = member.Name.Substring(4);
-            return member.ReflectedType.GetMembers().Any(m => m.MemberType == MemberTypes.Property && m.Name == partName);
+            return member.DeclaringType.GetMembers().Any(m => m.MemberType == MemberTypes.Property && m.Name == partName);
         }
 
         private bool isEventAdderOrRemover(MemberInfo member)
@@ -617,29 +644,73 @@ namespace RT.Servers
             if (!member.Name.StartsWith("add_") && !member.Name.StartsWith("remove_"))
                 return false;
             string partName = member.Name.Substring(member.Name.StartsWith("add_") ? 4 : 7);
-            return member.ReflectedType.GetMembers().Any(m => m.MemberType == MemberTypes.Event && m.Name == partName);
+            return member.DeclaringType.GetMembers().Any(m => m.MemberType == MemberTypes.Event && m.Name == partName);
         }
 
         private bool isEventField(MemberInfo member)
         {
             if (member.MemberType != MemberTypes.Field)
                 return false;
-            return member.ReflectedType.GetMembers().Any(m => m.MemberType == MemberTypes.Event && m.Name == member.Name);
+            return member.DeclaringType.GetMembers().Any(m => m.MemberType == MemberTypes.Event && m.Name == member.Name);
         }
 
-        private object generateTypeBullet(KeyValuePair<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> tkvp, Type type, HttpRequest req)
+        private bool isPublic(MemberInfo member)
         {
+            switch (member.MemberType)
+            {
+                case MemberTypes.Constructor:
+                case MemberTypes.Method:
+                    return ((MethodBase) member).IsPublic;
+
+                case MemberTypes.Event:
+                    return true;
+
+                case MemberTypes.Field:
+                    return ((FieldInfo) member).IsPublic;
+
+                case MemberTypes.NestedType:
+                    return ((Type) member).IsPublic || ((Type) member).IsNestedPublic;
+
+                case MemberTypes.Property:
+                    var property = (PropertyInfo) member;
+                    var getter = property.GetGetMethod();
+                    if (getter != null && getter.IsPublic)
+                        return true;
+                    var setter = property.GetSetMethod();
+                    return setter != null && setter.IsPublic;
+            }
+            return false;
+        }
+
+        private bool isStatic(MemberInfo member)
+        {
+            if (member == null)
+                return false;
+            if (member.MemberType == MemberTypes.Field)
+                return ((FieldInfo) member).IsStatic;
+            if (member.MemberType == MemberTypes.Method)
+                return ((MethodInfo) member).IsStatic;
+            if (member.MemberType != MemberTypes.Property)
+                return false;
+            var property = (PropertyInfo) member;
+            var getMethod = property.GetGetMethod();
+            return getMethod == null ? property.GetSetMethod().IsStatic : getMethod.IsStatic;
+        }
+
+        private object generateTypeBullet(string typeFullName, Type selectedType, HttpRequest req)
+        {
+            var typeinfo = _types[typeFullName];
             string cssClass = "type";
-            if (tkvp.Value.E2 == null) cssClass += " missing";
-            return new LI { class_ = cssClass }._(new A(friendlyTypeName(tkvp.Value.E1, false)) { href = req.BaseUrl + "/" + tkvp.Key.UrlEscape() },
-                type == null || !isNestedTypeOf(type, tkvp.Value.E1) || typeof(Delegate).IsAssignableFrom(tkvp.Value.E1) ? (object) null :
-                new UL(tkvp.Value.E3.Select(mkvp =>
+            if (typeinfo.Documentation == null) cssClass += " missing";
+            return new LI { class_ = cssClass }._(new A(friendlyTypeName(typeinfo.Type, false)) { href = req.BaseUrl + "/" + typeFullName.UrlEscape() },
+                selectedType == null || !isNestedTypeOf(selectedType, typeinfo.Type) || typeof(Delegate).IsAssignableFrom(typeinfo.Type) ? (object) null :
+                new UL(typeinfo.Members.Where(mkvp => isPublic(mkvp.Value.Member)).Select(mkvp =>
                 {
-                    string css = mkvp.Value.E1.MemberType.ToString() + " member";
-                    if (mkvp.Value.E2 == null) css += " missing";
-                    return mkvp.Value.E1.MemberType != MemberTypes.NestedType
-                        ? new LI { class_ = css }._(new A(friendlyMemberName(mkvp.Value.E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + mkvp.Key.UrlEscape() })
-                        : generateTypeBullet(_tree[tkvp.Value.E1.Namespace].First(kvp => kvp.Key == GetTypeFullName((Type) mkvp.Value.E1)), type, req);
+                    string css = mkvp.Value.Member.MemberType.ToString() + " member";
+                    if (mkvp.Value.Documentation == null) css += " missing";
+                    return mkvp.Value.Member.MemberType != MemberTypes.NestedType
+                        ? new LI { class_ = css }._(new A(friendlyMemberName(mkvp.Value.Member, false, false, true, false, false)) { href = req.BaseUrl + "/" + mkvp.Key.UrlEscape() })
+                        : generateTypeBullet(GetTypeFullName((Type) mkvp.Value.Member), selectedType, req);
                 }))
             );
         }
@@ -651,19 +722,19 @@ namespace RT.Servers
             return isNestedTypeOf(nestedType.DeclaringType, containingType);
         }
 
-        private IEnumerable<object> generateNamespaceDocumentation(string namespaceName, SortedDictionary<string, Tuple<Type, XElement, SortedDictionary<string, Tuple<MemberInfo, XElement>>>> namespaceInfo, HttpRequest req)
+        private IEnumerable<object> generateNamespaceDocumentation(string namespaceName, HttpRequest req)
         {
             yield return new H1("Namespace: ", namespaceName);
 
-            foreach (var gr in namespaceInfo.GroupBy(kvp => kvp.Value.E1.IsEnum).OrderBy(gr => gr.Key))
+            foreach (var gr in _namespaces[namespaceName].Types.GroupBy(kvp => kvp.Value.Type.IsEnum).OrderBy(gr => gr.Key))
             {
                 yield return new H2(gr.Key ? "Enums in this namespace" : "Classes and structs in this namespace");
                 yield return new TABLE { class_ = "doclist" }._(
                     gr.Select(kvp => new TR(
-                        new TD(new A(friendlyTypeName(kvp.Value.E1, false)) { href = req.BaseUrl + "/" + GetTypeFullName(kvp.Value.E1).UrlEscape() }),
-                        new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
+                        new TD(new A(friendlyTypeName(kvp.Value.Type, false)) { href = req.BaseUrl + "/" + GetTypeFullName(kvp.Value.Type).UrlEscape() }),
+                        new TD(kvp.Value.Documentation == null || kvp.Value.Documentation.Element("summary") == null
                             ? (object) new EM("No documentation available.")
-                            : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
+                            : interpretBlock(kvp.Value.Documentation.Element("summary").Nodes(), req))
                     ))
                 );
             }
@@ -809,25 +880,28 @@ namespace RT.Servers
 
             if (!isDelegate)
             {
-                foreach (var gr in _tree[type.Namespace][GetTypeFullName(type)].E3.GroupBy(kvp => new Tuple<MemberTypes, bool>(kvp.Value.E1.MemberType,
-                    (kvp.Value.E1.MemberType == MemberTypes.Method && ((MethodInfo) kvp.Value.E1).IsStatic) || (kvp.Value.E1.MemberType == MemberTypes.Property && ((PropertyInfo) kvp.Value.E1).GetGetMethod().IsStatic))))
+                foreach (var gr in _types[GetTypeFullName(type)].Members.Where(kvp => isPublic(kvp.Value.Member)).GroupBy(kvp => new
+                {
+                    MemberType = kvp.Value.Member.MemberType,
+                    IsStatic = isStatic(kvp.Value.Member)
+                }))
                 {
                     yield return new H2(
-                        gr.Key.E1 == MemberTypes.Constructor ? "Constructors" :
-                        gr.Key.E1 == MemberTypes.Event ? "Events" :
-                        gr.Key.E1 == MemberTypes.Field ? "Fields" :
-                        gr.Key.E1 == MemberTypes.Method && gr.Key.E2 ? "Static methods" :
-                        gr.Key.E1 == MemberTypes.Method ? "Instance methods" :
-                        gr.Key.E1 == MemberTypes.Property && gr.Key.E2 ? "Static properties" :
-                        gr.Key.E1 == MemberTypes.Property ? "Instance properties" :
-                        gr.Key.E1 == MemberTypes.NestedType ? "Nested types" : "Additional members"
+                        gr.Key.MemberType == MemberTypes.Constructor ? "Constructors" :
+                        gr.Key.MemberType == MemberTypes.Event ? "Events" :
+                        gr.Key.MemberType == MemberTypes.Field ? "Fields" :
+                        gr.Key.MemberType == MemberTypes.Method && gr.Key.IsStatic ? "Static methods" :
+                        gr.Key.MemberType == MemberTypes.Method ? "Instance methods" :
+                        gr.Key.MemberType == MemberTypes.Property && gr.Key.IsStatic ? "Static properties" :
+                        gr.Key.MemberType == MemberTypes.Property ? "Instance properties" :
+                        gr.Key.MemberType == MemberTypes.NestedType ? "Nested types" : "Additional members"
                     );
                     yield return new TABLE { class_ = "doclist" }._(
                         gr.Select(kvp => new TR(
-                            new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.E1, true, false, true, true, false, false, req.BaseUrl + "/" + kvp.Key.UrlEscape(), req.BaseUrl)),
-                            new TD(kvp.Value.E2 == null || kvp.Value.E2.Element("summary") == null
+                            new TD { class_ = "item" }._(friendlyMemberName(kvp.Value.Member, true, false, true, true, false, false, req.BaseUrl + "/" + kvp.Key.UrlEscape(), req.BaseUrl)),
+                            new TD(kvp.Value.Documentation == null || kvp.Value.Documentation.Element("summary") == null
                                 ? (object) new EM("No documentation available.")
-                                : interpretBlock(kvp.Value.E2.Element("summary").Nodes(), req))
+                                : interpretBlock(kvp.Value.Documentation.Element("summary").Nodes(), req))
                         ))
                     );
                 }
@@ -903,13 +977,31 @@ namespace RT.Servers
                     var inElem = node as XElement;
                     if (inElem.Name == "see" && inElem.Attribute("cref") != null)
                     {
+                        Type actual;
                         string token = inElem.Attribute("cref").Value;
-                        if (_typeDocumentation.ContainsKey(token))
-                            yield return new A(friendlyTypeName(_typeDocumentation[token].E1, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
-                        else if (_memberDocumentation.ContainsKey(token))
-                            yield return new A(friendlyMemberName(_memberDocumentation[token].E1, false, false, true, false, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
+                        if (_types.ContainsKey(token))
+                            yield return new A(friendlyTypeName(_types[token].Type, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
+                        else if (_members.ContainsKey(token))
+                            yield return new A(friendlyMemberName(_members[token].Member, false, false, true, false, false)) { href = req.BaseUrl + "/" + token.UrlEscape() };
+                        else if (token.StartsWith("T:") && (actual = Type.GetType(token.Substring(2), false, true)) != null)
+                        {
+                            yield return actual.Namespace;
+                            yield return ".";
+                            yield return new STRONG(Regex.Replace(actual.Name, "`\\d+", string.Empty));
+                            if (actual.IsGenericType)
+                            {
+                                yield return "<";
+                                yield return actual.GetGenericArguments().First().Name;
+                                foreach (var gen in actual.GetGenericArguments().Skip(1))
+                                {
+                                    yield return ", ";
+                                    yield return gen.Name;
+                                }
+                                yield return ">";
+                            }
+                        }
                         else
-                            yield return new CODE(token);
+                            yield return token.Substring(2);
                     }
                     else if (inElem.Name == "c")
                         yield return new CODE(interpretInline(inElem, req));
