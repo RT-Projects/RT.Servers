@@ -136,7 +136,6 @@ namespace RT.TagSoup
         public Tag Execute()
         {
             var t = GetType();
-            // var constructor = t.GetConstructor(new Type[] { typeof(object[]) });
             var newObj = (Tag) Activator.CreateInstance(t, new object[] { new object[] { } });
             foreach (var f in t.GetAllFields())
                 f.SetValue(newObj, f.GetValue(this));
