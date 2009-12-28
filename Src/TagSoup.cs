@@ -132,6 +132,33 @@ namespace RT.TagSoup
                 throw new TagSoupDeferredException(toThrow);
         }
 
+        public Tag Execute()
+        {
+            var t = GetType();
+            // var constructor = t.GetConstructor(new Type[] { typeof(object[]) });
+            var newObj = (Tag) Activator.CreateInstance(t, new object[] { new object[] { } });
+            foreach (var f in t.GetAllFields())
+                f.SetValue(newObj, f.GetValue(this));
+            newObj.TagContents = TagContents == null ? null : new List<object>((IEnumerable<object>) execute(TagContents));
+            return newObj;
+        }
+
+        private object execute(object content)
+        {
+            if (content == null)
+                return null;
+            if (content is Tag)
+                return ((Tag) content).Execute();
+            if (content is IEnumerable)
+            {
+                var list = new List<object>();
+                foreach (var obj in (IEnumerable) content)
+                    list.Add(execute(obj));
+                return list;
+            }
+            return content;
+        }
+
         /// <summary>Converts the entire tag tree into a single string.</summary>
         /// <returns>The entire tag tree as a single string.</returns>
         public override string ToString()
