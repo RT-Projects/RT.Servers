@@ -132,6 +132,7 @@ namespace RT.TagSoup
                 throw new TagSoupDeferredException(toThrow);
         }
 
+        /// <summary>Returns a copy of this tag with all contained iterators executed (enumerated), no matter how deeply nested.</summary>
         public Tag Execute()
         {
             var t = GetType();
