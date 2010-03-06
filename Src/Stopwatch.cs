@@ -9,7 +9,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates a single entry in a <see cref="Stopwatch"/> log.
     /// </summary>
-    public struct StopWatchElement
+    public struct StopwatchElement
     {
         /// <summary>Number of milliseconds between the start of the stopwatch and this event.</summary>
         public double Milliseconds;
@@ -53,7 +53,7 @@ namespace RT.Servers
         /// <summary>
         /// Remembers the events as they happen.
         /// </summary>
-        public List<StopWatchElement> Elements = new List<StopWatchElement>();
+        public List<StopwatchElement> Elements = new List<StopwatchElement>();
 
         /// <summary>
         /// Logs an event.
@@ -61,7 +61,7 @@ namespace RT.Servers
         /// <param name="msg">Message to log.</param>
         public override void Log(string msg)
         {
-            Elements.Add(new StopWatchElement
+            Elements.Add(new StopwatchElement
             {
                 Event = msg,
                 Milliseconds = (DateTime.Now - StartTime).TotalMilliseconds
