@@ -149,14 +149,14 @@ namespace RT.TagSoup
             if (o == null)
                 return Empty;
 
+            if (o is string)
+                return new[] { ((string) o).HtmlEscape() };
+
             if (o is Tag)
                 return ((Tag) o).ToEnumerable();
 
             if (o is IEnumerable)
                 return ((IEnumerable) o).Cast<object>().SelectMany(s => stringify(s));
-
-            if (o is string)
-                return new[] { ((string) o).HtmlEscape() };
 
             Type t = o.GetType();
             if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Func<>))
