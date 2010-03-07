@@ -30,7 +30,7 @@ namespace RT.Servers
     ///            <para>You can now augment any HTTP request handler that looks like this:</para>
     ///            <code>req => { /* code to handle request, no session support */ }</code>
     ///            <para>by changing it into this:</para>
-    ///            <code>Session.Enable&lt;TSession&gt;((req, session) => { /* code to handle request with session variable available */ })</code>
+    ///            <code>req => Session.Enable&lt;TSession&gt;(req, session => { /* code to handle request with session variable available */ })</code>
     ///            <para>(replace "TSession" with the name of your derived class; see <see cref="Enable"/>).</para>
     ///        </description></item>
     ///        <item><description>Within your request handler, you can make arbitrary changes to the session object, which will be persisted automatically.</description></item>
@@ -135,20 +135,17 @@ namespace RT.Servers
 
         /// <summary>Enables the use of sessions in an HTTP request handler.</summary>
         /// <typeparam name="TSession">The type of session to be used. Must be derived from <see cref="Session"/> and have a default constructor.</typeparam>
+        /// <param name="req">The HTTP request for which to enable session support.</param>
         /// <param name="handler">HTTP request handler code that can make free use of a session variable.</param>
-        /// <returns>An <see cref="HttpRequestHandler"/> that can be used in a <see cref="HttpRequestHandlerHook"/>.</returns>
         /// <remarks>See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
-        public static HttpRequestHandler Enable<TSession>(Func<HttpRequest, TSession, HttpResponse> handler) where TSession : Session, new()
+        public static HttpResponse Enable<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, new()
         {
-            return req =>
-            {
-                var session = new TSession();
-                session.initialiseFromRequest(req);
-                var response = handler(req, session);
-                session.setCookie(response);
-                session.close();
-                return response;
-            };
+            var session = new TSession();
+            session.initialiseFromRequest(req);
+            var response = handler(session);
+            session.setCookie(response);
+            session.close();
+            return response;
         }
     }
 
