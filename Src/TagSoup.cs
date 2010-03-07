@@ -110,6 +110,8 @@ namespace RT.TagSoup
                     continue;
                 if (content is string)
                     yield return ((string) content).HtmlEscape();
+                else if (content is Func<string>)
+                    yield return ((Func<string>) content)().HtmlEscape();
                 else
                 {
                     IEnumerator<string> en = null;
@@ -152,15 +154,17 @@ namespace RT.TagSoup
             if (o is string)
                 return new[] { ((string) o).HtmlEscape() };
 
+            if (o is IEnumerable<string>)
+                return ((IEnumerable<string>) o).Select(str => str.HtmlEscape());
+
             if (o is Tag)
                 return ((Tag) o).ToEnumerable();
 
             if (o is IEnumerable)
                 return ((IEnumerable) o).Cast<object>().SelectMany(s => stringify(s));
 
-            Type t = o.GetType();
-            if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Func<>))
-                return stringify(t.GetMethod("Invoke").Invoke(o, new object[] { }));
+            if (o is Delegate && ((Delegate) o).Method.GetParameters().Length == 0)
+                return stringify(((Delegate) o).DynamicInvoke(null));
 
             return new[] { o.ToString().HtmlEscape() };
         }
