@@ -1181,13 +1181,6 @@ namespace RT.Servers
             }
 
             sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
-            /*
-            if (req.Content != null)
-            {
-                Log.Info(req.Content.ReadAllText(Encoding.ASCII));
-                throw new Exception();
-            }
-            */
 
             if (_opt.ReturnExceptionsToClient)
             {

@@ -839,12 +839,12 @@ namespace RT.Servers
     }
 
     /// <summary>
-    /// Exception thrown to indicate error during processing of the request. Usually this exception is caught to generate an HTTP 500 Internal Server Error.
+    /// Exception thrown to indicate error during processing of the request. Throw this exception to generate, for example, an HTTP 500 Internal Server Error.
     /// </summary>
     public class InvalidRequestException : Exception
     {
         /// <summary>
-        /// Response to return when the exception is caught. Usually <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.
+        /// Response to return when the exception is caught. For example, use <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> to generate an HTTP 500 Internal Server Error.
         /// </summary>
         public HttpResponse Response;
 
@@ -852,7 +852,7 @@ namespace RT.Servers
         /// Constructor.
         /// </summary>
         /// <param name="response">Response to return when the exception is caught.
-        /// Usually <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> is used to generate an HTTP 500 Internal Server Error.</param>
+        /// For example, use <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> to generate an HTTP 500 Internal Server Error.</param>
         public InvalidRequestException(HttpResponse response) { Response = response; }
     }
 }
