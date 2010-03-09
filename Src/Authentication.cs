@@ -18,6 +18,7 @@ namespace RT.Servers
         /// <param name="usersPath">Path to the file in which usernames and passwords are stored.</param>
         /// <param name="setUsername">Action to call when login is successful. Use this to set the username in your custom session, for example.</param>
         /// <param name="defaultReturnTo">Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET parameter.</param>
+        /// <param name="appName">Name of the application which uses this login handler.</param>
         public static HttpResponse LoginHandler(HttpRequest req, string usersPath, Action<string> setUsername, string defaultReturnTo, string appName)
         {
             if (req.Method != HttpMethod.Post)
