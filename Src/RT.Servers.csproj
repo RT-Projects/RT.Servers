@@ -51,6 +51,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Authentication.cs" />
     <Compile Include="HtmlTag.cs" />
     <Compile Include="HttpEnums.cs" />
     <Compile Include="HttpInternalObjects.cs" />

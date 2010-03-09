@@ -14,7 +14,7 @@ namespace RT.Servers
         private Thread _readingThread;
 
         /// <summary>Constructs a TCP client based on an existing Socket.</summary>
-        /// <param name="Socket">The Socket to monitor for incoming data.</param>
+        /// <param name="socket">The Socket to monitor for incoming data.</param>
         public TcpClientWithEvents(Socket socket)
         {
             _socket = socket;
