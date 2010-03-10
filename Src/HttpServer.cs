@@ -569,6 +569,13 @@ namespace RT.Servers
                     connectionKeepAlive = super.outputResponse(socket, response, sw);
                     sw.Log("Returned from OutputResponse()");
                 }
+                catch (SocketException e)
+                {
+                    sw.Log("Caught SocketException - closing ({0})".Fmt(e.Message));
+                    socket.Close();
+                    sw.Log("Socket.Close()");
+                    return;
+                }
                 finally
                 {
                     if (response.Content != null)
