@@ -7,6 +7,7 @@ using System.Text;
 using RT.Util.ExtensionMethods;
 using RT.Util.Xml;
 using RT.TagSoup.HtmlTags;
+using System.Threading;
 
 namespace RT.Servers
 {
@@ -36,7 +37,9 @@ namespace RT.Servers
                 if (File.Exists(usersPath))
                 {
                     var hash = getHash(username, password); ;
-                    var users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath);
+                    AuthUsers users;
+                    lock (_lock)
+                        users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath);
                     var user = users.Users.FirstOrDefault(u => u.Username == username && u.PasswordHash == hash);
                     if (user != null)
                     {
@@ -46,7 +49,8 @@ namespace RT.Servers
                     }
                 }
                 else
-                    XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
+                    lock (_lock)
+                        XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
             }
             // Login failed.
             return loginForm(returnTo, true, username, password, req.UrlWithoutQuery, appName);
@@ -119,7 +123,9 @@ namespace RT.Servers
                 if (File.Exists(usersPath))
                 {
                     var hash = getHash(username, oldpassword); ;
-                    var users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath);
+                    AuthUsers users;
+                    lock (_lock)
+                        users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath);
                     var user = users.Users.FirstOrDefault(u => u.Username == username);
                     if ((user == null && allowCreateNew && username != "") || user.PasswordHash == hash)
                     {
@@ -132,12 +138,14 @@ namespace RT.Servers
                             users.Users.Add(user);
                         }
                         user.PasswordHash = getHash(username, newpassword);
-                        XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, usersPath);
+                        lock (_lock)
+                            XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, usersPath);
                         return HttpServer.RedirectResponse(returnTo ?? defaultReturnTo);
                     }
                 }
                 else
-                    XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
+                    lock (_lock)
+                        XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
             }
             // Username or old password was wrong
             return changePasswordForm(returnTo, true, false, username, oldpassword, newpassword, newpassword2, req.UrlWithoutQuery);
@@ -171,6 +179,9 @@ namespace RT.Servers
                 )
             );
         }
+
+        /// <summary>Used to ensure that the AuthUsers XML file is not read and written concurrently.</summary>
+        private static object _lock = new object();
     }
 
     class AuthUser

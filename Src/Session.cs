@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Xml;
@@ -153,6 +154,9 @@ namespace RT.Servers
     /// <remarks>In order to use this class, you must create a class that derives from it. See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
     public abstract class FileSession : Session
     {
+        /// <summary>Used to prevent concurrent read/write access to session files.</summary>
+        private static object _lock = new object();
+
         /// <summary>Gets the folder in which session data should be stored.</summary>
         /// <remarks>The default implementation returns <c>Path.Combine(Path.GetTempPath(), "sessions")</c>.</remarks>
         protected virtual string SessionPath { get { return Path.Combine(Path.GetTempPath(), "sessions"); } }
@@ -164,9 +168,12 @@ namespace RT.Servers
         protected override sealed bool readSession()
         {
             var file = Path.Combine(SessionPath, SessionID);
-            if (!File.Exists(file))
-                return false;
-            XmlClassify.ReadXmlFileIntoObject(file, this);
+            lock (_lock)
+            {
+                if (!File.Exists(file))
+                    return false;
+                XmlClassify.ReadXmlFileIntoObject(file, this);
+            }
             return true;
         }
 
@@ -174,9 +181,10 @@ namespace RT.Servers
         protected override sealed void saveSession()
         {
             var sessionPath = SessionPath;
-            if (!Directory.Exists(sessionPath))
-                Directory.CreateDirectory(sessionPath);
-            XmlClassify.SaveObjectToXmlFile(this, Path.Combine(sessionPath, SessionID));
+            // Directory.CreateDirectory() does nothing if the directory already exists.
+            Directory.CreateDirectory(sessionPath);
+            lock (_lock)
+                XmlClassify.SaveObjectToXmlFile(this, Path.Combine(sessionPath, SessionID));
         }
 
         /// <summary>Deletes the file containing the data for this session from the file system.</summary>
@@ -184,8 +192,11 @@ namespace RT.Servers
         {
             var path = Path.Combine(Path.GetTempPath(), "sessions");
             var sessionPath = Path.Combine(path, SessionID);
-            if (File.Exists(sessionPath))
-                File.Delete(sessionPath);
+            lock (_lock)
+            {
+                if (File.Exists(sessionPath))
+                    File.Delete(sessionPath);
+            }
         }
     }
 }

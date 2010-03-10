@@ -15,131 +15,6 @@ using ICSharpCode.SharpZipLib.GZip;
 namespace RT.Servers
 {
     /// <summary>
-    /// Encapsulates the various ways in which a URL can map to a request handler. Add instances of this class to <see cref="HttpServer.RequestHandlerHooks"/>
-    /// to hook a handler to a specific <see cref="HttpServer"/> instance. This class is immutable.
-    /// </summary>
-    public class HttpRequestHandlerHook
-    {
-        /// <summary>Gets a value indicating what domain name the handler applies to. Returns null if it applies to all domains.</summary>
-        /// <seealso cref="SpecificDomain"/>
-        public string Domain { get { return _domain; } }
-        private string _domain;
-
-        /// <summary>Gets a value indicating what port the handler applies to. Returns null if it applies to all ports.</summary>
-        public int? Port { get { return _port; } }
-        private int? _port;
-
-        /// <summary>Gets a value indicating what URL path the handler applies to. Returns null if it applies to all paths.</summary>
-        /// <seealso cref="SpecificPath"/>
-        public string Path { get { return _path; } }
-        private string _path;
-
-        /// <summary>Gets a value indicating whether the handler applies to all subdomains of the domain specified by
-        /// <see cref="Domain"/> (false) or the specific domain only (true).</summary>
-        public bool SpecificDomain { get { return _specificDomain; } }
-        private bool _specificDomain;
-
-        /// <summary>Gets a value indicating whether the handler applies to all subpaths of the path specified by
-        /// <see cref="Path"/> (false) or to the specific path only (true).</summary>
-        public bool SpecificPath { get { return _specificPath; } }
-        private bool _specificPath;
-
-        /// <summary>Gets the request handler for this hook.</summary>
-        public HttpRequestHandler Handler { get { return _handler; } }
-        private HttpRequestHandler _handler;
-
-        private void init(string domain, int? port, string path, bool specificDomain, bool specificPath, HttpRequestHandler handler)
-        {
-            if (domain == null && specificDomain)
-                throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
-            if (domain != null && !Regex.IsMatch(domain, @"^[-.a-z0-9]+$"))
-                throw new ArgumentException("The domain specified by the domain parameter must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
-            if (domain != null && (domain.Contains(".-") || domain.Contains("-.") || domain.StartsWith("-") || domain.EndsWith("-")))
-                throw new ArgumentException("The domain specified by the domain parameter must not contain a domain name beginning or ending with a hyphen (-).");
-            if (domain != null && !specificDomain && domain.StartsWith("."))
-                throw new ArgumentException(@"If the specificDomain parameter is set to false or not specified, the domain specified by the domain parameter must not begin with a period (.). It will, however, be treated as a domain. For example, if you specify the domain ""cream.net"", only domains ending in "".cream.net"" and the domain ""cream.net"" itself are matched. The domain ""scream.net"" would not be considered a match. If you wish to hook the handler to every domain, use one of the constructors that omit the domain parameter.");
-            if (domain != null && (domain.StartsWith(".") || domain.EndsWith(".")))
-                throw new ArgumentException(@"The domain specified by the domain parameter must not begin or end with a period (.).");
-
-            if (path == null && specificPath)
-                throw new ArgumentException("If the specificPath parameter is set to true, a non-null path must be specified using the path parameter.");
-            if (path != null && !Regex.IsMatch(path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]*$"))
-                throw new ArgumentException("The path specified by the path parameter must not contain any characters that are invalid in URLs, or the question mark (?) character, and it must begin with a slash (/).");
-            if (path != null && !specificPath && path.EndsWith("/"))
-                throw new ArgumentException(@"If the specificPath parameter is set to false or not specified, the path specified by the path parameter must not end with a slash (/). It will, however, be treated as a directory. For example, if you specify the path ""/files"", only URLs beginning with ""/files/"" and the URL ""/files"" itself are matched. The URL ""/fileshare"" would not be considered a match. If you wish to hook the handler to the root directory of the domain, use one of the constructors that omit the path parameter.");
-
-            if (handler == null)
-                throw new ArgumentException("The handler specified by the handler parameter cannot be null.");
-            if (path != null && !path.StartsWith("/"))
-                throw new ArgumentException("A path specified by the path parameter must begin with the slash character (\"/\").");
-            if (port != null && (port.Value < 1 || port.Value > 65535))
-                throw new ArgumentException("The port parameter must contain an integer in the range 1 to 65535 or null.");
-
-            _domain = domain;
-            _port = port;
-            _path = path;
-            _specificDomain = specificDomain;
-            _specificPath = specificPath;
-            _handler = handler;
-        }
-
-        /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
-        /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
-        /// domain and all subdomains or to this domain only, depending on the value of <paramref name="specificDomain"/>.</param>
-        /// <param name="port">If null, the handler applies to all ports; otherwise to the specified port only.</param>
-        /// <param name="path">If null, the handler applies to all URL paths. Otherwise, the handler applies to this
-        /// path and all subpaths or to this path only, depending on the value of <paramref name="specificPath"/>.</param>
-        /// <param name="specificDomain">If false, the handler applies to all subdomains of the domain specified by
-        /// <paramref name="domain"/>. Otherwise it applies to the specific domain only.</param>
-        /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
-        /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
-        /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(string domain, int? port, string path, bool specificDomain, bool specificPath, HttpRequestHandler handler)
-        {
-            init(domain, port, path, specificDomain, specificPath, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to a specific path (URL fragment) and all sub-paths, but any domain or port.</summary>
-        /// <param name="path">Path (URL fragment) for which this handler should be used (for example, "/users").</param>
-        /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(string path, HttpRequestHandler handler)
-        {
-            if (path == null)
-                throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HttpRequestHandler.", "path");
-            init(null, null, path, false, false, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to a specific path (URL fragment), but any domain or port.</summary>
-        /// <param name="path">Path (URL fragment) for which this handler should be used (for example, "/users").</param>
-        /// <param name="handler">The request handler to hook.</param>
-        /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
-        /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
-        public HttpRequestHandlerHook(string path, HttpRequestHandler handler, bool specificPath)
-        {
-            if (path == null)
-                throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HttpRequestHandler.", "path");
-            init(null, null, path, false, specificPath, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to a specific domain and all sub-domains, but any path or port.</summary>
-        /// <param name="handler">The request handler to hook.</param>
-        /// <param name="domain">Domain name for which this handler should be used (for example, "example.com").</param>
-        public HttpRequestHandlerHook(HttpRequestHandler handler, string domain)
-        {
-            if (domain == null)
-                throw new ArgumentException("The domain parameter must not be null. If the handler should apply to all domains, use the constructor that takes only a HttpRequestHandler.", "domain");
-            init(domain, null, null, false, false, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to all paths on all domains and all sub-domains.</summary>
-        /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(HttpRequestHandler handler)
-        {
-            init(null, null, null, false, false, handler);
-        }
-    }
-
-    /// <summary>
     /// Provides an HTTP server.
     /// </summary>
     public partial class HttpServer
@@ -153,10 +28,7 @@ namespace RT.Servers
         /// Constructs an HTTP server with the specified configuration settings.
         /// </summary>
         /// <param name="options">Specifies the configuration settings to use for this <see cref="HttpServer"/>.</param>
-        public HttpServer(HttpServerOptions options)
-        {
-            _opt = options;
-        }
+        public HttpServer(HttpServerOptions options) { _opt = options; }
 
         /// <summary>
         /// Returns the configuration settings currently in effect for this server.
@@ -172,7 +44,7 @@ namespace RT.Servers
         private TcpListener _listener;
         private Thread _listeningThread;
         private HttpServerOptions _opt;
-        private List<Thread> _activeReadingThreads = new List<Thread>();
+        private List<readingThreadRunner> _activeReadingThreads = new List<readingThreadRunner>();
 
         /// <summary>
         /// Returns the number of currently active threads that are processing a request.
@@ -206,8 +78,9 @@ namespace RT.Servers
             {
                 if (brutal)
                     foreach (var thr in _activeReadingThreads)
-                        thr.Abort();
-                _activeReadingThreads = new List<Thread>();
+                        if (thr.currentThread != null)
+                            thr.currentThread.Abort();
+                _activeReadingThreads = new List<readingThreadRunner>();
             }
         }
 
@@ -302,7 +175,7 @@ namespace RT.Servers
         /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer.</returns>
         public HttpResponse FileSystemResponse(string baseDir, HttpRequest req)
         {
-            string p = baseDir.EndsWith("" + Path.DirectorySeparatorChar) ? baseDir.Remove(baseDir.Length - 1) : baseDir;
+            string p = baseDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? baseDir.Remove(baseDir.Length - 1) : baseDir;
             string baseUrl = req.Url.Substring(0, req.Url.Length - req.RestUrl.Length);
             string url = req.RestUrl.Contains('?') ? req.RestUrl.Remove(req.RestUrl.IndexOf('?')) : req.RestUrl;
             string[] urlPieces = url.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
@@ -549,7 +422,7 @@ namespace RT.Servers
         /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code, headers and message.</returns>
         public static HttpResponse ErrorResponse(HttpStatusCode statusCode, HttpResponseHeaders headers, string message)
         {
-            string statusCodeName = ("" + ((int) statusCode) + " " + statusCode.ToText()).HtmlEscape();
+            string statusCodeName = string.Concat(((int) statusCode).ToString(), " ", statusCode.ToText()).HtmlEscape();
             headers.ContentType = "text/html; charset=utf-8";
 
             // We sometimes output error messages as soon as possible, even if we should normally wait for more data, esp. the POST content.
@@ -577,122 +450,147 @@ namespace RT.Servers
             }
         }
 
-        private void readingThreadFunction(Socket socket, Thread thread)
+        private class readingThreadRunner
         {
-            string stopWatchFilename = socket.RemoteEndPoint.ToString().Replace(':', '_');
-            Stopwatch sw = new StopwatchDummy();
+            private Socket socket;
+            private HttpServer super;
+            private Stopwatch sw;
+            private string stopWatchFilename;
+            private byte[] nextRead;
+            private int nextReadOffset;
+            private int nextReadLength;
+            private byte[] buffer;
+            private string headersSoFar;
+            private SocketError errorCode;
 
-            try
+            public Thread currentThread;
+
+            public readingThreadRunner(Socket socket_, HttpServer super_)
             {
-                sw.Log("Start ReadingThreadFunction()");
+                socket = socket_;
+                super = super_;
+                currentThread = null;
 
-                byte[] nextRead = null;
-                int nextReadOffset = 0;
-                int nextReadLength = 0;
+                stopWatchFilename = socket.RemoteEndPoint.ToString().Replace(':', '_');
+                sw = new StopwatchDummy();
+                sw.Log("Start readingThreadRunner");
 
-                byte[] buffer = new byte[65536];
+                nextRead = null;
+                nextReadOffset = 0;
+                nextReadLength = 0;
+
+                buffer = new byte[65536];
                 sw.Log("Allocate buffer");
 
+                headersSoFar = "";
+
+                beginReceive();
+            }
+
+            private void beginReceive()
+            {
+                if (nextRead != null)
+                {
+                    processData();
+                    return;
+                }
+
+                nextRead = buffer;
+                nextReadOffset = 0;
+
+                sw.Log("beginReceive()");
+                try { socket.BeginReceive(buffer, 0, 65536, SocketFlags.None, out errorCode, endReceive, this); }
+                catch (SocketException) { socket.Close(); return; }
+            }
+
+            private void endReceive(IAsyncResult res)
+            {
+                sw.Log("Start of endReceive()");
+                currentThread = Thread.CurrentThread;
                 try
                 {
-                    if (_opt.IdleTimeout != 0)
-                        socket.ReceiveTimeout = _opt.IdleTimeout;
-                    string headersSoFar = "";
-                    sw.Log("Stuff before while(true) loop");
-                    while (true)
-                    {
-                        sw.Log("Start of while(true) loop");
-                        if (nextRead == null)
-                        {
-                            SocketError errorCode;
-                            try { nextReadLength = socket.Receive(buffer, 0, 65536, SocketFlags.None, out errorCode); }
-                            catch (SocketException) { socket.Close(); return; }
-                            sw.Log("Socket.Receive()");
-
-                            if (errorCode != SocketError.Success || nextReadLength == 0)
-                            {
-                                socket.Close();
-                                return;
-                            }
-
-                            nextRead = buffer;
-                            nextReadOffset = 0;
-                            sw.Log("Stuff after Socket.Receive()");
-                        }
-
-                        // Stop soon if the headers become too large.
-                        if (headersSoFar.Length + nextReadLength > _opt.MaxSizeHeaders)
-                        {
-                            socket.Close();
-                            return;
-                        }
-
-                        int prevHeadersLength = headersSoFar.Length;
-                        sw.Log("Stuff before HeadersSoFar += Encoding.ASCII.GetString(...)");
-                        headersSoFar += Encoding.ASCII.GetString(nextRead, nextReadOffset, nextReadLength);
-                        sw.Log("HeadersSoFar += Encoding.ASCII.GetString(...)");
-                        bool cont = headersSoFar.Contains("\r\n\r\n");
-                        sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
-                        if (!cont)
-                        {
-                            nextRead = null;
-                            continue;
-                        }
-
-                        int sepIndex = headersSoFar.IndexOf("\r\n\r\n");
-                        sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
-                        headersSoFar = headersSoFar.Remove(sepIndex);
-                        sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
-
-                        if (Log != null) Log.Info(headersSoFar);
-
-                        nextReadOffset += sepIndex + 4 - prevHeadersLength;
-                        nextReadLength -= sepIndex + 4 - prevHeadersLength;
-                        sw.Log("Stuff before HandleRequestAfterHeaders()");
-                        HttpRequest originalRequest;
-                        HttpResponse response = handleRequestAfterHeaders(socket, headersSoFar, nextRead, ref nextReadOffset, ref nextReadLength, sw, out originalRequest);
-                        response.OriginalRequest = originalRequest;
-                        sw.Log("Returned from HandleRequestAfterHeaders()");
-                        if (nextReadLength == 0)
-                            nextRead = null;
-                        bool connectionKeepAlive = false;
-                        try
-                        {
-                            sw.Log("Stuff before OutputResponse()");
-                            connectionKeepAlive = outputResponse(socket, response, sw);
-                            sw.Log("Returned from OutputResponse()");
-                        }
-                        finally
-                        {
-                            if (response.Content != null)
-                            {
-                                sw.Log("Stuff before Response.Content.Close()");
-                                response.Content.Close();
-                                sw.Log("Response.Content.Close()");
-                            }
-                        }
-                        if (connectionKeepAlive && socket.Connected)
-                        {
-                            headersSoFar = "";
-                            sw.Log("Reusing connection");
-                            continue;
-                        }
-                        sw.Log("Stuff before Socket.Close()");
-                        socket.Close();
-                        sw.Log("Socket.Close()");
-                        return;
-                    }
+                    try { nextReadLength = socket.EndReceive(res); }
+                    catch (SocketException) { socket.Close(); return; }
+                    if (nextReadLength == 0 || errorCode != SocketError.Success) { socket.Close(); return; }
+                    processData();
                 }
-                catch (SocketException)
+                finally
                 {
-                    sw.Log("Socket Exception!");
+                    currentThread = null;
                 }
             }
-            finally
+
+            private void processData()
             {
-                sw.SaveToFile(@"C:\temp\log\log_" + stopWatchFilename);
-                lock (_activeReadingThreads)
-                    _activeReadingThreads.Remove(thread);
+                sw.Log("Start of processData()");
+
+                // Stop soon if the headers become too large.
+                if (headersSoFar.Length + nextReadLength > super._opt.MaxSizeHeaders)
+                {
+                    socket.Close();
+                    return;
+                }
+
+                int prevHeadersLength = headersSoFar.Length;
+                sw.Log("Stuff before HeadersSoFar += Encoding.ASCII.GetString(...)");
+                headersSoFar += Encoding.ASCII.GetString(nextRead, nextReadOffset, nextReadLength);
+                sw.Log("HeadersSoFar += Encoding.ASCII.GetString(...)");
+                bool cont = headersSoFar.Contains("\r\n\r\n");
+                sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
+                if (!cont)
+                {
+                    nextRead = null;
+                    beginReceive();
+                    return;
+                }
+
+                int sepIndex = headersSoFar.IndexOf("\r\n\r\n");
+                sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
+                headersSoFar = headersSoFar.Remove(sepIndex);
+                sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
+
+                if (super.Log != null)
+                    lock (super.Log)
+                        super.Log.Info(headersSoFar);
+
+                nextReadOffset += sepIndex + 4 - prevHeadersLength;
+                nextReadLength -= sepIndex + 4 - prevHeadersLength;
+                sw.Log("Stuff before HandleRequestAfterHeaders()");
+                HttpRequest originalRequest;
+                HttpResponse response = super.handleRequestAfterHeaders(socket, headersSoFar, nextRead, ref nextReadOffset, ref nextReadLength, sw, out originalRequest);
+                response.OriginalRequest = originalRequest;
+                sw.Log("Returned from HandleRequestAfterHeaders()");
+                if (nextReadLength == 0)
+                    nextRead = null;
+                bool connectionKeepAlive = false;
+                try
+                {
+                    sw.Log("Stuff before OutputResponse()");
+                    connectionKeepAlive = super.outputResponse(socket, response, sw);
+                    sw.Log("Returned from OutputResponse()");
+                }
+                finally
+                {
+                    if (response.Content != null)
+                    {
+                        sw.Log("Stuff before Response.Content.Close()");
+                        response.Content.Close();
+                        sw.Log("Response.Content.Close()");
+                    }
+                }
+
+                if (connectionKeepAlive && socket.Connected)
+                {
+                    headersSoFar = "";
+                    sw.Log("Reusing connection");
+                    beginReceive();
+                    return;
+                }
+
+                sw.Log("Stuff before Socket.Close()");
+                socket.Close();
+                sw.Log("Socket.Close()");
+                return;
             }
         }
 
@@ -1389,11 +1287,11 @@ namespace RT.Servers
         /// If false, spawns a new thread and returns immediately.</param>
         public void HandleRequest(Socket incomingConnection, bool blocking)
         {
-            Thread readThread = null;
-            readThread = new Thread(() => readingThreadFunction(incomingConnection, readThread));
+            if (_opt.IdleTimeout != 0)
+                incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
+            var readingThreadRunner = new readingThreadRunner(incomingConnection, this);
             lock (_activeReadingThreads)
-                _activeReadingThreads.Add(readThread);
-            readThread.Start();
+                _activeReadingThreads.Add(readingThreadRunner);
         }
     }
 }

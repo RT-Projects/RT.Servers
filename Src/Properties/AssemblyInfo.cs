@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Servers")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Library providing HTTP and TCP Server functionality")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("HP")]
+[assembly: AssemblyCompany("Aldaray")]
 [assembly: AssemblyProduct("Servers")]
-[assembly: AssemblyCopyright("Copyright © HP 2008")]
+[assembly: AssemblyCopyright("Copyright © Aldaray 2010")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
