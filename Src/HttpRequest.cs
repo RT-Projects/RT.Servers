@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using RT.Util;
 using RT.Util.Collections;
 using RT.Util.ExtensionMethods;
 
@@ -835,6 +836,45 @@ namespace RT.Servers
 
             s.Close();
             return fc;
+        }
+
+        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace, string[] qsRemove, string resturl)
+        {
+            var url = resturl == null ? UrlWithoutQuery : BaseUrl + resturl;
+            var newQs = Get
+                .Where(g => (qsRemove == null || !qsRemove.Contains(g.Key)) && (qsAddOrReplace == null || !qsAddOrReplace.ContainsKey(g.Key)))
+                .SelectMany(qs => qs.Value.Select(q => new KeyValuePair<string, string>(qs.Key, q)));
+            if (qsAddOrReplace != null)
+                newQs = newQs.Concat(qsAddOrReplace);
+            return newQs.Any()
+                ? url + '?' + newQs.Select(q => q.Key.UrlEscape() + '=' + q.Value.UrlEscape()).JoinString("&")
+                : url;
+        }
+
+        public string SameUrlExceptSet(params string[] qsAddOrReplace)
+        {
+            var dict = new Dictionary<string, string>();
+            if ((qsAddOrReplace.Length & 1) == 1)
+                throw new RTException("Expected an even number of strings — one pair per query string argument");
+            for (int i = 0; i < qsAddOrReplace.Length; i += 2)
+                dict.Add(qsAddOrReplace[i], qsAddOrReplace[i + 1]);
+            return SameUrlExcept(dict, null, null);
+        }
+
+        public string SameUrlExceptRemove(params string[] qsRemove)
+        {
+            return SameUrlExcept(null, qsRemove, null);
+        }
+
+        public string SameUrlExceptSetRest(string resturl)
+        {
+            return SameUrlExcept(null, null, resturl);
+        }
+
+        public string SameUrlWhere(Func<string, bool> predicate)
+        {
+            var qs = Get.Keys.Where(predicate).SelectMany(key => Get[key].Select(val => key.UrlEscape() + "=" + val.UrlEscape())).JoinString("&");
+            return UrlWithoutQuery + (qs == "" ? "" : "?" + qs);
         }
     }
 
