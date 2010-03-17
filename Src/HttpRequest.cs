@@ -838,6 +838,11 @@ namespace RT.Servers
             return fc;
         }
 
+        /// <summary>Applies the specified modifications to this request's URL and returns the result.</summary>
+        /// <param name="qsAddOrReplace">Replaces existing query-string parameters, or adds them if they are not already in the URL.</param>
+        /// <param name="qsRemove">Removes the specified query-string parameters.</param>
+        /// <param name="resturl">Replaces the <see cref="RestUrl"/> with the specified new value.</param>
+        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
         public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace, string[] qsRemove, string resturl)
         {
             var url = resturl == null ? UrlWithoutQuery : BaseUrl + resturl;
@@ -851,6 +856,9 @@ namespace RT.Servers
                 : url;
         }
 
+        /// <summary>Adds or replaces given query-string parameters in this request's URL and returns the result.</summary>
+        /// <param name="qsAddOrReplace">An even-numbered array of strings where each element at even indexes is a key and each element at odd indexes is a value.</param>
+        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
         public string SameUrlExceptSet(params string[] qsAddOrReplace)
         {
             var dict = new Dictionary<string, string>();
@@ -861,16 +869,24 @@ namespace RT.Servers
             return SameUrlExcept(dict, null, null);
         }
 
+        /// <summary>Removes the specified query-string parameters from this request's URL and returns the result.</summary>
+        /// <param name="qsRemove">Set of keys that will be removed from the query string.</param>
+        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
         public string SameUrlExceptRemove(params string[] qsRemove)
         {
             return SameUrlExcept(null, qsRemove, null);
         }
 
+        /// <summary>Replaces the <see cref="RestUrl"/> with the specified new value, but keeps the query-string parameters intact.</summary>
+        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
         public string SameUrlExceptSetRest(string resturl)
         {
             return SameUrlExcept(null, null, resturl);
         }
 
+        /// <summary>Returns this request's URL, but with certain query-string parameters removed.</summary>
+        /// <param name="predicate">Determines which query-string parameter keys are to be retained. All keys for which this predicate does not hold are removed from the URL.</param>
+        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
         public string SameUrlWhere(Func<string, bool> predicate)
         {
             var qs = Get.Keys.Where(predicate).SelectMany(key => Get[key].Select(val => key.UrlEscape() + "=" + val.UrlEscape())).JoinString("&");
