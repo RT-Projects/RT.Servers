@@ -133,19 +133,24 @@ namespace RT.Servers
                 }
                 else if (nameLower == "content-type")
                 {
-                    if (string.Equals(value.Split(';')[0].Trim(), "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+                    var values = value.Split(';');
+                    var firstValue = values[0].Trim();
+                    if (string.Equals(firstValue, "application/x-www-form-urlencoded", StringComparison.InvariantCultureIgnoreCase))
                     {
                         ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                         recognised = true;
                     }
-                    else
+                    else if (string.Equals(firstValue, "multipart/form-data", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        Match m = Regex.Match(value, @"^multipart/form-data\s*;\s*boundary=", RegexOptions.IgnoreCase);
-                        if (m.Success)
+                        for (int i = 1; i < values.Length; i++)
                         {
-                            ContentType = HttpPostContentType.MultipartFormData;
-                            ContentMultipartBoundary = value.Substring(m.Length);
-                            recognised = true;
+                            var v = values[i].Trim();
+                            if (v.StartsWith("boundary="))
+                            {
+                                ContentType = HttpPostContentType.MultipartFormData;
+                                ContentMultipartBoundary = v.Substring("boundary=".Length);
+                                recognised = true;
+                            }
                         }
                     }
                 }
