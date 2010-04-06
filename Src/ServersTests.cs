@@ -58,7 +58,7 @@ namespace RT.Servers
 
             for (int chunksize = 1; chunksize < Math.Max(Math.Max(testQueryString1.Length, testQueryString2.Length), testQueryString3.Length); chunksize++)
             {
-                var dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString1)), chunksize));
+                var dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString1)), chunksize));
                 Assert.AreEqual(4, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple"));
                 Assert.IsTrue(dic.ContainsKey("cooking"));
@@ -69,7 +69,7 @@ namespace RT.Servers
                 Assert.AreEqual("foxtrot", dic["elephant"].Value);
                 Assert.AreEqual("hangman", dic["ghost"].Value);
 
-                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString2)), chunksize));
+                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString2)), chunksize));
                 Assert.AreEqual(4, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple"));
                 Assert.IsTrue(dic.ContainsKey("cooking"));
@@ -80,7 +80,7 @@ namespace RT.Servers
                 Assert.AreEqual("()=+", dic["elephant"].Value);
                 Assert.AreEqual("абвгд", dic["ghost"].Value);
 
-                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.ASCII.GetBytes(testQueryString3)), chunksize));
+                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString3)), chunksize));
                 Assert.AreEqual(2, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple[]"));
                 Assert.IsTrue(dic.ContainsKey("ghost[]"));
@@ -125,7 +125,7 @@ Content-Type: text/html
 </html>
 -----------------------------265001916915724--
 ";
-            byte[] TestCase = Encoding.ASCII.GetBytes(InputStr);
+            byte[] TestCase = Encoding.UTF8.GetBytes(InputStr);
 
             for (int cs = 1; cs < InputStr.Length; cs++)
             {
@@ -197,7 +197,7 @@ Content-Type: text/html
             cl.Connect("localhost", _port);
             cl.ReceiveTimeout = 1000; // 1 sec
             Socket sck = cl.Client;
-            sck.Send(Request.ToAscii());
+            sck.Send(Request.ToUtf8());
             List<byte> response = new List<byte>();
             byte[] b = new byte[65536];
             int bytesRead = sck.Receive(b);
@@ -207,7 +207,7 @@ Content-Type: text/html
                 response.AddRange(b.Take(bytesRead));
                 bytesRead = sck.Receive(b);
             }
-            string asText = Encoding.ASCII.GetString(response.ToArray());
+            string asText = Encoding.UTF8.GetString(response.ToArray());
             Assert.IsTrue(asText.Contains("\r\n\r\n"));
             int pos = asText.IndexOf("\r\n\r\n");
             TestResponse result = new TestResponse
@@ -285,7 +285,7 @@ Content-Type: text/html
                 Assert.IsTrue(resp.Headers.Any(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")));
                 string boundary = resp.Headers.First(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")).Substring(45);
                 Assert.IsTrue(resp.Headers.Contains("Content-Length: 284"));
-                byte[] expectedContent = ("--" + boundary + "\r\nContent-Range: bytes 65-65/65536\r\n\r\nA\r\n--" + boundary + "\r\nContent-Range: bytes 67-67/65536\r\n\r\nC\r\n--" + boundary + "--\r\n").ToAscii();
+                byte[] expectedContent = ("--" + boundary + "\r\nContent-Range: bytes 65-65/65536\r\n\r\nA\r\n--" + boundary + "\r\nContent-Range: bytes 67-67/65536\r\n\r\nC\r\n--" + boundary + "--\r\n").ToUtf8();
                 Assert.AreEqual(expectedContent.Length, resp.Content.Length);
                 for (int i = 0; i < expectedContent.Length; i++)
                     Assert.AreEqual(expectedContent[i], resp.Content[i]);
@@ -387,17 +387,17 @@ Content-Type: text/html
 
         private void keepaliveAndChunkedPrivate(Socket sck)
         {
-            sck.Send("GET /dynamic?aktion=list&showonly=scheduled&limitStart=0&filtermask_t=&filtermask_g=&filtermask_s=&size_max=*&size_min=*&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&orderby=time_desc&showonly=recordings HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToAscii());
+            sck.Send("GET /dynamic?aktion=list&showonly=scheduled&limitStart=0&filtermask_t=&filtermask_g=&filtermask_s=&size_max=*&size_min=*&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&orderby=time_desc&showonly=recordings HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToUtf8());
 
             byte[] b = new byte[65536];
             int bytesRead = sck.Receive(b);
             Assert.IsTrue(bytesRead > 0);
-            string response = Encoding.ASCII.GetString(b, 0, bytesRead);
+            string response = Encoding.UTF8.GetString(b, 0, bytesRead);
             while (!response.Contains("\r\n\r\n"))
             {
                 bytesRead = sck.Receive(b);
                 Assert.IsTrue(bytesRead > 0);
-                response += Encoding.ASCII.GetString(b, 0, bytesRead);
+                response += Encoding.UTF8.GetString(b, 0, bytesRead);
             }
             Assert.IsTrue(response.Contains("\r\n\r\n"));
             int pos = response.IndexOf("\r\n\r\n");
@@ -412,7 +412,7 @@ Content-Type: text/html
             {
                 bytesRead = sck.Receive(b);
                 Assert.IsTrue(bytesRead > 0);
-                response += Encoding.ASCII.GetString(b, 0, bytesRead);
+                response += Encoding.UTF8.GetString(b, 0, bytesRead);
             }
 
             string reconstruct = "";

@@ -536,7 +536,7 @@ namespace RT.Servers
                 if (GetFieldsCache.ValueCache == null)
                 {
                     if (_url.Contains('?'))
-                        GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.ASCII.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
+                        GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.UTF8.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
                     else
                         GetFieldsCache = parseQueryParameters(null);
                 }
@@ -593,13 +593,13 @@ namespace RT.Servers
             int bytesRead = Content.Read(buffer, 0, 65536);
             // We expect the input to begin with "--" followed by the boundary followed by "\r\n"
             string expecting = "--" + Headers.ContentMultipartBoundary + "\r\n";
-            string stuffRead = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+            string stuffRead = Encoding.UTF8.GetString(buffer, 0, bytesRead);
             int prevLength = 0;
             while (stuffRead.Length < expecting.Length)
             {
                 bytesRead = Content.Read(buffer, 0, 65536);
                 prevLength = stuffRead.Length;
-                stuffRead += Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                stuffRead += Encoding.UTF8.GetString(buffer, 0, bytesRead);
             }
             if (stuffRead.Substring(0, expecting.Length) != expecting)
                 return fc;
@@ -619,7 +619,7 @@ namespace RT.Servers
                     if (processingHeaders)
                     {
                         int prevCHLength = currentHeaders.Length;
-                        currentHeaders += Encoding.ASCII.GetString(buffer, bufferIndex, bytesRead);
+                        currentHeaders += Encoding.UTF8.GetString(buffer, bufferIndex, bytesRead);
                         if (currentHeaders.Contains("\r\n\r\n"))
                         {
                             int pos = currentHeaders.IndexOf("\r\n\r\n");
@@ -673,8 +673,8 @@ namespace RT.Servers
                     }
                     else if (bytesRead >= Headers.ContentMultipartBoundary.Length + 8)   // processing content
                     {
-                        // This will convert non-ASCII bytes to question marks, but that's OK because we use this only to find the boundary
-                        string data = Encoding.ASCII.GetString(buffer, bufferIndex, bytesRead);
+                        // This will turn some binary data into garbage, but that's OK because we use this only to find the boundary
+                        string data = Encoding.UTF8.GetString(buffer, bufferIndex, bytesRead);
                         bool sepFound = false;
                         int sepIndex = 0;
                         bool end = false;
@@ -800,30 +800,30 @@ namespace RT.Servers
                     if (i == bytesRead)
                     {
                         if (inKey)
-                            curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curKey += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
                         else
-                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curValue += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
                         bufferIndex = i;
                     }
                     else if (buffer[i] == (byte) '=')
                     {
                         if (inKey)
                         {
-                            curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curKey += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
                             curValue = "";
                             inKey = false;
                         }
                         else
-                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex) + "=";
+                            curValue += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex) + "=";
                         bufferIndex = i + 1;
                     }
                     else if (buffer[i] == (byte) '&')
                     {
                         if (inKey)
-                            curKey += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex) + "&";
+                            curKey += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex) + "&";
                         else
                         {
-                            curValue += Encoding.ASCII.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curValue += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
                             fnAdd(curKey, curValue);
                             curKey = "";
                             curValue = null;

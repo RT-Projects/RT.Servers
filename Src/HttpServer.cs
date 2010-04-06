@@ -532,9 +532,9 @@ namespace RT.Servers
                 }
 
                 int prevHeadersLength = headersSoFar.Length;
-                sw.Log("Stuff before HeadersSoFar += Encoding.ASCII.GetString(...)");
-                headersSoFar += Encoding.ASCII.GetString(nextRead, nextReadOffset, nextReadLength);
-                sw.Log("HeadersSoFar += Encoding.ASCII.GetString(...)");
+                sw.Log("Stuff before headersSoFar += Encoding.UTF8.GetString(...)");
+                headersSoFar += Encoding.UTF8.GetString(nextRead, nextReadOffset, nextReadLength);
+                sw.Log("headersSoFar += Encoding.UTF8.GetString(...)");
                 bool cont = headersSoFar.Contains("\r\n\r\n");
                 sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
                 if (!cont)
@@ -606,7 +606,7 @@ namespace RT.Servers
             string headersStr = "HTTP/1.1 " + ((int) response.Status) + " " + response.Status.ToText() + "\r\n" +
                 response.Headers.ToString() + "\r\n";
             if (Log != null) Log.Info(headersStr);
-            socket.Send(Encoding.ASCII.GetBytes(headersStr));
+            socket.Send(Encoding.UTF8.GetBytes(headersStr));
         }
 
         private bool outputResponse(Socket socket, HttpResponse response, Stopwatch sw)
@@ -922,7 +922,7 @@ namespace RT.Servers
             cLength += 70;                      // "--{boundary}--\r\n"
 
             response.Headers.ContentLength = cLength;
-            response.Headers.ContentType = "multipart/byteranges; boundary=" + Encoding.ASCII.GetString(boundary);
+            response.Headers.ContentType = "multipart/byteranges; boundary=" + Encoding.UTF8.GetString(boundary);
             sendHeaders(socket, response);
             if (response.OriginalRequest.Method == HttpMethod.Head)
                 return;
@@ -932,7 +932,7 @@ namespace RT.Servers
             {
                 socket.Send(new byte[] { (byte) '-', (byte) '-' });
                 socket.Send(boundary);
-                socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToAscii());
+                socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToUtf8());
 
                 response.Content.Seek(r.Key, SeekOrigin.Begin);
                 long bytesMissing = r.Value - r.Key + 1;
@@ -1017,7 +1017,7 @@ namespace RT.Servers
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here
                 if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
-                    socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToAscii());
+                    socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToUtf8());
 
                 // Read the contents of the POST request
                 if (contentLengthSoFar >= req.Headers.ContentLength.Value)
