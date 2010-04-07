@@ -68,7 +68,6 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Session.cs" />
-    <Compile Include="Stopwatch.cs" />
     <Compile Include="TagSoup.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="XhtmlTag.cs" />
