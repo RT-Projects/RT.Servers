@@ -606,15 +606,16 @@ namespace RT.Servers
             }
             if (!buffer.SubarrayEquals(0, expecting, 0, expecting.Length))
                 return fc;
+            bytesRead = bufferIndex - expecting.Length;
             bufferIndex = expecting.Length;
-            bytesRead -= bufferIndex;
 
             // Now comes the main reading loop
             bool processingHeaders = true;
             string currentHeaders = "";
             string currentFieldName = null;
             Stream currentWritingStream = null;
-            byte[] newLineNewLine = new byte[] { 13, 10, 13, 10 };
+            Decoder utf8Decoder = Encoding.UTF8.GetDecoder();
+            char[] chArr = new char[1];
             byte[] lastBoundary = ("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n").ToUtf8();
             byte[] middleBoundary = ("\r\n--" + Headers.ContentMultipartBoundary + "\r\n").ToUtf8();
             while (bufferIndex > 0 || bytesRead > 0)
@@ -624,12 +625,19 @@ namespace RT.Servers
                 {
                     if (processingHeaders)
                     {
-                        int newLinePos = buffer.IndexOfSubarray(newLineNewLine, bufferIndex, bufferIndex + bytesRead);
-                        if (newLinePos != -1)
+                        bool newLineFound = false;
+                        while (!newLineFound && bytesRead > 0)
                         {
-                            currentHeaders += Encoding.UTF8.GetString(buffer, bufferIndex, newLinePos - bufferIndex);
-                            bytesRead -= (newLinePos - bufferIndex) + 4;
-                            bufferIndex = newLinePos + 4;
+                            int numCh = utf8Decoder.GetChars(buffer, bufferIndex, 1, chArr, 0);
+                            bufferIndex++;
+                            bytesRead--;
+                            if (numCh != 0)
+                                currentHeaders += chArr[0];
+                            newLineFound = currentHeaders.EndsWith("\r\n\r\n");
+                        }
+
+                        if (newLineFound)
+                        {
                             string fileName = null;
                             string contentType = null;
                             foreach (string header in currentHeaders.Split(new string[] { "\r\n" }, StringSplitOptions.None))
@@ -713,6 +721,7 @@ namespace RT.Servers
 
                             processingHeaders = true;
                             currentHeaders = "";
+                            utf8Decoder.Reset();
                             bytesRead -= sepIndex - bufferIndex + middleBoundary.Length;
                             bufferIndex = sepIndex + middleBoundary.Length;
                             continue;
@@ -753,7 +762,7 @@ namespace RT.Servers
                         return fc;
                     }
                     writeIndex += bytesRead;
-                } while (writeIndex < Headers.ContentMultipartBoundary.Length + 8);
+                } while (writeIndex < lastBoundary.Length);
                 bytesRead = writeIndex;
             }
 
