@@ -591,19 +591,22 @@ namespace RT.Servers
 
             byte[] buffer = new byte[65536];
             int bytesRead = Content.Read(buffer, 0, 65536);
-            // We expect the input to begin with "--" followed by the boundary followed by "\r\n"
-            string expecting = "--" + Headers.ContentMultipartBoundary + "\r\n";
-            string stuffRead = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            int prevLength = 0;
-            while (stuffRead.Length < expecting.Length)
-            {
-                bytesRead = Content.Read(buffer, 0, 65536);
-                prevLength = stuffRead.Length;
-                stuffRead += Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            }
-            if (stuffRead.Substring(0, expecting.Length) != expecting)
+            if (bytesRead == 0)    // premature end of request body
                 return fc;
-            int bufferIndex = bytesRead + expecting.Length - stuffRead.Length;
+
+            // We expect the input to begin with "--" followed by the boundary followed by "\r\n"
+            byte[] expecting = ("--" + Headers.ContentMultipartBoundary + "\r\n").ToUtf8();
+            int bufferIndex = bytesRead;
+            while (bufferIndex < expecting.Length)
+            {
+                bytesRead = Content.Read(buffer, bufferIndex, buffer.Length - bufferIndex);
+                if (bytesRead == 0)    // premature end of request body
+                    return fc;
+                bufferIndex += bytesRead;
+            }
+            if (!buffer.SubarrayEquals(0, expecting, 0, expecting.Length))
+                return fc;
+            bufferIndex = expecting.Length;
             bytesRead -= bufferIndex;
 
             // Now comes the main reading loop
@@ -611,6 +614,9 @@ namespace RT.Servers
             string currentHeaders = "";
             string currentFieldName = null;
             Stream currentWritingStream = null;
+            byte[] newLineNewLine = new byte[] { 13, 10, 13, 10 };
+            byte[] lastBoundary = ("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n").ToUtf8();
+            byte[] middleBoundary = ("\r\n--" + Headers.ContentMultipartBoundary + "\r\n").ToUtf8();
             while (bufferIndex > 0 || bytesRead > 0)
             {
                 int writeIndex = 0;
@@ -618,14 +624,12 @@ namespace RT.Servers
                 {
                     if (processingHeaders)
                     {
-                        int prevCHLength = currentHeaders.Length;
-                        currentHeaders += Encoding.UTF8.GetString(buffer, bufferIndex, bytesRead);
-                        if (currentHeaders.Contains("\r\n\r\n"))
+                        int newLinePos = buffer.IndexOfSubarray(newLineNewLine, bufferIndex, bufferIndex + bytesRead);
+                        if (newLinePos != -1)
                         {
-                            int pos = currentHeaders.IndexOf("\r\n\r\n");
-                            currentHeaders = currentHeaders.Remove(pos);
-                            bufferIndex += pos - prevCHLength + 4;
-                            bytesRead -= pos - prevCHLength + 4;
+                            currentHeaders += Encoding.UTF8.GetString(buffer, bufferIndex, newLinePos - bufferIndex);
+                            bytesRead -= (newLinePos - bufferIndex) + 4;
+                            bufferIndex = newLinePos + 4;
                             string fileName = null;
                             string contentType = null;
                             foreach (string header in currentHeaders.Split(new string[] { "\r\n" }, StringSplitOptions.None))
@@ -671,60 +675,57 @@ namespace RT.Servers
                             continue;
                         }
                     }
-                    else if (bytesRead >= Headers.ContentMultipartBoundary.Length + 8)   // processing content
+                    else if (bytesRead >= lastBoundary.Length)   // processing content
                     {
-                        // This will turn some binary data into garbage, but that's OK because we use this only to find the boundary
-                        string data = Encoding.UTF8.GetString(buffer, bufferIndex, bytesRead);
                         bool sepFound = false;
-                        int sepIndex = 0;
                         bool end = false;
-                        if (data.Contains("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n"))
+
+                        int sepIndex = buffer.IndexOfSubarray(lastBoundary, bufferIndex, bufferIndex + bytesRead);
+                        if (sepIndex != -1)
                         {
                             sepFound = true;
-                            sepIndex = data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "--\r\n");
                             end = true;
                         }
-                        if (data.Contains("\r\n--" + Headers.ContentMultipartBoundary + "\r\n"))
+                        int sep2Index = buffer.IndexOfSubarray(middleBoundary, bufferIndex, bufferIndex + bytesRead);
+                        if (sep2Index != -1 && (!sepFound || sep2Index < sepIndex))
                         {
-                            int pos = data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "\r\n");
-                            if (!sepFound || pos < sepIndex)
-                            {
-                                sepFound = true;
-                                sepIndex = data.IndexOf("\r\n--" + Headers.ContentMultipartBoundary + "\r\n");
-                                end = false;
-                            }
+                            sepFound = true;
+                            sepIndex = sep2Index;
+                            end = false;
                         }
 
                         if (sepFound)
                         {
                             // Write the rest of the data to the output stream and then process the separator
-                            if (sepIndex > 0) currentWritingStream.Write(buffer, bufferIndex, sepIndex);
+                            if (sepIndex > bufferIndex)
+                                currentWritingStream.Write(buffer, bufferIndex, sepIndex - bufferIndex);
                             currentWritingStream.Close();
                             // Note that CurrentWritingStream is either a MemoryStream or a FileStream.
                             // If it is a FileStream, then the relevant entry to fc.FileCache has already been made.
                             // Only if it is a MemoryStream, we need to process the stuff here.
                             if (currentWritingStream is MemoryStream)
                                 fc.ValueCache[currentFieldName].Add(Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray()));
+                            currentWritingStream.Dispose();
+                            currentWritingStream = null;
 
                             if (end)
                                 break;
 
                             processingHeaders = true;
                             currentHeaders = "";
-                            bufferIndex += sepIndex + Headers.ContentMultipartBoundary.Length + 6;
-                            bytesRead -= sepIndex + Headers.ContentMultipartBoundary.Length + 6;
+                            bytesRead -= sepIndex - bufferIndex + middleBoundary.Length;
+                            bufferIndex = sepIndex + middleBoundary.Length;
                             continue;
                         }
                         else
                         {
                             // Write some of the data to the output stream, but leave enough so that we can still recognise the boundary
-                            int howMuchToWrite = bytesRead - Headers.ContentMultipartBoundary.Length - 8;
+                            int howMuchToWrite = bytesRead - lastBoundary.Length;  // this is never negative because of the big "if" we're in
                             if (howMuchToWrite > 0)
                                 currentWritingStream.Write(buffer, bufferIndex, howMuchToWrite);
                             byte[] newBuffer = new byte[65536];
                             Array.Copy(buffer, bufferIndex + howMuchToWrite, newBuffer, 0, bytesRead - howMuchToWrite);
                             buffer = newBuffer;
-                            bufferIndex = 0;
                             bytesRead -= howMuchToWrite;
                             writeIndex = bytesRead;
                         }
@@ -745,7 +746,10 @@ namespace RT.Servers
                     if (bytesRead == 0) // premature end of content
                     {
                         if (currentWritingStream != null)
+                        {
                             currentWritingStream.Close();
+                            currentWritingStream.Dispose();
+                        }
                         return fc;
                     }
                     writeIndex += bytesRead;
