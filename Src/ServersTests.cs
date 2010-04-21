@@ -222,9 +222,9 @@ Content-Type: text/html
         public void TestSomeRequests()
         {
             HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", handlerStatic));
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", handlerDynamic));
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/64kfile", handler64KFile));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerStatic, path: "/static"));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handler64KFile, path: "/64kfile"));
             instance.StartListening(false);
             try
             {
@@ -321,8 +321,8 @@ Content-Type: text/html
             for (int i = 5; i <= 1024; i += 1019)
             {
                 instance = new HttpServer(new HttpServerOptions { Port = _port, UseFileUploadAtSize = i });
-                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/static", handlerStatic));
-                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", handlerDynamic));
+                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerStatic, path: "/static"));
+                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
                 instance.StartListening(false);
 
                 try
@@ -367,7 +367,7 @@ Content-Type: text/html
         public void TestKeepaliveAndChunked()
         {
             HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook("/dynamic", handlerDynamic));
+            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
             instance.StartListening(false);
 
             TcpClient cl = new TcpClient();

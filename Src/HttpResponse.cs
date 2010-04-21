@@ -186,100 +186,38 @@ namespace RT.Servers
 
         /// <summary>
         /// Initialises <see cref="Content"/> to serve the specified enumerable using a
-        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
+        /// <see cref="DynamicContentStream"/>.
         /// </summary>
-        public HttpResponse(IEnumerable<string> enumerable, HttpStatusCode status)
+        public HttpResponse(IEnumerable<string> enumerable, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             Content = new DynamicContentStream(enumerable);
             Status = status;
-        }
-
-        /// <summary>
-        /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
-        /// and then using a <see cref="MemoryStream"/>. Headers are created and set to default values.
-        /// </summary>
-        public HttpResponse(string content, HttpStatusCode status)
-        {
-            Content = new MemoryStream(content.ToUtf8());
-            Status = status;
+            if (headers != null)
+                Headers = headers;
         }
 
         /// <summary>
         /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
         /// and then using a <see cref="MemoryStream"/>.
         /// </summary>
-        public HttpResponse(string content, HttpStatusCode status, HttpResponseHeaders headers)
+        public HttpResponse(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             Content = new MemoryStream(content.ToUtf8());
             Status = status;
-            Headers = headers;
-        }
-
-        /// <summary>
-        /// Initialises <see cref="Content"/> to serve the specified HTML using a
-        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
-        /// </summary>
-        public HttpResponse(Tag html, HttpStatusCode status)
-        {
-            Content = new DynamicContentStream(html.ToEnumerable());
-            Status = status;
-        }
-
-        /// <summary>
-        /// Initialises <see cref="Content"/> to serve the specified enumerable using a
-        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
-        /// </summary>
-        public HttpResponse(IEnumerable<string> enumerable)
-        {
-            Content = new DynamicContentStream(enumerable);
-        }
-
-        /// <summary>
-        /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
-        /// and then using a <see cref="MemoryStream"/>. Headers are created and set to default values.
-        /// </summary>
-        public HttpResponse(string content)
-        {
-            Content = new MemoryStream(content.ToUtf8());
-        }
-
-        /// <summary>
-        /// Initialises <see cref="Content"/> to serve the specified HTML using a
-        /// <see cref="DynamicContentStream"/>. Headers are created and set to default values.
-        /// </summary>
-        public HttpResponse(Tag html)
-        {
-            Content = new DynamicContentStream(html.ToEnumerable());
-        }
-
-        /// <summary>
-        /// Initialises <see cref="Content"/> to serve the specified enumerable using a
-        /// <see cref="DynamicContentStream"/>.
-        /// </summary>
-        public HttpResponse(IEnumerable<string> enumerable, HttpResponseHeaders headers)
-        {
-            Content = new DynamicContentStream(enumerable);
-            Headers = headers;
-        }
-
-        /// <summary>
-        /// Initialises <see cref="Content"/> to serve the specified string by converting it to UTF-8
-        /// and then using a <see cref="MemoryStream"/>.
-        /// </summary>
-        public HttpResponse(string content, HttpResponseHeaders headers)
-        {
-            Content = new MemoryStream(content.ToUtf8());
-            Headers = headers;
+            if (headers != null)
+                Headers = headers;
         }
 
         /// <summary>
         /// Initialises <see cref="Content"/> to serve the specified HTML using a
         /// <see cref="DynamicContentStream"/>.
         /// </summary>
-        public HttpResponse(Tag html, HttpResponseHeaders headers)
+        public HttpResponse(Tag html, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             Content = new DynamicContentStream(html.ToEnumerable());
-            Headers = headers;
+            Status = status;
+            if (headers != null)
+                Headers = headers;
         }
     }
 }

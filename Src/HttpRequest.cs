@@ -862,7 +862,7 @@ namespace RT.Servers
         /// <param name="restUrl">Replaces the <see cref="RestUrlWithoutQuery"/> with the specified new value.</param>
         /// <param name="baseUrl">Replaces the <see cref="BaseUrl"/> with the specified new value.</param>
         /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace, string[] qsRemove, string restUrl, string baseUrl)
+        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace = null, string[] qsRemove = null, string restUrl = null, string baseUrl = null)
         {
             var url = (baseUrl ?? BaseUrl) + (restUrl ?? RestUrlWithoutQuery);
             var newQs = Get
@@ -875,16 +875,6 @@ namespace RT.Servers
                 : url;
         }
 
-        /// <summary>Applies the specified modifications to this request's URL and returns the result.</summary>
-        /// <param name="qsAddOrReplace">Replaces existing query-string parameters, or adds them if they are not already in the URL.</param>
-        /// <param name="qsRemove">Removes the specified query-string parameters.</param>
-        /// <param name="restUrl">Replaces the <see cref="RestUrl"/> with the specified new value.</param>
-        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace, string[] qsRemove, string restUrl)
-        {
-            return SameUrlExcept(qsAddOrReplace, qsRemove, restUrl, null);
-        }
-
         /// <summary>Adds or replaces given query-string parameters in this request's URL and returns the result.</summary>
         /// <param name="qsAddOrReplace">An even-numbered array of strings where each element at even indexes is a key and each element at odd indexes is a value.</param>
         /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
@@ -895,29 +885,7 @@ namespace RT.Servers
                 throw new RTException("Expected an even number of strings — one pair per query string argument");
             for (int i = 0; i < qsAddOrReplace.Length; i += 2)
                 dict.Add(qsAddOrReplace[i], qsAddOrReplace[i + 1]);
-            return SameUrlExcept(dict, null, null, null);
-        }
-
-        /// <summary>Removes the specified query-string parameters from this request's URL and returns the result.</summary>
-        /// <param name="qsRemove">Set of keys that will be removed from the query string.</param>
-        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExceptRemove(params string[] qsRemove)
-        {
-            return SameUrlExcept(null, qsRemove, null, null);
-        }
-
-        /// <summary>Replaces the <see cref="RestUrl"/> with the specified new value, but keeps the query-string parameters intact.</summary>
-        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExceptSetRest(string restUrl)
-        {
-            return SameUrlExcept(null, null, restUrl, null);
-        }
-
-        /// <summary>Replaces the <see cref="BaseUrl"/> with the specified new value, but keeps the Rest URL and the query-string parameters intact.</summary>
-        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExceptSetBase(string baseUrl)
-        {
-            return SameUrlExcept(null, null, null, baseUrl);
+            return SameUrlExcept(dict);
         }
 
         /// <summary>Returns this request's URL, but with certain query-string parameters removed.</summary>
@@ -936,7 +904,7 @@ namespace RT.Servers
     public class InvalidRequestException : Exception
     {
         /// <summary>
-        /// Response to return when the exception is caught. For example, use <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> to generate an HTTP 500 Internal Server Error.
+        /// Response to return when the exception is caught. For example, use <see cref="HttpServer.ErrorResponse"/> to generate an HTTP 500 Internal Server Error.
         /// </summary>
         public HttpResponse Response;
 
@@ -944,7 +912,7 @@ namespace RT.Servers
         /// Constructor.
         /// </summary>
         /// <param name="response">Response to return when the exception is caught.
-        /// For example, use <see cref="HttpServer.ErrorResponse(HttpStatusCode)"/> to generate an HTTP 500 Internal Server Error.</param>
+        /// For example, use <see cref="HttpServer.ErrorResponse"/> to generate an HTTP 500 Internal Server Error.</param>
         public InvalidRequestException(HttpResponse response) { Response = response; }
     }
 }

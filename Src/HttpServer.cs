@@ -20,15 +20,10 @@ namespace RT.Servers
     public partial class HttpServer
     {
         /// <summary>
-        /// Constructs an HTTP server with all configuration values set to default values.
-        /// </summary>
-        public HttpServer() { _opt = new HttpServerOptions(); }
-
-        /// <summary>
         /// Constructs an HTTP server with the specified configuration settings.
         /// </summary>
-        /// <param name="options">Specifies the configuration settings to use for this <see cref="HttpServer"/>.</param>
-        public HttpServer(HttpServerOptions options) { _opt = options; }
+        /// <param name="options">Specifies the configuration settings to use for this <see cref="HttpServer"/>, or null to set all configuration values to default values.</param>
+        public HttpServer(HttpServerOptions options = null) { _opt = options ?? new HttpServerOptions(); }
 
         /// <summary>
         /// Returns the configuration settings currently in effect for this server.
@@ -65,7 +60,7 @@ namespace RT.Servers
         /// Blocking or non-blocking mode is determined by the parameter to <see cref="StartListening(bool)"/>.
         /// </summary>
         /// <param name="brutal">If true, requests currently executing in separate threads are aborted brutally.</param>
-        public void StopListening(bool brutal)
+        public void StopListening(bool brutal = false)
         {
             if (!IsListeningThreadActive)
                 return;
@@ -82,17 +77,6 @@ namespace RT.Servers
                             thr.currentThread.Abort();
                 _activeReadingThreads = new List<readingThreadRunner>();
             }
-        }
-
-        /// <summary>
-        /// If the HTTP server is listening in non-blocking mode, shuts the HTTP server down, optionally either
-        /// gracefully (allowing still-running requests to complete) or brutally (aborting requests no matter where
-        /// they are in their processing). If the HTTP server is listening in blocking mode, nothing happens.
-        /// Blocking or non-blocking mode is determined by the parameter to <see cref="StartListening(bool)"/>.
-        /// </summary>
-        public void StopListening()
-        {
-            StopListening(false);
         }
 
         /// <summary>
@@ -382,46 +366,17 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code. Generally used for error.
-        /// </summary>
-        /// <param name="statusCode">HTTP status code to use in the response.</param>
-        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code.</returns>
-        public static HttpResponse ErrorResponse(HttpStatusCode statusCode)
-        {
-            return ErrorResponse(statusCode, new HttpResponseHeaders(), null);
-        }
-
-        /// <summary>
-        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code and message. Generally used for error.
-        /// </summary>
-        /// <param name="statusCode">HTTP status code to use in the response.</param>
-        /// <param name="message">Message to display along with the HTTP status code.</param>
-        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code and message.</returns>
-        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, string message)
-        {
-            return ErrorResponse(statusCode, new HttpResponseHeaders(), message);
-        }
-
-        /// <summary>
-        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code and headers. Generally used for error.
-        /// </summary>
-        /// <param name="statusCode">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the <see cref="HttpResponse"/>.</param>
-        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code and headers.</returns>
-        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, HttpResponseHeaders headers)
-        {
-            return ErrorResponse(statusCode, headers, null);
-        }
-
-        /// <summary>
         /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code, headers and message. Generally used for error.
         /// </summary>
         /// <param name="statusCode">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the <see cref="HttpResponse"/>.</param>
+        /// <param name="headers">Headers to use in the <see cref="HttpResponse"/>, or null to use default values.</param>
         /// <param name="message">Message to display along with the HTTP status code.</param>
         /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code, headers and message.</returns>
-        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, HttpResponseHeaders headers, string message)
+        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, string message = null, HttpResponseHeaders headers = null)
         {
+            if (headers == null)
+                headers = new HttpResponseHeaders();
+
             string statusCodeName = string.Concat(((int) statusCode).ToString(), " ", statusCode.ToText()).HtmlEscape();
             headers.ContentType = "text/html; charset=utf-8";
 

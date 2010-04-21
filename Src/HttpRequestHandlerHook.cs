@@ -40,7 +40,18 @@ namespace RT.Servers
         public HttpRequestHandler Handler { get { return _handler; } }
         private HttpRequestHandler _handler;
 
-        private void init(string domain, int? port, string path, bool specificDomain, bool specificPath, HttpRequestHandler handler)
+        /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
+        /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
+        /// domain and all subdomains or to this domain only, depending on the value of <paramref name="specificDomain"/>.</param>
+        /// <param name="port">If null, the handler applies to all ports; otherwise to the specified port only.</param>
+        /// <param name="path">If null, the handler applies to all URL paths. Otherwise, the handler applies to this
+        /// path and all subpaths or to this path only, depending on the value of <paramref name="specificPath"/>.</param>
+        /// <param name="specificDomain">If false, the handler applies to all subdomains of the domain specified by
+        /// <paramref name="domain"/>. Otherwise it applies to the specific domain only.</param>
+        /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
+        /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
+        /// <param name="handler">The request handler to hook.</param>
+        public HttpRequestHandlerHook(HttpRequestHandler handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
         {
             if (domain == null && specificDomain)
                 throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
@@ -73,61 +84,6 @@ namespace RT.Servers
             _specificDomain = specificDomain;
             _specificPath = specificPath;
             _handler = handler;
-        }
-
-        /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
-        /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
-        /// domain and all subdomains or to this domain only, depending on the value of <paramref name="specificDomain"/>.</param>
-        /// <param name="port">If null, the handler applies to all ports; otherwise to the specified port only.</param>
-        /// <param name="path">If null, the handler applies to all URL paths. Otherwise, the handler applies to this
-        /// path and all subpaths or to this path only, depending on the value of <paramref name="specificPath"/>.</param>
-        /// <param name="specificDomain">If false, the handler applies to all subdomains of the domain specified by
-        /// <paramref name="domain"/>. Otherwise it applies to the specific domain only.</param>
-        /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
-        /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
-        /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(string domain, int? port, string path, bool specificDomain, bool specificPath, HttpRequestHandler handler)
-        {
-            init(domain, port, path, specificDomain, specificPath, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to a specific path (URL fragment) and all sub-paths, but any domain or port.</summary>
-        /// <param name="path">Path (URL fragment) for which this handler should be used (for example, "/users").</param>
-        /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(string path, HttpRequestHandler handler)
-        {
-            if (path == null)
-                throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HttpRequestHandler.", "path");
-            init(null, null, path, false, false, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to a specific path (URL fragment), but any domain or port.</summary>
-        /// <param name="path">Path (URL fragment) for which this handler should be used (for example, "/users").</param>
-        /// <param name="handler">The request handler to hook.</param>
-        /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
-        /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
-        public HttpRequestHandlerHook(string path, HttpRequestHandler handler, bool specificPath)
-        {
-            if (path == null)
-                throw new ArgumentException("The path parameter must not be null. If the handler should apply to all paths, use the constructor that takes only a HttpRequestHandler.", "path");
-            init(null, null, path, false, specificPath, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to a specific domain and all sub-domains, but any path or port.</summary>
-        /// <param name="handler">The request handler to hook.</param>
-        /// <param name="domain">Domain name for which this handler should be used (for example, "example.com").</param>
-        public HttpRequestHandlerHook(HttpRequestHandler handler, string domain)
-        {
-            if (domain == null)
-                throw new ArgumentException("The domain parameter must not be null. If the handler should apply to all domains, use the constructor that takes only a HttpRequestHandler.", "domain");
-            init(domain, null, null, false, false, handler);
-        }
-
-        /// <summary>Initialises a request handler to be hooked to all paths on all domains and all sub-domains.</summary>
-        /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(HttpRequestHandler handler)
-        {
-            init(null, null, null, false, false, handler);
         }
     }
 }
