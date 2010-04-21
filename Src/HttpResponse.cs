@@ -172,11 +172,6 @@ namespace RT.Servers
         public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
 
         /// <summary>
-        /// Internal field for <see cref="HttpServer"/> to access the original request that this is the response for.
-        /// </summary>
-        internal HttpRequest OriginalRequest;
-
-        /// <summary>
         /// Default constructor which does not initialise the <see cref="Content"/>. Headers are
         /// always created and set to default values.
         /// </summary>
