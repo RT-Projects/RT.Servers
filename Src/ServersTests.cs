@@ -59,7 +59,7 @@ namespace RT.Servers
 
             for (int chunksize = 1; chunksize < Math.Max(Math.Max(testQueryString1.Length, testQueryString2.Length), testQueryString3.Length); chunksize++)
             {
-                var dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString1)), chunksize));
+                var dic = HttpRequest.ParseQueryValueParameters(new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString1)), chunksize)));
                 Assert.AreEqual(4, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple"));
                 Assert.IsTrue(dic.ContainsKey("cooking"));
@@ -70,7 +70,7 @@ namespace RT.Servers
                 Assert.AreEqual("foxtrot", dic["elephant"].Value);
                 Assert.AreEqual("hangman", dic["ghost"].Value);
 
-                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString2)), chunksize));
+                dic = HttpRequest.ParseQueryValueParameters(new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString2)), chunksize)));
                 Assert.AreEqual(4, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple"));
                 Assert.IsTrue(dic.ContainsKey("cooking"));
@@ -81,7 +81,7 @@ namespace RT.Servers
                 Assert.AreEqual("()=+", dic["elephant"].Value);
                 Assert.AreEqual("абвгд", dic["ghost"].Value);
 
-                dic = HttpRequest.ParseQueryValueParameters(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString3)), chunksize));
+                dic = HttpRequest.ParseQueryValueParameters(new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString3)), chunksize)));
                 Assert.AreEqual(2, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple[]"));
                 Assert.IsTrue(dic.ContainsKey("ghost[]"));
@@ -130,8 +130,7 @@ Content-Type: text/html
 
             for (int cs = 1; cs < InputStr.Length; cs++)
             {
-                Stream f = new SlowStream(new MemoryStream(TestCase), cs);
-                HttpRequest r = new HttpRequest(f)
+                HttpRequest r = new HttpRequest
                 {
                     Headers = new HttpRequestHeaders
                     {
@@ -145,19 +144,21 @@ Content-Type: text/html
                     TempDir = @"C:\temp\testresults"
                 };
 
-                var Gets = r.Get;
-                var Posts = r.Post;
-                var Files = r.FileUploads;
-                f.Close();
+                using (Stream f = new SlowStream(new MemoryStream(TestCase), cs))
+                {
+                    r.ParsePostBody(f);
+                    var Gets = r.Get;
+                    var Posts = r.Post;
+                    var Files = r.FileUploads;
 
-                Assert.IsTrue(Files.ContainsKey("documentfile"));
-                Assert.AreEqual("temp.htm", Files["documentfile"].Filename);
-                Assert.AreEqual("text/html", Files["documentfile"].ContentType);
-                Assert.IsTrue(File.Exists(Files["documentfile"].LocalTempFilename));
+                    Assert.IsTrue(Files.ContainsKey("documentfile"));
+                    Assert.AreEqual("temp.htm", Files["documentfile"].Filename);
+                    Assert.AreEqual("text/html", Files["documentfile"].ContentType);
+                    Assert.IsTrue(File.Exists(Files["documentfile"].LocalTempFilename));
 
-                string FileContent = Encoding.UTF8.GetString(File.ReadAllBytes(Files["documentfile"].LocalTempFilename));
-                File.Delete(Files["documentfile"].LocalTempFilename);
-                Assert.AreEqual(@"<html>
+                    string FileContent = Encoding.UTF8.GetString(File.ReadAllBytes(Files["documentfile"].LocalTempFilename));
+                    File.Delete(Files["documentfile"].LocalTempFilename);
+                    Assert.AreEqual(@"<html>
     <head>
     </head>
     <body>
@@ -169,17 +170,18 @@ Content-Type: text/html
         </form>
     </body>
 </html>",
-                    FileContent);
+                        FileContent);
 
-                Assert.AreEqual(0, Gets.Count);
-                Assert.AreEqual(2, Posts.Count);
-                Assert.AreEqual(1, Files.Count);
+                    Assert.AreEqual(0, Gets.Count);
+                    Assert.AreEqual(2, Posts.Count);
+                    Assert.AreEqual(1, Files.Count);
 
-                Assert.IsTrue(Posts.ContainsKey("y"));
-                Assert.AreEqual(@"This is what should be found in ""y"" at the end of the test.", Posts["y"].Value);
-                Assert.IsTrue(Posts.ContainsKey("What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"));
-                Assert.AreEqual("\r\n<CRLF>(this)<CRLF>\r\n",
-                    Posts["What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"].Value);
+                    Assert.IsTrue(Posts.ContainsKey("y"));
+                    Assert.AreEqual(@"This is what should be found in ""y"" at the end of the test.", Posts["y"].Value);
+                    Assert.IsTrue(Posts.ContainsKey("What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"));
+                    Assert.AreEqual("\r\n<CRLF>(this)<CRLF>\r\n",
+                        Posts["What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"].Value);
+                }
             }
 
             try { Directory.Delete(@"C:\temp\testresults"); }
@@ -339,7 +341,7 @@ Content-Type: text/html
 
             foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
             {
-                instance = new HttpServer(new HttpServerOptions { Port = _port, UseFileUploadAtSize = storeFileUploadInFileAtSize });
+                instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize });
                 instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerStatic, path: "/static"));
                 instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
                 instance.StartListening(false);

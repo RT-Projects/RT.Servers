@@ -741,7 +741,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        StreamOnSocket str = new StreamOnSocket(_socket);
+                        SocketWriterStream str = new SocketWriterStream(_socket);
                         output = new GZipOutputStream(str);
                         ((GZipOutputStream) output).SetLevel(1);
                     }
@@ -753,7 +753,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        StreamOnSocket str = new StreamOnSocketChunked(_socket);
+                        SocketWriterStream str = new ChunkedSocketWriterStream(_socket);
                         output = new GZipOutputStream(str);
                         ((GZipOutputStream) output).SetLevel(1);
                     }
@@ -765,7 +765,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        output = new StreamOnSocketChunked(_socket);
+                        output = new ChunkedSocketWriterStream(_socket);
                     }
                     else
                     {
@@ -782,7 +782,7 @@ namespace RT.Servers
                         if ((contentLengthKnown && contentLength == 0) || originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
 
-                        output = new StreamOnSocket(_socket);
+                        output = new SocketWriterStream(_socket);
                     }
 
                     _sw.Log("OutputResponse() - instantiating output stream");
@@ -819,8 +819,12 @@ namespace RT.Servers
                     _sw.Log("OutputResponse() - stuff before finally clause");
                     try
                     {
-                        if (originalRequest.TemporaryFile != null)
-                            File.Delete(originalRequest.TemporaryFile);
+#warning TODO: Delete temporary files from file uploads
+                        if (originalRequest.FileUploads != null)
+                        {
+                            // foreach(var fileUpload in originalRequest .FileUploads.Values.Where(f=>f.LocalTempFilename
+                            // File.Delete(originalRequest.TemporaryFile);
+                        }
                     }
                     catch (Exception) { }
                     _sw.Log("OutputResponse() - finally clause");
@@ -985,7 +989,7 @@ namespace RT.Servers
 
                 if (req.Method == HttpMethod.Post)
                 {
-                    var result = processPostContent(_socket, _nextRead, _nextReadOffset, _nextReadLength, req);
+                    var result = processPostContent(_socket, req);
                     if (result != null)
                         return result;
                 }
@@ -1107,7 +1111,7 @@ namespace RT.Servers
                 return ErrorResponse(HttpStatusCode._404_NotFound);
             }
 
-            private HttpResponse processPostContent(Socket socket, byte[] bufferWithContentSoFar, int contentOffset, int contentLengthSoFar, HttpRequest req)
+            private HttpResponse processPostContent(Socket socket, HttpRequest req)
             {
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
@@ -1122,69 +1126,28 @@ namespace RT.Servers
                     socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToUtf8());
 
                 // Read the contents of the POST request
-                if (contentLengthSoFar >= req.Headers.ContentLength.Value)
+                Stream contentStream;
+                if (_nextReadLength >= req.Headers.ContentLength.Value)
                 {
-                    req.Content = new MemoryStream(bufferWithContentSoFar, contentOffset, (int) req.Headers.ContentLength.Value, false);
-                    contentOffset += (int) req.Headers.ContentLength.Value;
-                    contentLengthSoFar -= (int) req.Headers.ContentLength.Value;
-                }
-                else if (req.Headers.ContentLength.Value < _opt.UseFileUploadAtSize)
-                {
-                    // Receive the POST request content into an in-memory buffer
-                    byte[] buffer = new byte[req.Headers.ContentLength.Value];
-                    if (contentLengthSoFar > 0)
-                        Buffer.BlockCopy(bufferWithContentSoFar, contentOffset, buffer, 0, contentLengthSoFar);
-                    while (contentLengthSoFar < req.Headers.ContentLength)
-                    {
-                        SocketError errorCode;
-                        int bytesReceived = socket.Receive(buffer, contentLengthSoFar, (int) req.Headers.ContentLength.Value - contentLengthSoFar, SocketFlags.None, out errorCode);
-                        if (errorCode != SocketError.Success)
-                            throw new SocketException();
-                        contentLengthSoFar += bytesReceived;
-                    }
-                    req.Content = new MemoryStream(buffer, 0, (int) req.Headers.ContentLength.Value);
-                    contentLengthSoFar = 0;
+                    contentStream = new MemoryStream(_nextRead, _nextReadOffset, (int) req.Headers.ContentLength.Value, false);
+                    _nextReadOffset += (int) req.Headers.ContentLength.Value;
+                    _nextReadLength -= (int) req.Headers.ContentLength.Value;
                 }
                 else
                 {
-                    // Store the POST request content in a temporary file
-                    Stream f;
-                    try
-                    {
-                        req.TemporaryFile = HttpInternalObjects.RandomTempFilepath(_opt.TempDir, out f);
-                    }
-                    catch (IOException)
-                    {
-                        return ErrorResponse(HttpStatusCode._500_InternalServerError);
-                    }
-                    try
-                    {
-                        if (contentLengthSoFar > 0)
-                            f.Write(bufferWithContentSoFar, contentOffset, contentLengthSoFar);
-                        byte[] buffer = new byte[65536];
-                        while (contentLengthSoFar < req.Headers.ContentLength)
-                        {
-                            SocketError errorCode;
-                            int bytesReceived = socket.Receive(buffer, 0, 65536, SocketFlags.None, out errorCode);
-                            if (errorCode != SocketError.Success)
-                                throw new SocketException();
-                            if (bytesReceived > 0)
-                            {
-                                f.Write(buffer, 0, bytesReceived);
-                                contentLengthSoFar += bytesReceived;
-                            }
-                        }
-                        f.Close();
-                        req.Content = File.Open(req.TemporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        contentLengthSoFar = 0;
-                    }
-                    catch (Exception)
-                    {
-                        f.Close();
-                        File.Delete(req.TemporaryFile);
-                        throw;
-                    }
+                    contentStream = new SocketReaderStream(socket, req.Headers.ContentLength.Value, _nextRead, _nextReadOffset, _nextReadLength);
+                    _nextReadOffset = 0;
+                    _nextReadLength = 0;
                 }
+                try
+                {
+                    req.ParsePostBody(contentStream);
+                }
+                catch (SocketException) { }
+                catch (EndOfStreamException) { }
+                catch (IOException) { }
+
+                // null means: no error
                 return null;
             }
         }

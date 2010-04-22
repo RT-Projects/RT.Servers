@@ -31,9 +31,9 @@ namespace RT.Servers
         public long MaxSizePostContent = 1024 * 1024 * 1024;
 
         /// <summary>
-        /// The minimum size (in bytes) of a POST request at which the server will store the content of the request in a file instead of in memory. Default is 1 MB.
+        /// This option currently has no effect.
         /// </summary>
-        public long UseFileUploadAtSize = 1024 * 1024;
+        public long StoreFileUploadInFileAtSize = 1024 * 1024;
 
         /// <summary>
         /// The maximum size (in bytes) of a response at which the server will gzip the entire content in-memory (assuming gzip is requested in the HTTP request).

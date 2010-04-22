@@ -381,14 +381,10 @@ namespace RT.Servers
     /// </summary>
     public class HttpRequest
     {
-        private struct FieldsCache
-        {
-            public NameValuesCollection<string> ValueCache;
-            public Dictionary<string, FileUpload> FileCache;
-        }
         private string _url;
-        private FieldsCache GetFieldsCache;
-        private FieldsCache PostFieldsCache;
+        private NameValuesCollection<string> _getFields = null;     // will be initialised by Get getter
+        private NameValuesCollection<string> _postFields = new NameValuesCollection<string>();
+        private Dictionary<string, FileUpload> _fileUploads = new Dictionary<string, FileUpload>();
 
         /// <summary>
         /// Contains the part of the URL that follows the path where the request handler is hooked.
@@ -461,21 +457,9 @@ namespace RT.Servers
         public IPEndPoint OriginIP;
 
         /// <summary>
-        /// Contains a stream providing read access to the content of a POST request.
-        /// NULL if the request is a GET or HEAD.
-        /// </summary>
-        internal Stream Content;
-
-        /// <summary>
         /// Contains the delegate function used to handle this request.
         /// </summary>
         internal HttpRequestHandler Handler;
-
-        /// <summary>
-        /// Contains the path and filename of a temporary file that has been used to store the POST request content, if any.
-        /// <see cref="HttpServer"/> uses this field to keep track of it and delete the file when it is no longer needed.
-        /// </summary>
-        internal string TemporaryFile;
 
         /// <summary>
         /// A default constructor that initialises all fields to their defaults.
@@ -485,21 +469,12 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// DO NOT USE THIS CONSTRUCTOR except in unit testing.
-        /// </summary>
-        /// <param name="content">DO NOT USE THIS CONSTRUCTOR except in unit testing.</param>
-        public HttpRequest(Stream content)
-        {
-            Content = content;
-        }
-
-        /// <summary>
         /// The URL of the request, not including the domain, but including GET query parameters if any.
         /// </summary>
         public string Url
         {
             get { return _url; }
-            set { _url = value; GetFieldsCache = new FieldsCache(); }
+            set { _url = value; _getFields = null; }
         }
 
         /// <summary>
@@ -533,79 +508,67 @@ namespace RT.Servers
         {
             get
             {
-                if (GetFieldsCache.ValueCache == null)
+                if (_getFields == null)
                 {
-                    if (_url.Contains('?'))
-                        GetFieldsCache = parseQueryParameters(new MemoryStream(Encoding.UTF8.GetBytes(_url.Substring(_url.IndexOf('?') + 1))));
-                    else
-                        GetFieldsCache = parseQueryParameters(null);
+                    _getFields = (_url.Contains('?')
+                        ? ParseQueryValueParameters(new StringReader(_url.Substring(_url.IndexOf('?') + 1)))
+                        : new NameValuesCollection<string>()).AsReadOnly();
                 }
-                return GetFieldsCache.ValueCache.AsReadOnly();
+                return _getFields;
             }
         }
 
         /// <summary>
         /// Provides access to POST query parameters (empty if the request is not a POST request).
         /// </summary>
-        public NameValuesCollection<string> Post
-        {
-            get
-            {
-                if (PostFieldsCache.ValueCache == null)
-                    PostFieldsCache = parsePostParameters();
-                return PostFieldsCache.ValueCache.AsReadOnly();
-            }
-        }
+        public NameValuesCollection<string> Post { get { return _postFields; } }
 
         /// <summary>
         /// Contains information about file uploads included in a POST request. Empty if the request is not a POST request.
         /// </summary>
-        public Dictionary<string, FileUpload> FileUploads
-        {
-            get
-            {
-                if (PostFieldsCache.FileCache == null)
-                    PostFieldsCache = parsePostParameters();
-                return PostFieldsCache.FileCache;
-            }
-        }
+        public Dictionary<string, FileUpload> FileUploads { get { return _fileUploads; } }
 
-        private FieldsCache parsePostParameters()
+        /// <summary>If this request is a POST request, replaces the body of the request with data from the specified stream.
+        /// This will clear and reinitialise all the POST parameter values and file uploads.</summary>
+        /// <param name="body">Stream to read new POST request body from.</param>
+        public void ParsePostBody(Stream body)
         {
+            _fileUploads.Clear();
+            _postFields.Clear();
+
+            if (Method != HttpMethod.Post)
+                return;
+
             if (Headers.ContentType == HttpPostContentType.ApplicationXWwwFormUrlEncoded)
-                return parseQueryParameters(Content);
-            FieldsCache fc = new FieldsCache
             {
-                ValueCache = new NameValuesCollection<string>(),
-                FileCache = new Dictionary<string, FileUpload>()
-            };
-            if (Content == null)
-                return fc;
+                _postFields = ParseQueryValueParameters(new StreamReader(body, Encoding.UTF8));
+                return;
+            }
 
             // An excessively long boundary is going to screw up the following algorithm.
             // (Actually a limit of up to 65527 would work, but I think 1024 is more than enough.)
-            if (Headers.ContentMultipartBoundary == null || Headers.ContentMultipartBoundary.Length > 1024)
-                return fc;
+            if (body == null || Headers.ContentMultipartBoundary == null || Headers.ContentMultipartBoundary.Length > 1024)
+                return;
 
             // Process POST request upload data
 
             byte[] buffer = new byte[65536];
-            int bytesRead = Content.Read(buffer, 0, 65536);
+            int bytesRead = body.Read(buffer, 0, 65536);
             if (bytesRead == 0)    // premature end of request body
-                return fc;
+                return;
 
             // We expect the input to begin with "--" followed by the boundary followed by "\r\n"
             byte[] expecting = ("--" + Headers.ContentMultipartBoundary + "\r\n").ToUtf8();
             int bufferIndex = bytesRead;
             while (bufferIndex < expecting.Length)
             {
-                bytesRead = Content.Read(buffer, bufferIndex, buffer.Length - bufferIndex);
+                bytesRead = body.Read(buffer, bufferIndex, buffer.Length - bufferIndex);
                 if (bytesRead == 0)    // premature end of request body
-                    return fc;
+                    return;
                 bufferIndex += bytesRead;
             }
             if (!buffer.SubarrayEquals(0, expecting, 0, expecting.Length))
-                return fc;
+                return;
             bytesRead = bufferIndex - expecting.Length;
             bufferIndex = expecting.Length;
 
@@ -672,7 +635,7 @@ namespace RT.Servers
                             else if (fileName != null && currentFieldName != null)
                             {
                                 string tempFile = HttpInternalObjects.RandomTempFilepath(TempDir, out currentWritingStream);
-                                fc.FileCache[currentFieldName] = new FileUpload
+                                _fileUploads[currentFieldName] = new FileUpload
                                 {
                                     ContentType = contentType,
                                     Filename = fileName,
@@ -712,7 +675,7 @@ namespace RT.Servers
                             // If it is a FileStream, then the relevant entry to fc.FileCache has already been made.
                             // Only if it is a MemoryStream, we need to process the stuff here.
                             if (currentWritingStream is MemoryStream)
-                                fc.ValueCache[currentFieldName].Add(Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray()));
+                                _postFields[currentFieldName].Add(Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray()));
                             currentWritingStream.Dispose();
                             currentWritingStream = null;
 
@@ -751,7 +714,7 @@ namespace RT.Servers
                 // We need to read enough data to contain the boundary
                 do
                 {
-                    bytesRead = Content.Read(buffer, writeIndex, 65536 - writeIndex);
+                    bytesRead = body.Read(buffer, writeIndex, 65536 - writeIndex);
                     if (bytesRead == 0) // premature end of content
                     {
                         if (currentWritingStream != null)
@@ -759,37 +722,26 @@ namespace RT.Servers
                             currentWritingStream.Close();
                             currentWritingStream.Dispose();
                         }
-                        return fc;
+                        return;
                     }
                     writeIndex += bytesRead;
-                } while (writeIndex < lastBoundary.Length);
+                }
+                while (writeIndex < lastBoundary.Length);
                 bytesRead = writeIndex;
             }
-
-            return fc;
         }
 
         /// <summary>
-        /// Decodes an ASCII-encoded stream of characters into key-value pairs.
+        /// Decodes a URL-encoded stream of UTF-8 characters into key-value pairs.
         /// </summary>
         /// <param name="s">Stream to read from.</param>
-        public static NameValuesCollection<string> ParseQueryValueParameters(Stream s)
+        public static NameValuesCollection<string> ParseQueryValueParameters(TextReader s)
         {
-            FieldsCache fc = parseQueryParameters(s);
-            return fc.ValueCache;
-        }
-
-        private static FieldsCache parseQueryParameters(Stream s)
-        {
-            FieldsCache fc = new FieldsCache
-            {
-                ValueCache = new NameValuesCollection<string>(),
-                FileCache = new Dictionary<string, FileUpload>()
-            };
+            var ret = new NameValuesCollection<string>();
             if (s == null)
-                return fc;
+                return ret;
 
-            byte[] buffer = new byte[65536];
+            char[] buffer = new char[65536];
             int bytesRead = s.Read(buffer, 0, buffer.Length);
             int bufferIndex = 0;
             string curKey = "";
@@ -799,7 +751,7 @@ namespace RT.Servers
             {
                 key = key.UrlUnescape();
                 val = val.UrlUnescape();
-                fc.ValueCache[key].Add(val);
+                ret[key].Add(val);
             });
 
             bool inKey = true;
@@ -813,30 +765,30 @@ namespace RT.Servers
                     if (i == bytesRead)
                     {
                         if (inKey)
-                            curKey += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curKey += new string(buffer, bufferIndex, i - bufferIndex);
                         else
-                            curValue += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curValue += new string(buffer, bufferIndex, i - bufferIndex);
                         bufferIndex = i;
                     }
                     else if (buffer[i] == (byte) '=')
                     {
                         if (inKey)
                         {
-                            curKey += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curKey += new string(buffer, bufferIndex, i - bufferIndex);
                             curValue = "";
                             inKey = false;
                         }
                         else
-                            curValue += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex) + "=";
+                            curValue += new string(buffer, bufferIndex, i - bufferIndex) + "=";
                         bufferIndex = i + 1;
                     }
                     else if (buffer[i] == (byte) '&')
                     {
                         if (inKey)
-                            curKey += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex) + "&";
+                            curKey += new string(buffer, bufferIndex, i - bufferIndex) + "&";
                         else
                         {
-                            curValue += Encoding.UTF8.GetString(buffer, bufferIndex, i - bufferIndex);
+                            curValue += new string(buffer, bufferIndex, i - bufferIndex);
                             fnAdd(curKey, curValue);
                             curKey = "";
                             curValue = null;
@@ -853,7 +805,7 @@ namespace RT.Servers
                 fnAdd(curKey, curValue);
 
             s.Close();
-            return fc;
+            return ret;
         }
 
         /// <summary>Applies the specified modifications to this request's URL and returns the result.</summary>
