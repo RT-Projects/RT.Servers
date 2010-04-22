@@ -13,6 +13,7 @@ using RT.Servers;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
+using System.Threading;
 
 namespace RT.Servers
 {
@@ -185,37 +186,43 @@ Content-Type: text/html
             catch { }
         }
 
-        private struct TestResponse
+        private void testRequest(string testName, string request, Action<string[], byte[]> verify)
         {
-            public string[] Headers;
-            public byte[] Content;
-        }
+            var requestBytes = request.ToUtf8();
+            for (int chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Math.Max(1, Math.Min(requestBytes.Length - chunkSize, Rnd.Next(64))))
+            {
+                if (chunkSize == 0)
+                    continue;
+                Console.WriteLine("{0}; chunk size {1}", testName, chunkSize);
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 1000; // 1 sec
+                Socket sck = cl.Client;
+                for (int j = 0; j < requestBytes.Length; j += chunkSize)
+                {
+                    sck.Send(requestBytes, j, Math.Min(requestBytes.Length - j, chunkSize), SocketFlags.None);
+                    Thread.Sleep(25);
+                }
+                MemoryStream response = new MemoryStream();
+                byte[] b = new byte[65536];
+                int bytesRead = sck.Receive(b);
+                Assert.IsTrue(bytesRead > 0);
+                while (bytesRead > 0)
+                {
+                    response.Write(b, 0, bytesRead);
+                    bytesRead = sck.Receive(b);
+                }
+                var content = response.ToArray();
+                int pos = content.IndexOfSubarray(new byte[] { 13, 10, 13, 10 }, 0, content.Length);
+                Assert.Greater(pos, -1);
 
-        private TestResponse GetTestResponse(string Request)
-        {
-            TcpClient cl = new TcpClient();
-            cl.Connect("localhost", _port);
-            cl.ReceiveTimeout = 1000; // 1 sec
-            Socket sck = cl.Client;
-            sck.Send(Request.ToUtf8());
-            List<byte> response = new List<byte>();
-            byte[] b = new byte[65536];
-            int bytesRead = sck.Receive(b);
-            Assert.IsTrue(bytesRead > 0);
-            while (bytesRead > 0)
-            {
-                response.AddRange(b.Take(bytesRead));
-                bytesRead = sck.Receive(b);
+                var headersRaw = content.Subarray(0, pos);
+                content = content.Subarray(pos + 4);
+
+                var headers = headersRaw.FromUtf8().Split(new string[] { "\r\n" }, StringSplitOptions.None);
+                if (verify != null)
+                    verify(headers, content);
             }
-            string asText = Encoding.UTF8.GetString(response.ToArray());
-            Assert.IsTrue(asText.Contains("\r\n\r\n"));
-            int pos = asText.IndexOf("\r\n\r\n");
-            TestResponse result = new TestResponse
-            {
-                Headers = asText.Remove(pos).Split(new string[] { "\r\n" }, StringSplitOptions.None),
-                Content = response.Skip(pos + 4).ToArray()
-            };
-            return result;
         }
 
         [Test]
@@ -226,135 +233,155 @@ Content-Type: text/html
             instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
             instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handler64KFile, path: "/64kfile"));
             instance.StartListening(false);
+
             try
             {
-                TestResponse resp = GetTestResponse("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 404 Not Found", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Connection: close"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: text/html; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Any(x => x.StartsWith("Content-Length: ")));
-                Assert.IsTrue(resp.Content.FromUtf8().Contains("404"));
+                testRequest("GET test #1", "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 404 Not Found", headers[0]);
+                    Assert.IsTrue(headers.Contains("Connection: close"));
+                    Assert.IsTrue(headers.Contains("Content-Type: text/html; charset=utf-8"));
+                    Assert.IsTrue(headers.Any(x => x.StartsWith("Content-Length: ")));
+                    Assert.IsTrue(content.FromUtf8().Contains("404"));
+                });
 
-                resp = GetTestResponse("GET /static?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 41"));
-                Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", resp.Content.FromUtf8());
+                testRequest("GET test #2", "GET /static?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                    Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                    Assert.IsTrue(headers.Contains("Content-Length: 41"));
+                    Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", content.FromUtf8());
+                });
 
-                resp = GetTestResponse("GET /static?x[]=1&x%5B%5D=%20&x%5b%5d=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 29"));
-                Assert.AreEqual("GET:\nx[] => [\"1\", \" \", \"==\"]\n", resp.Content.FromUtf8());
+                testRequest("GET test #3", "GET /static?x[]=1&x%5B%5D=%20&x%5b%5d=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                    Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                    Assert.IsTrue(headers.Contains("Content-Length: 29"));
+                    Assert.AreEqual("GET:\nx[] => [\"1\", \" \", \"==\"]\n", content.FromUtf8());
+                });
 
-                resp = GetTestResponse("GET /dynamic?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("content-length:")));
-                Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("accept-ranges:")));
-                Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", resp.Content.FromUtf8());
+                testRequest("GET test #4", "GET /dynamic?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                    Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                    Assert.IsFalse(headers.Any(x => x.ToLowerInvariant().StartsWith("content-length:")));
+                    Assert.IsFalse(headers.Any(x => x.ToLowerInvariant().StartsWith("accept-ranges:")));
+                    Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", content.FromUtf8());
+                });
 
-                resp = GetTestResponse("POST /static HTTP/1.1\r\nHost: localhost\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 411 Length Required", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: text/html; charset=utf-8"));
-                Assert.IsTrue(resp.Headers.Contains("Connection: close"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: " + resp.Content.Length));
-                Assert.IsTrue(resp.Content.FromUtf8().Contains("411"));
+                testRequest("GET test #5 (actually a POST)", "POST /static HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 411 Length Required", headers[0]);
+                    Assert.IsTrue(headers.Contains("Content-Type: text/html; charset=utf-8"));
+                    Assert.IsTrue(headers.Contains("Connection: close"));
+                    Assert.IsTrue(headers.Contains("Content-Length: " + content.Length));
+                    Assert.IsTrue(content.FromUtf8().Contains("411"));
+                });
 
-                resp = GetTestResponse("GET /64kfile HTTP/1.1\r\nHost: localhost\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: application/octet-stream"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 65536"));
-                Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
-                Assert.AreEqual(65536, resp.Content.Length);
-                for (int i = 0; i < resp.Content.Length; i++)
-                    Assert.AreEqual(resp.Content[i], (byte) (i % 256));
+                testRequest("GET test #6", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                    Assert.IsTrue(headers.Contains("Content-Type: application/octet-stream"));
+                    Assert.IsTrue(headers.Contains("Content-Length: 65536"));
+                    Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
+                    Assert.AreEqual(65536, content.Length);
+                    for (int i = 0; i < content.Length; i++)
+                        Assert.AreEqual(content[i], (byte) (i % 256));
+                });
 
-                resp = GetTestResponse("GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=23459-38274\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 206 Partial Content", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Range: bytes 23459-38274/65536"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: application/octet-stream"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 14816"));
-                for (int i = 0; i < resp.Content.Length; i++)
-                    Assert.AreEqual((byte) ((163 + i) % 256), resp.Content[i]);
+                testRequest("GET test #7", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=23459-38274\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 206 Partial Content", headers[0]);
+                    Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
+                    Assert.IsTrue(headers.Contains("Content-Range: bytes 23459-38274/65536"));
+                    Assert.IsTrue(headers.Contains("Content-Type: application/octet-stream"));
+                    Assert.IsTrue(headers.Contains("Content-Length: 14816"));
+                    for (int i = 0; i < content.Length; i++)
+                        Assert.AreEqual((byte) ((163 + i) % 256), content[i]);
+                });
 
-                resp = GetTestResponse("GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=65-65,67-67\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 206 Partial Content", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
-                Assert.IsTrue(resp.Headers.Any(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")));
-                string boundary = resp.Headers.First(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")).Substring(45);
-                Assert.IsTrue(resp.Headers.Contains("Content-Length: 284"));
-                byte[] expectedContent = ("--" + boundary + "\r\nContent-Range: bytes 65-65/65536\r\n\r\nA\r\n--" + boundary + "\r\nContent-Range: bytes 67-67/65536\r\n\r\nC\r\n--" + boundary + "--\r\n").ToUtf8();
-                Assert.AreEqual(expectedContent.Length, resp.Content.Length);
-                for (int i = 0; i < expectedContent.Length; i++)
-                    Assert.AreEqual(expectedContent[i], resp.Content[i]);
+                testRequest("GET test #8", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=65-65,67-67\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 206 Partial Content", headers[0]);
+                    Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
+                    Assert.IsTrue(headers.Any(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")));
+                    string boundary = headers.First(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")).Substring(45);
+                    Assert.IsTrue(headers.Contains("Content-Length: 284"));
+                    byte[] expectedContent = ("--" + boundary + "\r\nContent-Range: bytes 65-65/65536\r\n\r\nA\r\n--" + boundary + "\r\nContent-Range: bytes 67-67/65536\r\n\r\nC\r\n--" + boundary + "--\r\n").ToUtf8();
+                    Assert.AreEqual(expectedContent.Length, content.Length);
+                    for (int i = 0; i < expectedContent.Length; i++)
+                        Assert.AreEqual(expectedContent[i], content[i]);
+                });
 
-                resp = GetTestResponse("GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                Assert.IsTrue(resp.Headers.Contains("Accept-Ranges: bytes"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Type: application/octet-stream"));
-                Assert.IsTrue(resp.Headers.Contains("Content-Encoding: gzip"));
-                Assert.IsTrue(resp.Headers.Any(h => h.StartsWith("Content-Length")));
-                GZipStream gz = new GZipStream(new MemoryStream(resp.Content), CompressionMode.Decompress);
-                for (int i = 0; i < 65536; i++)
-                    Assert.AreEqual(i % 256, gz.ReadByte());
-                Assert.AreEqual(-1, gz.ReadByte());
+                testRequest("GET test #9", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n", (headers, content) =>
+                {
+                    Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                    Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
+                    Assert.IsTrue(headers.Contains("Content-Type: application/octet-stream"));
+                    Assert.IsTrue(headers.Contains("Content-Encoding: gzip"));
+                    Assert.IsTrue(headers.Any(h => h.StartsWith("Content-Length")));
+                    GZipStream gz = new GZipStream(new MemoryStream(content), CompressionMode.Decompress);
+                    for (int i = 0; i < 65536; i++)
+                        Assert.AreEqual(i % 256, gz.ReadByte());
+                    Assert.AreEqual(-1, gz.ReadByte());
+                });
 
-                resp = GetTestResponse("GET /dynamic HTTP/1.1\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 400 Bad Request", resp.Headers[0]);
-
-                resp = GetTestResponse("INVALID /request HTTP/1.1\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 400 Bad Request", resp.Headers[0]);
-
-                resp = GetTestResponse("GET  HTTP/1.1\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 400 Bad Request", resp.Headers[0]);
-
-                resp = GetTestResponse("!\r\n\r\n");
-                Assert.AreEqual("HTTP/1.1 400 Bad Request", resp.Headers[0]);
+                testRequest("GET test #10", "GET /dynamic HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #11", "INVALID /request HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #12", "GET  HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #13", "!\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
             }
             finally
             {
                 instance.StopListening();
             }
 
-            for (int i = 5; i <= 1024; i += 1019)
+            foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
             {
-                instance = new HttpServer(new HttpServerOptions { Port = _port, UseFileUploadAtSize = i });
+                instance = new HttpServer(new HttpServerOptions { Port = _port, UseFileUploadAtSize = storeFileUploadInFileAtSize });
                 instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerStatic, path: "/static"));
                 instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
                 instance.StartListening(false);
 
                 try
                 {
-                    TestResponse resp = GetTestResponse("POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: 48\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d&a[]=1&a%5B%5D=2&%61%5b%5d=3");
-                    Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                    Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                    Assert.IsTrue(resp.Headers.Contains("Content-Length: 66"));
-                    Assert.AreEqual("\nPOST:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\na[] => [\"1\", \"2\", \"3\"]\n", resp.Content.FromUtf8());
+                    testRequest("POST test #1, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: 48\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d&a[]=1&a%5B%5D=2&%61%5b%5d=3", (headers, content) =>
+                    {
+                        Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                        Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                        Assert.IsTrue(headers.Contains("Content-Length: 66"));
+                        Assert.AreEqual("\nPOST:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\na[] => [\"1\", \"2\", \"3\"]\n", content.FromUtf8());
+                    });
 
-                    resp = GetTestResponse("POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: 20\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d");
-                    Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                    Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                    Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("content-length:")));
-                    Assert.IsFalse(resp.Headers.Any(x => x.ToLowerInvariant().StartsWith("accept-ranges:")));
-                    Assert.AreEqual("\nPOST:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", resp.Content.FromUtf8());
+                    testRequest("POST test #2, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: 20\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d", (headers, content) =>
+                    {
+                        Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                        Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                        Assert.IsFalse(headers.Any(x => x.ToLowerInvariant().StartsWith("content-length:")));
+                        Assert.IsFalse(headers.Any(x => x.ToLowerInvariant().StartsWith("accept-ranges:")));
+                        Assert.AreEqual("\nPOST:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", content.FromUtf8());
+                    });
 
-                    string postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
-                    string expectedResponse = "\nPOST:\nx => [\"y\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" }\n";
+                    string postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"z\"\r\n\r\n%3D%3d\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
+                    string expectedResponse = "\nPOST:\nx => [\"y\"]\nz => [\"%3D%3d\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" }\n";
 
-                    resp = GetTestResponse("POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent);
-                    Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                    Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                    Assert.IsTrue(resp.Headers.Contains("Content-Length: " + expectedResponse.Length));
-                    Assert.AreEqual(expectedResponse, resp.Content.FromUtf8());
+                    testRequest("POST test #3, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
+                    {
+                        Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                        Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                        Assert.IsTrue(headers.Contains("Content-Length: " + expectedResponse.Length));
+                        Assert.AreEqual(expectedResponse, content.FromUtf8());
+                    });
 
-                    resp = GetTestResponse("POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent);
-                    Assert.AreEqual("HTTP/1.1 200 OK", resp.Headers[0]);
-                    Assert.IsTrue(resp.Headers.Contains("Content-Type: text/plain; charset=utf-8"));
-                    Assert.IsFalse(resp.Headers.Any(x => x.StartsWith("Content-Length: ")));
-                    Assert.IsFalse(resp.Headers.Any(x => x.StartsWith("Accept-Ranges: ")));
-                    Assert.AreEqual(expectedResponse, resp.Content.FromUtf8());
+                    testRequest("POST test #4, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
+                    {
+                        Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                        Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                        Assert.IsFalse(headers.Any(x => x.StartsWith("Content-Length: ")));
+                        Assert.IsFalse(headers.Any(x => x.StartsWith("Accept-Ranges: ")));
+                        Assert.AreEqual(expectedResponse, content.FromUtf8());
+                    });
                 }
                 finally
                 {

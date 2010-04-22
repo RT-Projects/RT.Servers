@@ -1133,7 +1133,7 @@ namespace RT.Servers
                     // Receive the POST request content into an in-memory buffer
                     byte[] buffer = new byte[req.Headers.ContentLength.Value];
                     if (contentLengthSoFar > 0)
-                        Array.Copy(bufferWithContentSoFar, contentOffset, buffer, 0, contentLengthSoFar);
+                        Buffer.BlockCopy(bufferWithContentSoFar, contentOffset, buffer, 0, contentLengthSoFar);
                     while (contentLengthSoFar < req.Headers.ContentLength)
                     {
                         SocketError errorCode;

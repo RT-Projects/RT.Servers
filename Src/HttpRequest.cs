@@ -733,7 +733,7 @@ namespace RT.Servers
                             if (howMuchToWrite > 0)
                                 currentWritingStream.Write(buffer, bufferIndex, howMuchToWrite);
                             byte[] newBuffer = new byte[65536];
-                            Array.Copy(buffer, bufferIndex + howMuchToWrite, newBuffer, 0, bytesRead - howMuchToWrite);
+                            Buffer.BlockCopy(buffer, bufferIndex + howMuchToWrite, newBuffer, 0, bytesRead - howMuchToWrite);
                             buffer = newBuffer;
                             bytesRead -= howMuchToWrite;
                             writeIndex = bytesRead;
@@ -742,7 +742,7 @@ namespace RT.Servers
                     else if (bufferIndex > 0)
                     {
                         byte[] newBuffer = new byte[65536];
-                        Array.Copy(buffer, bufferIndex, newBuffer, 0, bytesRead);
+                        Buffer.BlockCopy(buffer, bufferIndex, newBuffer, 0, bytesRead);
                         buffer = newBuffer;
                         writeIndex = bytesRead;
                     }
