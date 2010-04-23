@@ -80,7 +80,7 @@ namespace RT.Servers
         public void TestParsePost()
         {
             Directory.CreateDirectory(@"C:\temp\testresults");
-            string InputStr = @"-----------------------------265001916915724
+            string inputStr = @"-----------------------------265001916915724
 Content-Disposition: form-data; name=""y""
 
 This is what should be found in ""y"" at the end of the test.
@@ -108,39 +108,46 @@ Content-Type: text/html
 </html>
 -----------------------------265001916915724--
 ";
-            byte[] TestCase = Encoding.UTF8.GetBytes(InputStr);
+            byte[] testCase = Encoding.UTF8.GetBytes(inputStr);
 
-            for (int cs = 1; cs < InputStr.Length; cs++)
+            var directoryNotToBeCreated = @"C:\serverstests";
+            int i = 1;
+            while (Directory.Exists(directoryNotToBeCreated))
+            {
+                i++;
+                directoryNotToBeCreated = @"C:\serverstests_" + i;
+            }
+
+            for (int cs = 1; cs < testCase.Length; cs++)
             {
                 HttpRequest r = new HttpRequest
                 {
                     Headers = new HttpRequestHeaders
                     {
-                        ContentLength = InputStr.Length,
+                        ContentLength = inputStr.Length,
                         ContentMultipartBoundary = "---------------------------265001916915724",
                         ContentType = HttpPostContentType.MultipartFormData
                     },
                     Method = HttpMethod.Post,
                     Url = "/",
-                    RestUrl = "/",
-                    TempDir = @"C:\temp\testresults"
+                    RestUrl = "/"
                 };
 
-                using (Stream f = new SlowStream(new MemoryStream(TestCase), cs))
+                using (Stream f = new SlowStream(new MemoryStream(testCase), cs))
                 {
-                    r.ParsePostBody(f);
-                    var Gets = r.Get;
-                    var Posts = r.Post;
-                    var Files = r.FileUploads;
+                    r.ParsePostBody(f, directoryNotToBeCreated);
+                    var gets = r.Get;
+                    var posts = r.Post;
+                    var files = r.FileUploads;
 
-                    Assert.IsTrue(Files.ContainsKey("documentfile"));
-                    Assert.AreEqual("temp.htm", Files["documentfile"].Filename);
-                    Assert.AreEqual("text/html", Files["documentfile"].ContentType);
-                    Assert.IsTrue(File.Exists(Files["documentfile"].LocalTempFilename));
+                    Assert.IsTrue(files.ContainsKey("documentfile"));
+                    Assert.AreEqual("temp.htm", files["documentfile"].Filename);
+                    Assert.AreEqual("text/html", files["documentfile"].ContentType);
 
-                    string FileContent = Encoding.UTF8.GetString(File.ReadAllBytes(Files["documentfile"].LocalTempFilename));
-                    File.Delete(Files["documentfile"].LocalTempFilename);
-                    Assert.AreEqual(@"<html>
+                    using (var stream = files["documentfile"].GetStream())
+                    {
+                        string fileContent = Encoding.UTF8.GetString(stream.ReadAllBytes());
+                        Assert.AreEqual(@"<html>
     <head>
     </head>
     <body>
@@ -152,32 +159,32 @@ Content-Type: text/html
         </form>
     </body>
 </html>",
-                        FileContent);
+                            fileContent);
+                    }
 
-                    Assert.AreEqual(0, Gets.Count);
-                    Assert.AreEqual(2, Posts.Count);
-                    Assert.AreEqual(1, Files.Count);
+                    Assert.AreEqual(0, gets.Count);
+                    Assert.AreEqual(2, posts.Count);
+                    Assert.AreEqual(1, files.Count);
 
-                    Assert.IsTrue(Posts.ContainsKey("y"));
-                    Assert.AreEqual(@"This is what should be found in ""y"" at the end of the test.", Posts["y"].Value);
-                    Assert.IsTrue(Posts.ContainsKey("What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"));
+                    Assert.IsTrue(posts.ContainsKey("y"));
+                    Assert.AreEqual(@"This is what should be found in ""y"" at the end of the test.", posts["y"].Value);
+                    Assert.IsTrue(posts.ContainsKey("What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"));
                     Assert.AreEqual("\r\n<CRLF>(this)<CRLF>\r\n",
-                        Posts["What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"].Value);
+                        posts["What a wonderful day it is today; so wonderful in fact, that I'm inclined to go out and meet friends"].Value);
                 }
             }
 
-            try { Directory.Delete(@"C:\temp\testresults"); }
-            catch { }
+            Assert.IsFalse(Directory.Exists(directoryNotToBeCreated));
         }
 
-        private void testRequest(string testName, string request, Action<string[], byte[]> verify)
+        private void testRequest(string testName, int storeFileUploadInFileAtSize, string request, Action<string[], byte[]> verify)
         {
             var requestBytes = request.ToUtf8();
             for (int chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Math.Max(1, Math.Min(requestBytes.Length - chunkSize, Rnd.Next(64))))
             {
                 if (chunkSize == 0)
                     continue;
-                Console.WriteLine("{0}; chunk size {1}", testName, chunkSize);
+                Console.WriteLine("{0}; SFUIFAS {3}; length {2}; chunk size {1}", testName, chunkSize, requestBytes.Length, storeFileUploadInFileAtSize);
                 TcpClient cl = new TcpClient();
                 cl.Connect("localhost", _port);
                 cl.ReceiveTimeout = 1000; // 1 sec
@@ -212,7 +219,8 @@ Content-Type: text/html
         [Test]
         public void TestSomeRequests()
         {
-            HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
+            var store = 1024 * 1024;
+            HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = store });
             instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerStatic, path: "/static"));
             instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
             instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handler64KFile, path: "/64kfile"));
@@ -220,7 +228,7 @@ Content-Type: text/html
 
             try
             {
-                testRequest("GET test #1", "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                testRequest("GET test #1", store, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 404 Not Found", headers[0]);
                     Assert.IsTrue(headers.Contains("Connection: close"));
@@ -229,7 +237,7 @@ Content-Type: text/html
                     Assert.IsTrue(content.FromUtf8().Contains("404"));
                 });
 
-                testRequest("GET test #2", "GET /static?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                testRequest("GET test #2", store, "GET /static?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                     Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
@@ -237,7 +245,7 @@ Content-Type: text/html
                     Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", content.FromUtf8());
                 });
 
-                testRequest("GET test #3", "GET /static?x[]=1&x%5B%5D=%20&x%5b%5d=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                testRequest("GET test #3", store, "GET /static?x[]=1&x%5B%5D=%20&x%5b%5d=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                     Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
@@ -245,7 +253,7 @@ Content-Type: text/html
                     Assert.AreEqual("GET:\nx[] => [\"1\", \" \", \"==\"]\n", content.FromUtf8());
                 });
 
-                testRequest("GET test #4", "GET /dynamic?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                testRequest("GET test #4", store, "GET /dynamic?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                     Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
@@ -254,7 +262,7 @@ Content-Type: text/html
                     Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", content.FromUtf8());
                 });
 
-                testRequest("GET test #5 (actually a POST)", "POST /static HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                testRequest("GET test #5 (actually a POST)", store, "POST /static HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 411 Length Required", headers[0]);
                     Assert.IsTrue(headers.Contains("Content-Type: text/html; charset=utf-8"));
@@ -263,7 +271,7 @@ Content-Type: text/html
                     Assert.IsTrue(content.FromUtf8().Contains("411"));
                 });
 
-                testRequest("GET test #6", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                testRequest("GET test #6", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                     Assert.IsTrue(headers.Contains("Content-Type: application/octet-stream"));
@@ -274,7 +282,7 @@ Content-Type: text/html
                         Assert.AreEqual(content[i], (byte) (i % 256));
                 });
 
-                testRequest("GET test #7", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=23459-38274\r\n\r\n", (headers, content) =>
+                testRequest("GET test #7", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=23459-38274\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 206 Partial Content", headers[0]);
                     Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
@@ -285,7 +293,7 @@ Content-Type: text/html
                         Assert.AreEqual((byte) ((163 + i) % 256), content[i]);
                 });
 
-                testRequest("GET test #8", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=65-65,67-67\r\n\r\n", (headers, content) =>
+                testRequest("GET test #8", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=65-65,67-67\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 206 Partial Content", headers[0]);
                     Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
@@ -298,7 +306,7 @@ Content-Type: text/html
                         Assert.AreEqual(expectedContent[i], content[i]);
                 });
 
-                testRequest("GET test #9", "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n", (headers, content) =>
+                testRequest("GET test #9", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                     Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
@@ -311,10 +319,10 @@ Content-Type: text/html
                     Assert.AreEqual(-1, gz.ReadByte());
                 });
 
-                testRequest("GET test #10", "GET /dynamic HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
-                testRequest("GET test #11", "INVALID /request HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
-                testRequest("GET test #12", "GET  HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
-                testRequest("GET test #13", "!\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #10", store, "GET /dynamic HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #11", store, "INVALID /request HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #12", store, "GET  HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #13", store, "!\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
             }
             finally
             {
@@ -330,7 +338,7 @@ Content-Type: text/html
 
                 try
                 {
-                    testRequest("POST test #1, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: 48\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d&a[]=1&a%5B%5D=2&%61%5b%5d=3", (headers, content) =>
+                    testRequest("POST test #1", storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: 48\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d&a[]=1&a%5B%5D=2&%61%5b%5d=3", (headers, content) =>
                     {
                         Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                         Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
@@ -338,7 +346,7 @@ Content-Type: text/html
                         Assert.AreEqual("\nPOST:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\na[] => [\"1\", \"2\", \"3\"]\n", content.FromUtf8());
                     });
 
-                    testRequest("POST test #2, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: 20\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d", (headers, content) =>
+                    testRequest("POST test #2", storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: 20\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d", (headers, content) =>
                     {
                         Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                         Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
@@ -348,17 +356,39 @@ Content-Type: text/html
                     });
 
                     string postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"z\"\r\n\r\n%3D%3d\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
-                    string expectedResponse = "\nPOST:\nx => [\"y\"]\nz => [\"%3D%3d\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" }\n";
+                    string expectedResponse = "\nPOST:\nx => [\"y\"]\nz => [\"%3D%3d\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" (" + (storeFileUploadInFileAtSize < 6 ? "localfile" : "data") + ") }\n";
 
-                    testRequest("POST test #3, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
+                    testRequest("POST test #3", storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
                     {
                         Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                         Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                        Assert.AreEqual(expectedResponse, content.FromUtf8());
                         Assert.IsTrue(headers.Contains("Content-Length: " + expectedResponse.Length));
+                    });
+
+                    testRequest("POST test #4", storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
+                    {
+                        Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                        Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                        Assert.IsFalse(headers.Any(x => x.StartsWith("Content-Length: ")));
+                        Assert.IsFalse(headers.Any(x => x.StartsWith("Accept-Ranges: ")));
                         Assert.AreEqual(expectedResponse, content.FromUtf8());
                     });
 
-                    testRequest("POST test #4, StoreFileUploadInFileAtSize = " + storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
+                    // Test that the server doesn't crash if a field name is missing
+                    postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\n\r\n--abc\r\nContent-Disposition: form-data\r\n\r\n%3D%3d\r\n--abc\r\nContent-Disposition: form-data; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
+                    expectedResponse = "\nPOST:\nx => [\"\"]\n";
+
+                    testRequest("POST test #5", storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
+                    {
+                        Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
+                        Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
+                        Assert.IsTrue(headers.Any(x => x.StartsWith("Content-Length: ")));
+                        Assert.IsFalse(headers.Any(x => x.StartsWith("Accept-Ranges: ")));
+                        Assert.AreEqual(expectedResponse, content.FromUtf8());
+                    });
+
+                    testRequest("POST test #6", storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
                     {
                         Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                         Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
@@ -456,9 +486,13 @@ Content-Type: text/html
                 yield return "\nFiles:\n";
             foreach (var kvp in req.FileUploads)
             {
-                yield return kvp.Key + " => { " + kvp.Value.ContentType + ", " + kvp.Value.Filename + ", ";
-                string fileCont = File.ReadAllText(kvp.Value.LocalTempFilename, Encoding.UTF8);
-                yield return "\"" + fileCont + "\" }\n";
+                yield return kvp.Key + " => { " + kvp.Value.ContentType + ", " + kvp.Value.Filename + ", \"";
+                using (var stream = kvp.Value.GetStream())
+                    yield return stream.ReadAllText(Encoding.UTF8);
+                var field1 = kvp.Value.GetType().GetField("LocalFilename", BindingFlags.NonPublic | BindingFlags.Instance);
+                yield return "\" (" + (field1 == null ? "null" : field1.GetValue(kvp.Value) == null ? "" : "localfile");
+                var field2 = kvp.Value.GetType().GetField("Data", BindingFlags.NonPublic | BindingFlags.Instance);
+                yield return (field2 == null ? "null" : field2.GetValue(kvp.Value) == null ? "" : "data") + ") }\n";
             }
         }
 

@@ -952,7 +952,6 @@ namespace RT.Servers
                     match.Groups[1].Value == "HEAD" ? HttpMethod.Head :
                     match.Groups[1].Value == "POST" ? HttpMethod.Post : HttpMethod.Get;
                 req.Url = match.Groups[2].Value;
-                req.TempDir = _opt.TempDir;   // this will only be used if there is a file upload in a POST request.
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
 
@@ -1141,7 +1140,7 @@ namespace RT.Servers
                 }
                 try
                 {
-                    req.ParsePostBody(contentStream);
+                    req.ParsePostBody(contentStream, _opt.TempDir, _opt.StoreFileUploadInFileAtSize);
                 }
                 catch (SocketException) { }
                 catch (EndOfStreamException) { }

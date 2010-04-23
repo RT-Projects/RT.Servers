@@ -31,7 +31,7 @@ namespace RT.Servers
         public long MaxSizePostContent = 1024 * 1024 * 1024;
 
         /// <summary>
-        /// This option currently has no effect.
+        /// The maximum size (in bytes) at which file uploads in a POST request are stored in memory. Any uploads that exceed this limit are written to temporary files on disk. Default is 16 MB.
         /// </summary>
         public long StoreFileUploadInFileAtSize = 1024 * 1024;
 
@@ -48,7 +48,7 @@ namespace RT.Servers
         public int GzipAutodetectThreshold = 1024 * 1024;
 
         /// <summary>
-        /// The temporary directory to use for POST requests and file uploads. Default is <see cref="Path.GetTempPath"/>.
+        /// The temporary directory to use for file uploads in POST requests. Default is <see cref="Path.GetTempPath"/>.
         /// </summary>
         public string TempDir = Path.GetTempPath();
 

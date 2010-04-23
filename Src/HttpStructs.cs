@@ -1,4 +1,7 @@
 ﻿using System;
+using System.IO;
+using System.Security.Cryptography;
+using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
@@ -66,15 +69,64 @@ namespace RT.Servers
     }
 
     /// <summary>
-    /// Contains all relevant information about a file upload contained in an HTTP POST request.
+    /// Represents a file upload contained in an HTTP POST request.
     /// </summary>
     public class FileUpload
     {
-        /// <summary>The path and filename of the temporary file in the local file system where the uploaded file is stored.</summary>
-        public string LocalTempFilename;
-        /// <summary>The filename of the uploaded file as supplied by the client.</summary>
-        public string Filename;
         /// <summary>The MIME type of the uploaded file.</summary>
-        public string ContentType;
+        public string ContentType { get; private set; }
+        /// <summary>The filename of the uploaded file as supplied by the client.</summary>
+        public string Filename { get; private set; }
+
+        /// <summary>Use this if the file upload content is stored on disk.</summary>
+        internal string LocalFilename;
+        /// <summary>Use this if the file upload content is stored in memory.</summary>
+        internal byte[] Data;
+
+        /// <summary>Constructor.</summary>
+        internal FileUpload(string contentType, string filename)
+        {
+            ContentType = contentType;
+            Filename = filename;
+        }
+
+        /// <summary>Moves the uploaded file to a file in the local file system.</summary>
+        /// <remarks>Calling this method twice will move the file around, not create two copies.</remarks>
+        public void SaveToFile(string localFilename)
+        {
+            if (Data != null)
+            {
+                using (var f = File.Open(localFilename, FileMode.Create, FileAccess.Write, FileShare.Write))
+                    f.Write(Data, 0, Data.Length);
+                LocalFilename = localFilename;
+                Data = null;
+            }
+            else
+            {
+                File.Move(LocalFilename, localFilename);
+                localFilename = LocalFilename;
+            }
+        }
+
+        /// <summary>Returns a Stream object for access to the file upload.</summary>
+        /// <remarks>The caller is responsible for disposing of the Stream object.</remarks>
+        public Stream GetStream()
+        {
+            if (Data != null)
+                return new MemoryStream(Data, false);
+            else
+                return File.Open(LocalFilename, FileMode.Open, FileAccess.Read, FileShare.Read);
+        }
+
+        /// <summary>Returns the MD5 hash function of the upload contents.</summary>
+        /// <returns>Result of the MD5 hash function as a string of hexadecimal digits.</returns>
+        public string GetMd5()
+        {
+            if (Data != null)
+                return MD5.Create().ComputeHash(Data).ToHex();
+            else
+                using (var f = File.Open(LocalFilename, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    return MD5.Create().ComputeHash(f).ToHex();
+        }
     }
 }
