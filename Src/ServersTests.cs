@@ -8,12 +8,12 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using NUnit.Direct;
 using NUnit.Framework;
-using RT.Servers;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
-using System.Threading;
 
 namespace RT.Servers
 {
@@ -23,32 +23,14 @@ namespace RT.Servers
     [TestFixture]
     public class ServersTestSuite
     {
-        private int _port = 12345;
-
         static void Main(string[] args)
         {
-            if (false)
-            {
-                Testing.GenerateTestingCode(@"..\..\main\common\Servers\ServersTests.cs", "Run Tests", Assembly.GetExecutingAssembly().GetExportedTypes(),
-                    typeof(TestFixtureAttribute), typeof(TestFixtureSetUpAttribute), typeof(TestAttribute), typeof(TestFixtureTearDownAttribute));
-            }
-            else
-            {
-                #region Run Tests
-                Console.WriteLine("");
-                Console.WriteLine("Testing type: RT.Servers.ServersTestSuite");
-                var doServersTestSuite = new RT.Servers.ServersTestSuite();
-                Console.WriteLine("-- Running test: TestParseGet");
-                doServersTestSuite.TestParseGet();
-                Console.WriteLine("-- Running test: TestParsePost");
-                doServersTestSuite.TestParsePost();
-                Console.WriteLine("-- Running test: TestSomeRequests");
-                doServersTestSuite.TestSomeRequests();
-                Console.WriteLine("-- Running test: TestKeepaliveAndChunked");
-                doServersTestSuite.TestKeepaliveAndChunked();
-                #endregion
-            }
+            NUnitDirect.RunTestsOnAssembly(Assembly.GetEntryAssembly());
+            Console.WriteLine("Press Enter to exit.");
+            Console.ReadLine();
         }
+
+        private int _port = 12345;
 
         [Test]
         public void TestParseGet()
