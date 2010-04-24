@@ -542,17 +542,36 @@ namespace RT.Servers
             }
 
             // An excessively long boundary is going to screw up the following algorithm.
-            // (Actually a limit of up to 65527 would work, but I think 1024 is more than enough.)
+            // (Actually a limit of up to bufferSize - 8 would work, but I think 1024 is more than enough.)
             if (body == null || Headers.ContentMultipartBoundary == null || Headers.ContentMultipartBoundary.Length > 1024)
                 return;
 
             if (tempPath == null)
                 tempPath = Path.GetTempPath();
 
-            // Process POST request upload data
+            // Instead of reallocating a new buffer multiple times, allocate at most two buffers and switch between them as necessary
+            int bufferSize = 65536;
+            byte[] buffer1 = new byte[bufferSize];
+            byte[] buffer2 = null;
+            byte[] buffer = buffer1;
+            Action<int, int> switchBuffer = (offset, count) =>
+            {
+                if (buffer == buffer1)
+                {
+                    if (buffer2 == null)
+                        buffer2 = new byte[bufferSize];
+                    Buffer.BlockCopy(buffer, offset, buffer2, 0, count);
+                    buffer = buffer2;
+                }
+                else
+                {
+                    Buffer.BlockCopy(buffer, offset, buffer1, 0, count);
+                    buffer = buffer1;
+                }
+            };
 
-            byte[] buffer = new byte[65536];
-            int bytesRead = body.Read(buffer, 0, 65536);
+            // Process POST request upload data
+            int bytesRead = body.Read(buffer, 0, bufferSize);
             if (bytesRead == 0)    // premature end of request body
                 return;
 
@@ -754,9 +773,7 @@ namespace RT.Servers
                         {
                             // No boundary there. Received data has been written to the currentWritingStream above.
                             // Now copy the remaining little bit (which may contain part of the bounary) into a new buffer
-                            byte[] newBuffer = new byte[65536];
-                            Buffer.BlockCopy(buffer, bufferIndex + howMuchToWrite, newBuffer, 0, bytesRead - howMuchToWrite);
-                            buffer = newBuffer;
+                            switchBuffer(bufferIndex + howMuchToWrite, bytesRead - howMuchToWrite);
                             bytesRead -= howMuchToWrite;
                             writeIndex = bytesRead;
                         }
@@ -765,9 +782,7 @@ namespace RT.Servers
                     {
                         // We are processing content, but there is not enough data in the buffer to ensure that it doesn't contain part of the boundary.
                         // Therefore, just copy the data to a new buffer and continue receiving more
-                        byte[] newBuffer = new byte[65536];
-                        Buffer.BlockCopy(buffer, bufferIndex, newBuffer, 0, bytesRead);
-                        buffer = newBuffer;
+                        switchBuffer(bufferIndex, bytesRead);
                         writeIndex = bytesRead;
                     }
                 }
@@ -775,7 +790,7 @@ namespace RT.Servers
                 // We need to read enough data to contain the boundary
                 do
                 {
-                    bytesRead = body.Read(buffer, writeIndex, 65536 - writeIndex);
+                    bytesRead = body.Read(buffer, writeIndex, bufferSize - writeIndex);
                     if (bytesRead == 0) // premature end of content
                     {
                         if (currentWritingStream != null)
