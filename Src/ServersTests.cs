@@ -30,7 +30,7 @@ namespace RT.Servers
             Console.ReadLine();
         }
 
-        private int _port = 12345;
+        private int _port = 12347;
 
         [Test]
         public void TestParseGet()
