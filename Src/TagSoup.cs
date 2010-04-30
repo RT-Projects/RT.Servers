@@ -144,29 +144,42 @@ namespace RT.TagSoup
             return sb.ToString();
         }
 
-        private IEnumerable<string> Empty = Enumerable.Empty<string>();
+        /// <summary>Converts a tag tree into a single string.</summary>
+        /// <returns>The entire tag tree as a single string.</returns>
+        public static string ToString(object tagTree, bool htmlEscape = true)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (string s in stringify(tagTree, htmlEscape))
+                sb.Append(s);
+            return sb.ToString();
+        }
 
-        private IEnumerable<string> stringify(object o)
+        private static IEnumerable<string> Empty = Enumerable.Empty<string>();
+
+        private static IEnumerable<string> stringify(object o, bool htmlEscape = true)
         {
             if (o == null)
                 return Empty;
 
             if (o is string)
-                return new[] { ((string) o).HtmlEscape() };
+                return new[] { htmlEscape ? ((string) o).HtmlEscape() : (string) o };
 
             if (o is IEnumerable<string>)
-                return ((IEnumerable<string>) o).Select(str => str.HtmlEscape());
+            {
+                var e = ((IEnumerable<string>) o);
+                return htmlEscape ? e.Select(str => str.HtmlEscape()) : e;
+            }
 
             if (o is Tag)
                 return ((Tag) o).ToEnumerable();
 
             if (o is IEnumerable)
-                return ((IEnumerable) o).Cast<object>().SelectMany(s => stringify(s));
+                return ((IEnumerable) o).Cast<object>().SelectMany(s => stringify(s, htmlEscape));
 
             if (o is Delegate && ((Delegate) o).Method.GetParameters().Length == 0)
-                return stringify(((Delegate) o).DynamicInvoke(null));
+                return stringify(((Delegate) o).DynamicInvoke(null), htmlEscape);
 
-            return new[] { o.ToString().HtmlEscape() };
+            return new[] { htmlEscape ? o.ToString().HtmlEscape() : o.ToString() };
         }
 
         /// <summary>Converts a C#-compatible field name into an HTML/XHTML-compatible one.</summary>
