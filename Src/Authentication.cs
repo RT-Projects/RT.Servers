@@ -184,13 +184,13 @@ namespace RT.Servers
         private static object _lock = new object();
     }
 
-    class AuthUser
+    sealed class AuthUser
     {
         public string Username;
         public string PasswordHash;
     }
 
-    class AuthUsers
+    sealed class AuthUsers
     {
         public List<AuthUser> Users = new List<AuthUser>();
     }

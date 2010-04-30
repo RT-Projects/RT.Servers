@@ -8,7 +8,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates an HTTP cookie.
     /// </summary>
-    public class Cookie
+    public sealed class Cookie
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public string Name;
@@ -71,7 +71,7 @@ namespace RT.Servers
     /// <summary>
     /// Represents a file upload contained in an HTTP POST request.
     /// </summary>
-    public class FileUpload
+    public sealed class FileUpload
     {
         /// <summary>The MIME type of the uploaded file.</summary>
         public string ContentType { get; private set; }

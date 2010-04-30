@@ -10,7 +10,7 @@ namespace RT.Servers
     /// Encapsulates the various ways in which a URL can map to a request handler. Add instances of this class to <see cref="HttpServer.RequestHandlerHooks"/>
     /// to hook a handler to a specific <see cref="HttpServer"/> instance. This class is immutable.
     /// </summary>
-    public class HttpRequestHandlerHook
+    public sealed class HttpRequestHandlerHook
     {
         /// <summary>Gets a value indicating what domain name the handler applies to. Returns null if it applies to all domains.</summary>
         /// <seealso cref="SpecificDomain"/>

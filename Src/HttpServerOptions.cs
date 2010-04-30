@@ -8,7 +8,7 @@ namespace RT.Servers
     /// Contains configuration settings for an <see cref="HttpServer"/>.
     /// </summary>
     [Serializable]
-    public class HttpServerOptions
+    public sealed class HttpServerOptions
     {
         /// <summary>
         /// The port on which the HTTP server should listen. Default is 80.

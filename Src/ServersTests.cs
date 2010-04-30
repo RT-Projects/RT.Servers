@@ -21,7 +21,7 @@ namespace RT.Servers
     // * Expect: 100-continue / 100 Continue
 
     [TestFixture]
-    public class ServersTestSuite
+    public sealed class ServersTestSuite
     {
         static void Main(string[] args)
         {

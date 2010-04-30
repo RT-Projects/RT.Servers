@@ -23,7 +23,7 @@ namespace RT.TagSoup.HtmlTags
 
     /// <summary>Special class to help construct an HTML <c>&lt;TABLE&gt;</c> element
     /// without needing to instantiate all intermediate row and cell tags.</summary>
-    public class HtmlTable : TABLE
+    public sealed class HtmlTable : TABLE
     {
         /// <summary>If set to a value other than null, causes all rows and cells within the generated table to have the specified CSS class.</summary>
         public string _AllClasses;
@@ -61,7 +61,7 @@ namespace RT.TagSoup.HtmlTags
     public enum valign { _, top, middle, bottom, baseline }
     public enum valuetype { _, data, ref_, object_ }
 
-    public class A : HtmlTag
+    public sealed class A : HtmlTag
     {
         public A(params object[] contents) : base(contents) { }
         public override string TagName { get { return "A"; } }
@@ -96,7 +96,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public string type;
     }
-    public class ABBR : HtmlTag
+    public sealed class ABBR : HtmlTag
     {
         public ABBR(params object[] contents) : base(contents) { }
         public override string TagName { get { return "ABBR"; } }
@@ -117,7 +117,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class ACRONYM : HtmlTag
+    public sealed class ACRONYM : HtmlTag
     {
         public ACRONYM(params object[] contents) : base(contents) { }
         public override string TagName { get { return "ACRONYM"; } }
@@ -138,7 +138,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class ADDRESS : HtmlTag
+    public sealed class ADDRESS : HtmlTag
     {
         public ADDRESS(params object[] contents) : base(contents) { }
         public override string TagName { get { return "ADDRESS"; } }
@@ -159,7 +159,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class AREA : HtmlTag
+    public sealed class AREA : HtmlTag
     {
         public AREA(params object[] contents) : base(contents) { }
         public override string TagName { get { return "AREA"; } }
@@ -190,7 +190,7 @@ namespace RT.TagSoup.HtmlTags
         public string tabindex;
         public string title;
     }
-    public class B : HtmlTag
+    public sealed class B : HtmlTag
     {
         public B(params object[] contents) : base(contents) { }
         public override string TagName { get { return "B"; } }
@@ -211,14 +211,14 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class BASE : HtmlTag
+    public sealed class BASE : HtmlTag
     {
         public BASE(params object[] contents) : base(contents) { }
         public override string TagName { get { return "BASE"; } }
         public override bool EndTag { get { return false; } }
         public string href;
     }
-    public class BDO : HtmlTag
+    public sealed class BDO : HtmlTag
     {
         public BDO(params object[] contents) : base(contents) { }
         public override string TagName { get { return "BDO"; } }
@@ -229,7 +229,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class BIG : HtmlTag
+    public sealed class BIG : HtmlTag
     {
         public BIG(params object[] contents) : base(contents) { }
         public override string TagName { get { return "BIG"; } }
@@ -250,7 +250,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class BLOCKQUOTE : HtmlTag
+    public sealed class BLOCKQUOTE : HtmlTag
     {
         public BLOCKQUOTE(params object[] contents) : base(contents) { }
         public override string TagName { get { return "BLOCKQUOTE"; } }
@@ -272,7 +272,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class BODY : HtmlTag
+    public sealed class BODY : HtmlTag
     {
         public BODY(params object[] contents) : base(contents) { }
         public override string TagName { get { return "BODY"; } }
@@ -297,7 +297,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class BR : HtmlTag
+    public sealed class BR : HtmlTag
     {
         public BR(params object[] contents) : base(contents) { }
         public override string TagName { get { return "BR"; } }
@@ -307,7 +307,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class BUTTON : HtmlTag
+    public sealed class BUTTON : HtmlTag
     {
         public BUTTON(params object[] contents) : base(contents) { }
         public override string TagName { get { return "BUTTON"; } }
@@ -337,7 +337,7 @@ namespace RT.TagSoup.HtmlTags
         public string value;
         public string target;
     }
-    public class CAPTION : HtmlTag
+    public sealed class CAPTION : HtmlTag
     {
         public CAPTION(params object[] contents) : base(contents) { }
         public override string TagName { get { return "CAPTION"; } }
@@ -358,7 +358,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class CITE : HtmlTag
+    public sealed class CITE : HtmlTag
     {
         public CITE(params object[] contents) : base(contents) { }
         public override string TagName { get { return "CITE"; } }
@@ -379,7 +379,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class CODE : HtmlTag
+    public sealed class CODE : HtmlTag
     {
         public CODE(params object[] contents) : base(contents) { }
         public override string TagName { get { return "CODE"; } }
@@ -400,7 +400,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class COL : HtmlTag
+    public sealed class COL : HtmlTag
     {
         public COL(params object[] contents) : base(contents) { }
         public override string TagName { get { return "COL"; } }
@@ -428,7 +428,7 @@ namespace RT.TagSoup.HtmlTags
         public valign valign;
         public string width;
     }
-    public class COLGROUP : HtmlTag
+    public sealed class COLGROUP : HtmlTag
     {
         public COLGROUP(params object[] contents) : base(contents) { }
         public override string TagName { get { return "COLGROUP"; } }
@@ -456,7 +456,7 @@ namespace RT.TagSoup.HtmlTags
         public valign valign;
         public string width;
     }
-    public class DD : HtmlTag
+    public sealed class DD : HtmlTag
     {
         public DD(params object[] contents) : base(contents) { }
         public override string TagName { get { return "DD"; } }
@@ -478,7 +478,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class DEL : HtmlTag
+    public sealed class DEL : HtmlTag
     {
         public DEL(params object[] contents) : base(contents) { }
         public override string TagName { get { return "DEL"; } }
@@ -501,7 +501,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class DFN : HtmlTag
+    public sealed class DFN : HtmlTag
     {
         public DFN(params object[] contents) : base(contents) { }
         public override string TagName { get { return "DFN"; } }
@@ -522,7 +522,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class DIV : HtmlTag
+    public sealed class DIV : HtmlTag
     {
         public DIV(params object[] contents) : base(contents) { }
         public override string TagName { get { return "DIV"; } }
@@ -543,7 +543,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class DL : HtmlTag
+    public sealed class DL : HtmlTag
     {
         public DL(params object[] contents) : base(contents) { }
         public override string TagName { get { return "DL"; } }
@@ -564,7 +564,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class DT : HtmlTag
+    public sealed class DT : HtmlTag
     {
         public DT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "DT"; } }
@@ -586,7 +586,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class EM : HtmlTag
+    public sealed class EM : HtmlTag
     {
         public EM(params object[] contents) : base(contents) { }
         public override string TagName { get { return "EM"; } }
@@ -607,7 +607,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class FIELDSET : HtmlTag
+    public sealed class FIELDSET : HtmlTag
     {
         public FIELDSET(params object[] contents) : base(contents) { }
         public override string TagName { get { return "FIELDSET"; } }
@@ -628,7 +628,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class FORM : HtmlTag
+    public sealed class FORM : HtmlTag
     {
         public FORM(params object[] contents) : base(contents) { }
         public override string TagName { get { return "FORM"; } }
@@ -658,7 +658,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public string target;
     }
-    public class H1 : HtmlTag
+    public sealed class H1 : HtmlTag
     {
         public H1(params object[] contents) : base(contents) { }
         public override string TagName { get { return "H1"; } }
@@ -679,7 +679,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class H2 : HtmlTag
+    public sealed class H2 : HtmlTag
     {
         public H2(params object[] contents) : base(contents) { }
         public override string TagName { get { return "H2"; } }
@@ -700,7 +700,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class H3 : HtmlTag
+    public sealed class H3 : HtmlTag
     {
         public H3(params object[] contents) : base(contents) { }
         public override string TagName { get { return "H3"; } }
@@ -721,7 +721,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class H4 : HtmlTag
+    public sealed class H4 : HtmlTag
     {
         public H4(params object[] contents) : base(contents) { }
         public override string TagName { get { return "H4"; } }
@@ -742,7 +742,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class H5 : HtmlTag
+    public sealed class H5 : HtmlTag
     {
         public H5(params object[] contents) : base(contents) { }
         public override string TagName { get { return "H5"; } }
@@ -763,7 +763,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class H6 : HtmlTag
+    public sealed class H6 : HtmlTag
     {
         public H6(params object[] contents) : base(contents) { }
         public override string TagName { get { return "H6"; } }
@@ -784,7 +784,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class HEAD : HtmlTag
+    public sealed class HEAD : HtmlTag
     {
         public HEAD(params object[] contents) : base(contents) { }
         public override string TagName { get { return "HEAD"; } }
@@ -794,7 +794,7 @@ namespace RT.TagSoup.HtmlTags
         public string lang;
         public string profile;
     }
-    public class HR : HtmlTag
+    public sealed class HR : HtmlTag
     {
         public HR(params object[] contents) : base(contents) { }
         public override string TagName { get { return "HR"; } }
@@ -816,7 +816,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class HTML : HtmlTag
+    public sealed class HTML : HtmlTag
     {
         public HTML(params object[] contents) : base(contents) { }
         public override string TagName { get { return "HTML"; } }
@@ -826,7 +826,7 @@ namespace RT.TagSoup.HtmlTags
         public dir dir;
         public string lang;
     }
-    public class I : HtmlTag
+    public sealed class I : HtmlTag
     {
         public I(params object[] contents) : base(contents) { }
         public override string TagName { get { return "I"; } }
@@ -847,7 +847,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class IMG : HtmlTag
+    public sealed class IMG : HtmlTag
     {
         public IMG(params object[] contents) : base(contents) { }
         public override string TagName { get { return "IMG"; } }
@@ -877,7 +877,7 @@ namespace RT.TagSoup.HtmlTags
         public string usemap;
         public string width;
     }
-    public class INPUT : HtmlTag
+    public sealed class INPUT : HtmlTag
     {
         public INPUT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "INPUT"; } }
@@ -920,7 +920,7 @@ namespace RT.TagSoup.HtmlTags
         public string accept;
         public string target;
     }
-    public class INS : HtmlTag
+    public sealed class INS : HtmlTag
     {
         public INS(params object[] contents) : base(contents) { }
         public override string TagName { get { return "INS"; } }
@@ -943,7 +943,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class KBD : HtmlTag
+    public sealed class KBD : HtmlTag
     {
         public KBD(params object[] contents) : base(contents) { }
         public override string TagName { get { return "KBD"; } }
@@ -964,7 +964,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class LABEL : HtmlTag
+    public sealed class LABEL : HtmlTag
     {
         public LABEL(params object[] contents) : base(contents) { }
         public override string TagName { get { return "LABEL"; } }
@@ -989,7 +989,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class LEGEND : HtmlTag
+    public sealed class LEGEND : HtmlTag
     {
         public LEGEND(params object[] contents) : base(contents) { }
         public override string TagName { get { return "LEGEND"; } }
@@ -1011,7 +1011,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class LI : HtmlTag
+    public sealed class LI : HtmlTag
     {
         public LI(params object[] contents) : base(contents) { }
         public override string TagName { get { return "LI"; } }
@@ -1033,7 +1033,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class LINK : HtmlTag
+    public sealed class LINK : HtmlTag
     {
         public LINK(params object[] contents) : base(contents) { }
         public override string TagName { get { return "LINK"; } }
@@ -1062,7 +1062,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public string type;
     }
-    public class MAP : HtmlTag
+    public sealed class MAP : HtmlTag
     {
         public MAP(params object[] contents) : base(contents) { }
         public override string TagName { get { return "MAP"; } }
@@ -1084,7 +1084,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class META : HtmlTag
+    public sealed class META : HtmlTag
     {
         public META(params object[] contents) : base(contents) { }
         public override string TagName { get { return "META"; } }
@@ -1096,7 +1096,7 @@ namespace RT.TagSoup.HtmlTags
         public string name;
         public string scheme;
     }
-    public class NOSCRIPT : HtmlTag
+    public sealed class NOSCRIPT : HtmlTag
     {
         public NOSCRIPT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "NOSCRIPT"; } }
@@ -1117,7 +1117,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class OBJECT : HtmlTag
+    public sealed class OBJECT : HtmlTag
     {
         public OBJECT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "OBJECT"; } }
@@ -1151,7 +1151,7 @@ namespace RT.TagSoup.HtmlTags
         public string usemap;
         public string width;
     }
-    public class OL : HtmlTag
+    public sealed class OL : HtmlTag
     {
         public OL(params object[] contents) : base(contents) { }
         public override string TagName { get { return "OL"; } }
@@ -1172,7 +1172,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class OPTGROUP : HtmlTag
+    public sealed class OPTGROUP : HtmlTag
     {
         public OPTGROUP(params object[] contents) : base(contents) { }
         public override string TagName { get { return "OPTGROUP"; } }
@@ -1195,7 +1195,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class OPTION : HtmlTag
+    public sealed class OPTION : HtmlTag
     {
         public OPTION(params object[] contents) : base(contents) { }
         public override string TagName { get { return "OPTION"; } }
@@ -1221,7 +1221,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public string value;
     }
-    public class P : HtmlTag
+    public sealed class P : HtmlTag
     {
         public P(params object[] contents) : base(contents) { }
         public override string TagName { get { return "P"; } }
@@ -1243,7 +1243,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class PARAM : HtmlTag
+    public sealed class PARAM : HtmlTag
     {
         public PARAM(params object[] contents) : base(contents) { }
         public override string TagName { get { return "PARAM"; } }
@@ -1254,7 +1254,7 @@ namespace RT.TagSoup.HtmlTags
         public string value;
         public valuetype valuetype;
     }
-    public class PRE : HtmlTag
+    public sealed class PRE : HtmlTag
     {
         public PRE(params object[] contents) : base(contents) { }
         public override string TagName { get { return "PRE"; } }
@@ -1275,7 +1275,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class Q : HtmlTag
+    public sealed class Q : HtmlTag
     {
         public Q(params object[] contents) : base(contents) { }
         public override string TagName { get { return "Q"; } }
@@ -1297,7 +1297,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class SAMP : HtmlTag
+    public sealed class SAMP : HtmlTag
     {
         public SAMP(params object[] contents) : base(contents) { }
         public override string TagName { get { return "SAMP"; } }
@@ -1318,7 +1318,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class SCRIPT : HtmlTag
+    public sealed class SCRIPT : HtmlTag
     {
         public SCRIPT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "SCRIPT"; } }
@@ -1329,7 +1329,7 @@ namespace RT.TagSoup.HtmlTags
         public string src;
         public string type;
     }
-    public class SCRIPTLiteral : HtmlTag
+    public sealed class SCRIPTLiteral : HtmlTag
     {
         public SCRIPTLiteral(string literal) : base() { Literal = literal; }
         public override string TagName { get { return "SCRIPT"; } }
@@ -1341,7 +1341,7 @@ namespace RT.TagSoup.HtmlTags
             yield return @"</SCRIPT>";
         }
     }
-    public class SELECT : HtmlTag
+    public sealed class SELECT : HtmlTag
     {
         public SELECT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "SELECT"; } }
@@ -1372,7 +1372,7 @@ namespace RT.TagSoup.HtmlTags
         public string tabindex;
         public string title;
     }
-    public class SMALL : HtmlTag
+    public sealed class SMALL : HtmlTag
     {
         public SMALL(params object[] contents) : base(contents) { }
         public override string TagName { get { return "SMALL"; } }
@@ -1393,7 +1393,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class SPAN : HtmlTag
+    public sealed class SPAN : HtmlTag
     {
         public SPAN(params object[] contents) : base(contents) { }
         public override string TagName { get { return "SPAN"; } }
@@ -1414,7 +1414,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class STRONG : HtmlTag
+    public sealed class STRONG : HtmlTag
     {
         public STRONG(params object[] contents) : base(contents) { }
         public override string TagName { get { return "STRONG"; } }
@@ -1435,7 +1435,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class STYLE : HtmlTag
+    public sealed class STYLE : HtmlTag
     {
         public STYLE(params object[] contents) : base(contents) { }
         public override string TagName { get { return "STYLE"; } }
@@ -1445,7 +1445,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public string type;
     }
-    public class STYLEImport : HtmlTag
+    public sealed class STYLEImport : HtmlTag
     {
         public STYLEImport(string importFrom) : base() { ImportFrom = importFrom; }
         public override string TagName { get { return "STYLE"; } }
@@ -1461,7 +1461,7 @@ namespace RT.TagSoup.HtmlTags
             yield return @""";</STYLE>";
         }
     }
-    public class STYLELiteral : HtmlTag
+    public sealed class STYLELiteral : HtmlTag
     {
         public STYLELiteral(string literal) : base() { Literal = literal; }
         public override string TagName { get { return "STYLE"; } }
@@ -1473,7 +1473,7 @@ namespace RT.TagSoup.HtmlTags
             yield return @"</STYLE>";
         }
     }
-    public class SUB : HtmlTag
+    public sealed class SUB : HtmlTag
     {
         public SUB(params object[] contents) : base(contents) { }
         public override string TagName { get { return "SUB"; } }
@@ -1494,7 +1494,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class SUP : HtmlTag
+    public sealed class SUP : HtmlTag
     {
         public SUP(params object[] contents) : base(contents) { }
         public override string TagName { get { return "SUP"; } }
@@ -1542,7 +1542,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public string width;
     }
-    public class TBODY : HtmlTag
+    public sealed class TBODY : HtmlTag
     {
         public TBODY(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TBODY"; } }
@@ -1569,7 +1569,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public valign valign;
     }
-    public class TD : HtmlTag
+    public sealed class TD : HtmlTag
     {
         public TD(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TD"; } }
@@ -1602,7 +1602,7 @@ namespace RT.TagSoup.HtmlTags
         public valign valign;
         public string width;
     }
-    public class TEXTAREA : HtmlTag
+    public sealed class TEXTAREA : HtmlTag
     {
         public TEXTAREA(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TEXTAREA"; } }
@@ -1634,7 +1634,7 @@ namespace RT.TagSoup.HtmlTags
         public string tabindex;
         public string title;
     }
-    public class TFOOT : HtmlTag
+    public sealed class TFOOT : HtmlTag
     {
         public TFOOT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TFOOT"; } }
@@ -1660,7 +1660,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public valign valign;
     }
-    public class TH : HtmlTag
+    public sealed class TH : HtmlTag
     {
         public TH(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TH"; } }
@@ -1692,7 +1692,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public valign valign;
     }
-    public class THEAD : HtmlTag
+    public sealed class THEAD : HtmlTag
     {
         public THEAD(params object[] contents) : base(contents) { }
         public override string TagName { get { return "THEAD"; } }
@@ -1718,12 +1718,12 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public valign valign;
     }
-    public class TITLE : HtmlTag
+    public sealed class TITLE : HtmlTag
     {
         public TITLE(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TITLE"; } }
     }
-    public class TR : HtmlTag
+    public sealed class TR : HtmlTag
     {
         public TR(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TR"; } }
@@ -1749,7 +1749,7 @@ namespace RT.TagSoup.HtmlTags
         public string title;
         public valign valign;
     }
-    public class TT : HtmlTag
+    public sealed class TT : HtmlTag
     {
         public TT(params object[] contents) : base(contents) { }
         public override string TagName { get { return "TT"; } }
@@ -1770,7 +1770,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class U : HtmlTag
+    public sealed class U : HtmlTag
     {
         public U(params object[] contents) : base(contents) { }
         public override string TagName { get { return "U"; } }
@@ -1791,7 +1791,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class UL : HtmlTag
+    public sealed class UL : HtmlTag
     {
         public UL(params object[] contents) : base(contents) { }
         public override string TagName { get { return "UL"; } }
@@ -1833,7 +1833,7 @@ namespace RT.TagSoup.HtmlTags
         public string style;
         public string title;
     }
-    public class WBR : HtmlTag
+    public sealed class WBR : HtmlTag
     {
         public WBR(params object[] contents) : base(contents) { }
         public override string TagName { get { return "WBR"; } }

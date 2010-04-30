@@ -17,7 +17,7 @@ namespace RT.Servers
     /// <remarks>
     /// By default, ContentType is set to "text/html; charset=utf-8".
     /// </remarks>
-    public class HttpResponseHeaders
+    public sealed class HttpResponseHeaders
     {
 
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
@@ -145,7 +145,7 @@ namespace RT.Servers
     /// Encapsulates an HTTP response, to be sent by <see cref="HttpServer"/> to the HTTP client that sent the original request.
     /// A request handler must return an HttpResponse object to the <see cref="HttpServer"/> when handling a request.
     /// </summary>
-    public class HttpResponse
+    public sealed class HttpResponse
     {
         /// <summary>
         /// The HTTP status code. For example, 200 OK, 404 Not Found, 500 Internal Server Error.

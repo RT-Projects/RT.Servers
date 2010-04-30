@@ -62,7 +62,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
     /// </summary>
-    public class HttpRequestHeaders
+    public sealed class HttpRequestHeaders
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public ListSorted<QValue<string>> Accept;
@@ -379,7 +379,7 @@ namespace RT.Servers
     /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HttpServer"/> generates this when it receives an
     /// HTTP request and passes it to the relevant <see cref="HttpRequestHandler"/>.
     /// </summary>
-    public class HttpRequest
+    public sealed class HttpRequest
     {
         private string _url;
         private NameValuesCollection<string> _getFields = null;     // will be initialised by Get getter
@@ -929,7 +929,7 @@ namespace RT.Servers
     /// <summary>
     /// Exception thrown to indicate error during processing of the request. Throw this exception to generate, for example, an HTTP 500 Internal Server Error.
     /// </summary>
-    public class InvalidRequestException : Exception
+    public sealed class InvalidRequestException : Exception
     {
         /// <summary>
         /// Response to return when the exception is caught. For example, use <see cref="HttpServer.ErrorResponse"/> to generate an HTTP 500 Internal Server Error.

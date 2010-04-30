@@ -210,7 +210,7 @@ namespace RT.TagSoup
     /// <summary>
     /// Used by <see cref="TagSoup"/> to defer exceptions until after the output of the entire tag tree is complete.
     /// </summary>
-    public class TagSoupDeferredException : Exception
+    public sealed class TagSoupDeferredException : Exception
     {
         /// <summary>Constructor.</summary>
         public TagSoupDeferredException(Exception inner) : base(null, inner) { }

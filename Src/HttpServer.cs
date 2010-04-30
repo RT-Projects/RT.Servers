@@ -408,7 +408,7 @@ namespace RT.Servers
             }
         }
 
-        private class readingThreadRunner
+        private sealed class readingThreadRunner
         {
             private Socket _socket;
             private Stopwatch _sw;
