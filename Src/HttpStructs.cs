@@ -80,6 +80,8 @@ namespace RT.Servers
 
         /// <summary>Use this if the file upload content is stored on disk.</summary>
         internal string LocalFilename;
+        /// <summary>Specifies that the handler has moved the local file to a destination place. (Prevents the file from being deleted during clean-up.)</summary>
+        internal bool LocalFileMoved;
         /// <summary>Use this if the file upload content is stored in memory.</summary>
         internal byte[] Data;
 
@@ -88,12 +90,14 @@ namespace RT.Servers
         {
             ContentType = contentType;
             Filename = filename;
+            LocalFileMoved = false;
         }
 
         /// <summary>Moves the uploaded file to a file in the local file system.</summary>
         /// <remarks>Calling this method twice will move the file around, not create two copies.</remarks>
         public void SaveToFile(string localFilename)
         {
+            LocalFileMoved = true;
             if (Data != null)
             {
                 using (var f = File.Open(localFilename, FileMode.Create, FileAccess.Write, FileShare.Write))

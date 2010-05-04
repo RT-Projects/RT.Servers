@@ -819,12 +819,9 @@ namespace RT.Servers
                     _sw.Log("OutputResponse() - stuff before finally clause");
                     try
                     {
-#warning TODO: Delete temporary files from file uploads
                         if (originalRequest.FileUploads != null)
-                        {
-                            // foreach(var fileUpload in originalRequest .FileUploads.Values.Where(f=>f.LocalTempFilename
-                            // File.Delete(originalRequest.TemporaryFile);
-                        }
+                            foreach (var fileUpload in originalRequest.FileUploads.Values.Where(fu => fu.LocalFilename != null && !fu.LocalFileMoved))
+                                File.Delete(fileUpload.LocalFilename);
                     }
                     catch (Exception) { }
                     _sw.Log("OutputResponse() - finally clause");
