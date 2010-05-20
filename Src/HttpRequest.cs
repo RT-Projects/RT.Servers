@@ -135,12 +135,12 @@ namespace RT.Servers
                 {
                     var values = value.Split(';');
                     var firstValue = values[0].Trim();
-                    if (string.Equals(firstValue, "application/x-www-form-urlencoded", StringComparison.InvariantCultureIgnoreCase))
+                    if (string.Equals(firstValue, "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
                     {
                         ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                         recognised = true;
                     }
-                    else if (string.Equals(firstValue, "multipart/form-data", StringComparison.InvariantCultureIgnoreCase))
+                    else if (string.Equals(firstValue, "multipart/form-data", StringComparison.OrdinalIgnoreCase))
                     {
                         for (int i = 1; i < values.Length; i++)
                         {
