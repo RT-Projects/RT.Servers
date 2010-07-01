@@ -96,7 +96,10 @@ namespace RT.Servers
             if (IsListeningThreadActive)
                 StopListening();
 
-            _listener = new TcpListener(System.Net.IPAddress.Any, _opt.Port);
+            IPAddress addr;
+            if (_opt.BindAddress == null || !IPAddress.TryParse(_opt.BindAddress, out addr))
+                addr = IPAddress.Any;
+            _listener = new TcpListener(addr, _opt.Port);
             _listener.Start();
             if (blocking)
             {

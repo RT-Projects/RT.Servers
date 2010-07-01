@@ -11,6 +11,14 @@ namespace RT.Servers
     public sealed class HttpServerOptions
     {
         /// <summary>
+        /// The IP address of the interface to which the HTTP server should bind, or null to let the server choose any.
+        /// </summary>
+        /// <remarks>
+        /// This is a string rather than System.Net.IPAddress so that it is reasonably XmlClassifyable. If the contents don’t parse, it is silently reverted to default.
+        /// </remarks>
+        public string BindAddress = null;
+
+        /// <summary>
         /// The port on which the HTTP server should listen. Default is 80.
         /// </summary>
         public int Port = 80;
