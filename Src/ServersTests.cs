@@ -15,6 +15,8 @@ using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 
+#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
+
 namespace RT.Servers
 {
     // Things this doesn't yet test:
