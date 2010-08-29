@@ -500,22 +500,14 @@ Content-Type: text/html
 
         private HttpResponse handlerStatic(HttpRequest req)
         {
-            return new HttpResponse
-            {
-                Status = HttpStatusCode._200_OK,
-                Headers = new HttpResponseHeaders { ContentType = "text/plain; charset=utf-8" },
-                Content = new MemoryStream(generateGetPostFilesOutput(req).JoinString("").ToUtf8())
-            };
+            // This passes a single string, which causes HttpResponse to UTF8ify it and use a MemoryStream
+            return HttpResponse.Plaintext(generateGetPostFilesOutput(req).JoinString(""));
         }
 
         private HttpResponse handlerDynamic(HttpRequest req)
         {
-            return new HttpResponse
-            {
-                Status = HttpStatusCode._200_OK,
-                Headers = new HttpResponseHeaders { ContentType = "text/plain; charset=utf-8" },
-                Content = new DynamicContentStream(generateGetPostFilesOutput(req), false)
-            };
+            // This passes an IEnumerable<string>, which causes HttpResponse to use a DynamicContentStream
+            return HttpResponse.Plaintext(generateGetPostFilesOutput(req), buffered: false);
         }
 
         private HttpResponse handler64KFile(HttpRequest req)
@@ -523,12 +515,7 @@ Content-Type: text/html
             byte[] largeFile = new byte[65536];
             for (int i = 0; i < 65536; i++)
                 largeFile[i] = (byte) (i % 256);
-            return new HttpResponse
-            {
-                Status = HttpStatusCode._200_OK,
-                Headers = new HttpResponseHeaders { ContentType = "application/octet-stream" },
-                Content = new MemoryStream(largeFile)
-            };
+            return HttpResponse.Create(new MemoryStream(largeFile), "application/octet-stream");
         }
     }
 }

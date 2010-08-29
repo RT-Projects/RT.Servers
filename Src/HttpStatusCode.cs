@@ -46,7 +46,7 @@ namespace RT.Servers
         _411_LengthRequired = 411,
         _412_PreconditionFailed = 412,
         _413_RequestEntityTooLarge = 413,
-        _414_RequestURITooLong = 414,
+        _414_RequestUriTooLong = 414,
         _415_UnsupportedMediaType = 415,
         _416_RequestedRangeNotSatisfiable = 416,
         _417_ExpectationFailed = 417,

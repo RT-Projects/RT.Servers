@@ -30,7 +30,7 @@ namespace RT.Servers
             var returnTo = req.Post["returnto"].Value;
 
             if (username == null || password == null)
-                return HttpServer.RedirectResponse(returnTo == null ? req.UrlWithoutQuery : req.UrlWithoutQuery + "?returnto=" + returnTo.UrlEscape());
+                return HttpResponse.Redirect(returnTo == null ? req.UrlWithoutQuery : req.UrlWithoutQuery + "?returnto=" + returnTo.UrlEscape());
 
             if (usersPath != null)
             {
@@ -45,7 +45,7 @@ namespace RT.Servers
                     {
                         // Login successful!
                         setUsername(username);
-                        return HttpServer.RedirectResponse(returnTo ?? defaultReturnTo);
+                        return HttpResponse.Redirect(returnTo ?? defaultReturnTo);
                     }
                 }
                 else
@@ -75,7 +75,7 @@ namespace RT.Servers
 
         private static HttpResponse loginForm(string returnto, bool failed, string username, string password, string url, string appName)
         {
-            return new HttpResponse(
+            return HttpResponse.Create(
                 new HTML(
                     new HEAD(
                         new TITLE("Log in"),
@@ -116,7 +116,7 @@ namespace RT.Servers
             var returnTo = req.Post["returnto"].Value;
 
             if (username == null || oldpassword == null || newpassword == null || newpassword2 == null)
-                return HttpServer.RedirectResponse(returnTo == null ? req.UrlWithoutQuery : req.UrlWithoutQuery + "?returnto=" + returnTo.UrlEscape());
+                return HttpResponse.Redirect(returnTo == null ? req.UrlWithoutQuery : req.UrlWithoutQuery + "?returnto=" + returnTo.UrlEscape());
 
             if (usersPath != null)
             {
@@ -140,7 +140,7 @@ namespace RT.Servers
                         user.PasswordHash = getHash(username, newpassword);
                         lock (_lock)
                             XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, usersPath);
-                        return HttpServer.RedirectResponse(returnTo ?? defaultReturnTo);
+                        return HttpResponse.Redirect(returnTo ?? defaultReturnTo);
                     }
                 }
                 else
@@ -153,7 +153,7 @@ namespace RT.Servers
 
         private static HttpResponse changePasswordForm(string returnto, bool loginFailed, bool passwordsDiffer, string username, string oldpassword, string newpassword1, string newpassword2, string url)
         {
-            return new HttpResponse(
+            return HttpResponse.Create(
                 new HTML(
                     new HEAD(
                         new TITLE("Change Password"),

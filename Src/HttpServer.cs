@@ -112,296 +112,6 @@ namespace RT.Servers
             }
         }
 
-        /// <summary>
-        /// Returns an <see cref="HttpRequestHandler"/> that serves static files from a specified directory on the
-        /// local file system and that lists the contents of directories within the specified directory.
-        /// The MIME type used for the returned files is determined from <see cref="HttpServerOptions.MimeTypes"/>.
-        /// </summary>
-        /// <param name="baseDir">The base directory from which to serve files.</param>
-        /// <returns>An <see cref="HttpRequestHandler"/> that can be used to create an <see cref="HttpRequestHandlerHook"/>
-        /// and then added to <see cref="RequestHandlerHooks"/>.</returns>
-        /// <example>
-        ///     The following code will instantiate an <see cref="HttpServer"/> which will serve files from the <c>D:\UserFiles</c> directory
-        ///     on the local file system. For example, a request for the URL <c>http://www.mydomain.com/users/adam/report.txt</c>
-        ///     will serve the file stored at the location <c>D:\UserFiles\adam\report.txt</c>. A request for the URL
-        ///     <c>http://www.mydomain.com/users/adam/</c> will list all the files in the directory <c>D:\UserFiles\adam</c>.
-        ///     <code>
-        ///         HttpServer MyServer = new HttpServer();
-        ///         var handler = MyServer.CreateFileSystemHandler(@"D:\UserFiles");
-        ///         var hook = new HttpRequestHandlerHook("/users", handler);
-        ///         MyServer.RequestHandlerHooks.Add(hook);
-        ///     </code>
-        /// </example>
-        public HttpRequestHandler CreateFileSystemHandler(string baseDir)
-        {
-            return req => FileSystemResponse(baseDir, req);
-        }
-
-        /// <summary>
-        /// Creates a handler which will serve the file specified in <paramref name="filePath"/>.
-        /// Use in a <see cref="HttpRequestHandlerHook"/> and add to <see cref="RequestHandlerHooks"/>.
-        /// See also: <see cref="CreateFileSystemHandler"/>.
-        /// </summary>
-        public HttpRequestHandler CreateFileHandler(string filePath)
-        {
-            return req => FileResponse(filePath);
-        }
-
-        /// <summary>
-        /// Creates a handler which will redirect the browser to <paramref name="newUrl"/>.
-        /// To be used in conjunction with <see cref="HttpRequestHandlerHook"/> to add to <see cref="RequestHandlerHooks"/>.
-        /// </summary>
-        public HttpRequestHandler CreateRedirectHandler(string newUrl)
-        {
-            return req => RedirectResponse(newUrl);
-        }
-
-        /// <summary>
-        /// Returns an <see cref="HttpResponse"/> that returns a file from the local file system,
-        /// which is derived from the specified base directory and the URL of the specified request.
-        /// </summary>
-        /// <param name="baseDir">Base directory in which to search for the file.</param>
-        /// <param name="req">HTTP request from the client.</param>
-        /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer.</returns>
-        public HttpResponse FileSystemResponse(string baseDir, HttpRequest req)
-        {
-            string p = baseDir.EndsWith(Path.DirectorySeparatorChar.ToString()) ? baseDir.Remove(baseDir.Length - 1) : baseDir;
-            string baseUrl = req.Url.Substring(0, req.Url.Length - req.RestUrl.Length);
-            string url = req.RestUrl.Contains('?') ? req.RestUrl.Remove(req.RestUrl.IndexOf('?')) : req.RestUrl;
-            string[] urlPieces = url.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            string soFar = "";
-            string soFarUrl = "";
-            for (int i = 0; i < urlPieces.Length; i++)
-            {
-                string piece = urlPieces[i].UrlUnescape();
-                string nextSoFar = soFar + Path.DirectorySeparatorChar + piece;
-
-                if (File.Exists(p + nextSoFar))
-                {
-                    DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
-                    foreach (var fileInf in parentDir.GetFiles(piece))
-                    {
-                        soFarUrl += "/" + fileInf.Name.UrlEscape();
-                        break;
-                    }
-
-                    if (req.Url != baseUrl + soFarUrl)
-                        return RedirectResponse(baseUrl + soFarUrl);
-
-                    return FileResponse(p + nextSoFar);
-                }
-                else if (Directory.Exists(p + nextSoFar))
-                {
-                    DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
-                    foreach (var dirInfo in parentDir.GetDirectories(piece))
-                    {
-                        soFarUrl += "/" + dirInfo.Name.UrlEscape();
-                        break;
-                    }
-                }
-                else
-                {
-                    return ErrorResponse(HttpStatusCode._404_NotFound, "\"" + baseUrl + soFarUrl + "/" + piece + "\" doesn't exist.");
-                }
-                soFar = nextSoFar;
-            }
-
-            // If this point is reached, it's a directory
-            string trueDirURL = baseUrl + soFarUrl + "/";
-            if (req.Url != trueDirURL)
-                return RedirectResponse(trueDirURL);
-
-            if (_opt.DirectoryListingStyle == DirectoryListingStyle.XmlPlusXsl)
-            {
-                return new HttpResponse
-                {
-                    Headers = new HttpResponseHeaders { ContentType = "application/xml; charset=utf-8" },
-                    Status = HttpStatusCode._200_OK,
-                    Content = new DynamicContentStream(GenerateDirectoryXml(p + soFar, trueDirURL))
-                };
-            }
-            else
-                return ErrorResponse(HttpStatusCode._500_InternalServerError);
-        }
-
-        /// <summary>
-        /// Generates an <see cref="HttpResponse"/> that causes the server to return the specified
-        /// file from the local file system. The content type is inferred from the <see cref="HttpServerOptions.MimeTypes"/>
-        /// field in <see cref="Options"/>.
-        /// </summary>
-        /// <param name="filePath">Full path and filename of the file to return.</param>
-        /// <returns><see cref="HttpResponse"/> object that encapsulates the return of the specified file.</returns>
-        public HttpResponse FileResponse(string filePath)
-        {
-            FileInfo f = new FileInfo(filePath);
-            string extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "";
-            string mimeType = _opt.MimeTypes.ContainsKey(extension) ? _opt.MimeTypes[extension] : _opt.MimeTypes.ContainsKey("*") ? _opt.MimeTypes["*"] : "detect";
-
-            if (mimeType == "detect")
-            {
-                // Look at the first 1 KB. If there are special control characters in it, it's likely a binary file. Otherwise, output as text/plain.
-                byte[] buf = new byte[1024];
-                int bytesRead;
-                using (var s = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    bytesRead = s.Read(buf, 0, 1024);
-                    s.Close();
-                }
-                bool plainText = true;
-                for (int i = 0; i < bytesRead && plainText; i++)
-                {
-                    if (buf[i] < 32 && buf[i] != 9 && buf[i] != 10 && buf[i] != 13)
-                        plainText = false;
-                }
-                mimeType = plainText ? "text/plain; charset=utf-8" : "application/octet-stream";
-            }
-            return FileResponse(filePath, mimeType);
-        }
-
-        /// <summary>
-        /// Generates an <see cref="HttpResponse"/> that causes the server to return the specified
-        /// file from the local file system using the specified MIME content type.
-        /// </summary>
-        /// <param name="filePath">Full path and filename of the file to return.</param>
-        /// <param name="contentType">MIME type to use in the Content-Type header.</param>
-        /// <returns><see cref="HttpResponse"/> object that encapsulates the return of the specified file.</returns>
-        public static HttpResponse FileResponse(string filePath, string contentType)
-        {
-            try
-            {
-                FileStream fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                return new HttpResponse
-                {
-                    Status = HttpStatusCode._200_OK,
-                    Content = fileStream,
-                    Headers = new HttpResponseHeaders { ContentType = contentType }
-                };
-            }
-            catch (FileNotFoundException)
-            {
-                return ErrorResponse(HttpStatusCode._404_NotFound,
-                    "The requested file does not exist.");
-            }
-            catch (IOException e)
-            {
-                return ErrorResponse(HttpStatusCode._500_InternalServerError,
-                    "File could not be opened in the file system: " + e.Message);
-            }
-        }
-
-        /// <summary>
-        /// Returns the specified string to the client, designating it as a specific MIME type.
-        /// </summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="contentType">MIME type of the content.</param>
-        /// <returns>An <see cref="HttpResponse"/> object encapsulating the return of the string.</returns>
-        public static HttpResponse StringResponse(string content, string contentType)
-        {
-            return new HttpResponse
-            {
-                Content = new MemoryStream(content.ToUtf8()),
-                Headers = new HttpResponseHeaders { ContentType = contentType },
-                Status = HttpStatusCode._200_OK
-            };
-        }
-
-        /// <summary>
-        /// Returns the specified string to the client. The MIME type is assumed to be "text/html; charset=utf-8".
-        /// </summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <returns>An <see cref="HttpResponse"/> object encapsulating the return of the string.</returns>
-        public HttpResponse stringResponse(string content)
-        {
-            return new HttpResponse
-            {
-                Content = new MemoryStream(content.ToUtf8()),
-                Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
-                Status = HttpStatusCode._200_OK
-            };
-        }
-
-        /// <summary>
-        /// Generates XML that represents the contents of a directory on the local file system.
-        /// </summary>
-        /// <param name="localPath">Full path of a directory to list the contents of.</param>
-        /// <param name="url">URL (not including a domain) that points at the directory.</param>
-        /// <returns>XML that represents the contents of the specified directory.</returns>
-        public static IEnumerable<string> GenerateDirectoryXml(string localPath, string url)
-        {
-            if (!Directory.Exists(localPath))
-                throw new FileNotFoundException("Directory does not exist.", localPath);
-
-            List<DirectoryInfo> dirs = new List<DirectoryInfo>();
-            List<FileInfo> files = new List<FileInfo>();
-            DirectoryInfo dirInfo = new DirectoryInfo(localPath);
-            foreach (var d in dirInfo.GetDirectories())
-                dirs.Add(d);
-            foreach (var f in dirInfo.GetFiles())
-                files.Add(f);
-            dirs.Sort((a, b) => a.Name.CompareTo(b.Name));
-            files.Sort((a, b) => a.Name.CompareTo(b.Name));
-
-            yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
-            yield return "<?xml-stylesheet href=\"/$/directory-listing/xsl\" type=\"text/xsl\" ?>\n";
-            yield return "<directory url=\"" + url.HtmlEscape() + "\" unescapedurl=\"" + url.UrlUnescape().HtmlEscape() + "\" img=\"/$/directory-listing/icons/folderbig\" numdirs=\"" + (dirs.Count) + "\" numfiles=\"" + (files.Count) + "\">\n";
-
-            foreach (var d in dirs)
-                yield return "  <dir link=\"" + d.Name.UrlEscape() + "/\" img=\"/$/directory-listing/icons/folder\">" + d.Name.HtmlEscape() + "</dir>\n";
-            foreach (var f in files)
-            {
-                string extension = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
-                yield return "  <file link=\"" + f.Name.UrlEscape() + "\" size=\"" + f.Length + "\" nicesize=\"" + PrettySize(f.Length);
-                yield return "\" img=\"/$/directory-listing/icons/" + HttpInternalObjects.GetDirectoryListingIconStr(extension) + "\">" + f.Name.HtmlEscape() + "</file>\n";
-            }
-
-            yield return "</directory>\n";
-        }
-
-        /// <summary>
-        /// Generates an <see cref="HttpResponse"/> that redirects the client to a new URL, using the HTTP status code 301 Moved Permanently.
-        /// </summary>
-        /// <param name="newUrl">URL to redirect the client to.</param>
-        /// <returns><see cref="HttpResponse"/> encapsulating a redirect to the specified URL, using the HTTP status code 301 Moved Permanently.</returns>
-        public static HttpResponse RedirectResponse(string newUrl)
-        {
-            return new HttpResponse
-            {
-                Headers = new HttpResponseHeaders { Location = newUrl },
-                Status = HttpStatusCode._301_MovedPermanently
-            };
-        }
-
-        /// <summary>
-        /// Generates a simple <see cref="HttpResponse"/> with the specified HTTP status code, headers and message. Generally used for error.
-        /// </summary>
-        /// <param name="statusCode">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the <see cref="HttpResponse"/>, or null to use default values.</param>
-        /// <param name="message">Message to display along with the HTTP status code.</param>
-        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code, headers and message.</returns>
-        public static HttpResponse ErrorResponse(HttpStatusCode statusCode, string message = null, HttpResponseHeaders headers = null)
-        {
-            if (headers == null)
-                headers = new HttpResponseHeaders();
-
-            string statusCodeName = string.Concat(((int) statusCode).ToString(), " ", statusCode.ToText()).HtmlEscape();
-            headers.ContentType = "text/html; charset=utf-8";
-
-            // We sometimes output error messages as soon as possible, even if we should normally wait for more data, esp. the POST content.
-            // This would interfere with Connection: keep-alive, so the best solution here is to close the connection in such an error condition.
-            headers.Connection = HttpConnection.Close;
-
-            string contentStr =
-                "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n" +
-                "<html>\n <head>\n  <title>HTTP " + statusCodeName + "</title>\n </head>\n <body>\n  <h1>" + statusCodeName + "</h1>\n" +
-                (message != null ? "  <p>" + message.HtmlEscape() + "</p>" : "") + "\n </body>\n</html>";
-            return new HttpResponse
-            {
-                Status = statusCode,
-                Headers = headers,
-                Content = new MemoryStream(contentStr.ToUtf8())
-            };
-        }
-
         private void listeningThreadFunction()
         {
             while (true)
@@ -662,7 +372,8 @@ namespace RT.Servers
                                 // Also note that if Ranges.Count is 0, we want to fall through and handle the request without ranges
                                 if (ranges.Count == 1)
                                 {
-                                    serveSingleRange(response, originalRequest, ranges, contentLength);
+                                    var range = ranges.First();
+                                    serveSingleRange(response, originalRequest, range.Key, range.Value, contentLength);
                                     return useKeepAlive;
                                 }
                                 else if (ranges.Count > 1)
@@ -836,7 +547,7 @@ namespace RT.Servers
                 if (exception is SocketException)
                     throw exception;
 
-                byte[] outp = ExceptionAsString(exception,
+                byte[] outp = HttpResponse.ExceptionAsString(exception,
                     contentType.StartsWith("text/html") || contentType.StartsWith("application/xhtml")).ToUtf8();
                 output.Write(outp, 0, outp.Length);
                 output.Close();
@@ -852,29 +563,25 @@ namespace RT.Servers
                 _socket.Send(Encoding.UTF8.GetBytes(headersStr));
             }
 
-            private void serveSingleRange(HttpResponse response, HttpRequest originalRequest, SortedList<long, long> ranges, long totalFileSize)
+            private void serveSingleRange(HttpResponse response, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
             {
-                foreach (var r in ranges)
-                {
-                    response.Status = HttpStatusCode._206_PartialContent;
-                    // Note: this is the length of just the range, not the complete file (that's TotalFileSize)
-                    response.Headers.ContentLength = r.Value - r.Key + 1;
-                    response.Headers.ContentRange = new HttpContentRange { From = r.Key, To = r.Value, Total = totalFileSize };
-                    sendHeaders(response);
-                    if (originalRequest.Method == HttpMethod.Head)
-                        return;
-                    byte[] buffer = new byte[65536];
-
-                    response.Content.Seek(r.Key, SeekOrigin.Begin);
-                    long bytesMissing = r.Value - r.Key + 1;
-                    int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
-                    while (bytesRead > 0)
-                    {
-                        _socket.Send(buffer, 0, bytesRead, SocketFlags.None);
-                        bytesMissing -= bytesRead;
-                        bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
-                    }
+                response.Status = HttpStatusCode._206_PartialContent;
+                // Note: this is the length of just the range, not the complete file (that's totalFileSize)
+                response.Headers.ContentLength = rangeTo - rangeFrom + 1;
+                response.Headers.ContentRange = new HttpContentRange { From = rangeFrom, To = rangeTo, Total = totalFileSize };
+                sendHeaders(response);
+                if (originalRequest.Method == HttpMethod.Head)
                     return;
+                byte[] buffer = new byte[65536];
+
+                response.Content.Seek(rangeFrom, SeekOrigin.Begin);
+                long bytesMissing = rangeTo - rangeFrom + 1;
+                int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
+                while (bytesRead > 0)
+                {
+                    _socket.Send(buffer, 0, bytesRead, SocketFlags.None);
+                    bytesMissing -= bytesRead;
+                    bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                 }
             }
 
@@ -939,12 +646,12 @@ namespace RT.Servers
                 string[] lines = _headersSoFar.Split(new string[] { "\r\n" }, StringSplitOptions.None);
                 req = new HttpRequest() { OriginIP = _socket.RemoteEndPoint as IPEndPoint };
                 if (lines.Length < 2)
-                    return ErrorResponse(HttpStatusCode._400_BadRequest);
+                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
 
                 // Parse the method line
                 Match match = Regex.Match(lines[0], @"^(GET|POST|HEAD) ([^ ]+) HTTP/1.([01])$");
                 if (!match.Success)
-                    return ErrorResponse(HttpStatusCode._501_NotImplemented);
+                    return HttpResponse.Error(HttpStatusCode._501_NotImplemented, connectionClose: true);
 
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
                 req.HttpVersion = match.Groups[3].Value == "0" ? HttpProtocolVersion.Http10 : HttpProtocolVersion.Http11;
@@ -968,7 +675,7 @@ namespace RT.Servers
                         {
                             match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
                             if (!match.Success)
-                                return ErrorResponse(HttpStatusCode._400_BadRequest);
+                                return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
                             parseHeader(lastHeader, valueSoFar, req);
                             lastHeader = match.Groups[1].Value;
                             valueSoFar = match.Groups[2].Value.Trim();
@@ -984,7 +691,7 @@ namespace RT.Servers
                 _sw.Log("HandleRequestAfterHeaders() - Parse headers");
 
                 if (req.Handler == null)
-                    return ErrorResponse(HttpStatusCode._404_NotFound);
+                    return HttpResponse.Error(HttpStatusCode._404_NotFound, connectionClose: true);
 
                 if (req.Method == HttpMethod.Post)
                 {
@@ -1010,7 +717,7 @@ namespace RT.Servers
                     }
                     catch (Exception e)
                     {
-                        HttpResponse resp = ExceptionResponse(e);
+                        HttpResponse resp = HttpResponse.Exception(e);
                         _sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
                         return resp;
                     }
@@ -1046,79 +753,51 @@ namespace RT.Servers
                 {
                     // For performance reasons, we check if we have a handler for this domain/URL as soon as possible.
                     // If we find out that we don't, stop processing here and immediately output an error
-                    if (req.Url.StartsWith("/$/"))
-                        req.Handler = internalHandler;
-                    else
+                    string host = req.Headers.Host;
+                    int port = 80;
+                    if (host.Contains(":"))
                     {
-                        string host = req.Headers.Host;
-                        int port = 80;
-                        if (host.Contains(":"))
-                        {
-                            int pos = host.IndexOf(":");
-                            int.TryParse(host.Substring(pos + 1), out port);
-                            host = host.Remove(pos);
-                        }
-                        host = host.TrimEnd('.');
+                        int pos = host.IndexOf(":");
+                        int.TryParse(host.Substring(pos + 1), out port);
+                        host = host.Remove(pos);
+                    }
+                    host = host.TrimEnd('.');
 
-                        string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
+                    string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
 
-                        lock (_requestHandlerHooks)
-                        {
-                            var hook = _requestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
-                                    (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
-                                    (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))));
-                            if (hook == null)
-                                throw new InvalidRequestException(ErrorResponse(HttpStatusCode._404_NotFound));
+                    lock (_requestHandlerHooks)
+                    {
+                        var hook = _requestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
+                                (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
+                                (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))));
+                        if (hook == null)
+                            throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._404_NotFound, connectionClose: true));
 
-                            req.Handler = hook.Handler;
-                            req.BaseUrl = hook.Path == null ? "" : hook.Path;
-                            req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
-                            req.Domain = host;
-                            req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
-                            req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
-                        }
+                        req.Handler = hook.Handler;
+                        req.BaseUrl = hook.Path == null ? "" : hook.Path;
+                        req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
+                        req.Domain = host;
+                        req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
+                        req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
                     }
                 }
                 else if (nameLower == "expect")
                 {
                     foreach (var kvp in req.Headers.Expect)
                         if (kvp.Key != "100-continue")
-                            throw new InvalidRequestException(ErrorResponse(HttpStatusCode._417_ExpectationFailed));
+                            throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._417_ExpectationFailed, connectionClose: true));
                 }
-            }
-
-            private HttpResponse internalHandler(HttpRequest req)
-            {
-                if (req.Url == "/$/directory-listing/xsl")
-                {
-                    return new HttpResponse
-                    {
-                        Headers = new HttpResponseHeaders { ContentType = "application/xml; charset=utf-8" },
-                        Content = new MemoryStream(HttpInternalObjects.DirectoryListingXsl())
-                    };
-                }
-                else if (req.Url.StartsWith("/$/directory-listing/icons/"))
-                {
-                    string rest = req.Url.Substring(27);
-                    return new HttpResponse
-                    {
-                        Headers = new HttpResponseHeaders { ContentType = "image/png" },
-                        Content = new MemoryStream(HttpInternalObjects.GetDirectoryListingIcon(rest))
-                    };
-                }
-
-                return ErrorResponse(HttpStatusCode._404_NotFound);
             }
 
             private HttpResponse processPostContent(Socket socket, HttpRequest req)
             {
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
-                    return ErrorResponse(HttpStatusCode._411_LengthRequired);
+                    return HttpResponse.Error(HttpStatusCode._411_LengthRequired, connectionClose: true);
                 if (req.Headers.ContentLength.Value > _opt.MaxSizePostContent)
-                    return ErrorResponse(HttpStatusCode._413_RequestEntityTooLarge);
+                    return HttpResponse.Error(HttpStatusCode._413_RequestEntityTooLarge, connectionClose: true);
                 if (req.Headers.ContentType == HttpPostContentType.None)
-                    return ErrorResponse(HttpStatusCode._501_NotImplemented, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.");
+                    return HttpResponse.Error(HttpStatusCode._501_NotImplemented, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", connectionClose: true);
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here
                 if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
@@ -1149,78 +828,6 @@ namespace RT.Servers
                 // null means: no error
                 return null;
             }
-        }
-
-        /// <summary>
-        /// Generates a 500 Internal Server Error response which formats the specified exception as HTML.
-        /// </summary>
-        /// <param name="e">Exception to format.</param>
-        /// <returns>An HttpResponse to use to respond to a client request which threw the exception.</returns>
-        public static HttpResponse ExceptionResponse(Exception e)
-        {
-            return new HttpResponse
-            {
-                Status = HttpStatusCode._500_InternalServerError,
-                Headers = new HttpResponseHeaders { ContentType = "text/html; charset=utf-8" },
-                Content = new MemoryStream(ExceptionAsString(e, true).ToUtf8())
-            };
-        }
-
-        /// <summary>
-        /// Generates a string describing the <paramref name="exception"/>, including the type, message
-        /// and stack trace, and iterating over the InnerException chain.
-        /// </summary>
-        /// <param name="exception">The exception to be described.</param>
-        /// <param name="html">If true, an HTML "DIV" tag will be returned with formatted info. Otherwise, a plaintext message is generated.</param>
-        public static string ExceptionAsString(Exception exception, bool html)
-        {
-            bool first = true;
-            if (html)
-            {
-                string exceptionText = "";
-                while (exception != null)
-                {
-                    var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
-                    exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
-                    exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
-                    exc += first ? "" : "<hr />";
-                    exceptionText = exc + exceptionText;
-                    exception = exception.InnerException;
-                    first = false;
-                }
-                return "<div class='exception'>" + exceptionText + "</div>";
-            }
-            else        // Assume plain text
-            {
-                string exceptionText = "";
-                while (exception != null)
-                {
-                    var exc = exception.GetType().FullName + "\n\n";
-                    exc += exception.Message + "\n\n";
-                    exc += exception.StackTrace + "\n\n";
-                    exc += first ? "\n\n\n" : "\n----------------------------------------------------------------------\n";
-                    exceptionText = exc + exceptionText;
-                    exception = exception.InnerException;
-                    first = false;
-                }
-                return exceptionText;
-            }
-        }
-
-        /// <summary>
-        /// Returns a file size in user-readable format, using units like KB, MB, GB, TB.
-        /// </summary>
-        /// <param name="size">Size of a file in bytes.</param>
-        /// <returns>User-readable formatted file size.</returns>
-        public static string PrettySize(long size)
-        {
-            if (size >= (1L << 40))
-                return string.Format("{0:0.00} TB", (double) size / (1L << 40));
-            if (size >= (1L << 30))
-                return string.Format("{0:0.00} GB", (double) size / (1L << 30));
-            if (size >= (1L << 20))
-                return string.Format("{0:0.00} MB", (double) size / (1L << 20));
-            return string.Format("{0:0.00} KB", (double) size / (1L << 10));
         }
 
         /// <summary>

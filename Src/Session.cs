@@ -110,15 +110,13 @@ namespace RT.Servers
             }
         }
 
-        private void setCookie(HttpResponse response)
+        private void setCookie(HttpResponseHeaders headers)
         {
             if (_isNew && CloseAction == SessionCloseAction.Save)
             {
-                if (response.Headers == null)
-                    response.Headers = new HttpResponseHeaders();
-                if (response.Headers.SetCookie == null)
-                    response.Headers.SetCookie = new List<Cookie>();
-                response.Headers.SetCookie.Add(createCookie());
+                if (headers.SetCookie == null)
+                    headers.SetCookie = new List<Cookie>();
+                headers.SetCookie.Add(createCookie());
             }
         }
 
@@ -144,7 +142,7 @@ namespace RT.Servers
             var session = new TSession();
             session.initialiseFromRequest(req);
             var response = handler(session);
-            session.setCookie(response);
+            session.setCookie(response.Headers);
             session.close();
             return response;
         }

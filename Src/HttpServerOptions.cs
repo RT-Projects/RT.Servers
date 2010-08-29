@@ -67,47 +67,8 @@ namespace RT.Servers
         public bool ReturnExceptionsToClient = true;
 
         /// <summary>
-        /// Maps from file extension to MIME type. Used by <see cref="HttpServer.FileSystemResponse"/>
-        /// (and hence by <see cref="HttpServer.CreateFileSystemHandler"/>).
-        /// Use the key "*" for the default MIME type. Otherwise the default is "application/octet-stream".
-        /// </summary>
-        public Dictionary<string, string> MimeTypes = new Dictionary<string, string>
-        {
-            // Plain text
-            { "txt", "text/plain; charset=utf-8" },
-            { "csv", "text/csv; charset=utf-8" },
-
-            // HTML and dependancies
-            { "htm", "text/html; charset=utf-8" },
-            { "html", "text/html; charset=utf-8" },
-            { "css", "text/css; charset=utf-8" },
-            { "js", "text/javascript; charset=utf-8" },
-
-            // XML and stuff
-            { "xhtml", "application/xhtml+xml; charset=utf-8" },
-            { "xml", "application/xml; charset=utf-8" },
-            { "xsl", "application/xml; charset=utf-8" },
-
-            // Images
-            { "gif", "image/gif" },
-            { "png", "image/png" },
-            { "jp2", "image/jp2" },
-            { "jpg", "image/jpeg" },
-            { "jpeg", "image/jpeg" },
-            { "bmp", "image/bmp" },
-
-            // Default
-            { "*", "detect" }
-        };
-
-        /// <summary>
         /// Content-Type to return when handler provides none. Default is "text/html; charset=utf-8".
         /// </summary>
         public string DefaultContentType = "text/html; charset=utf-8";
-
-        /// <summary>
-        /// Enum specifying which way directory listings should be generated. Default is <see cref="RT.Servers.DirectoryListingStyle.XmlPlusXsl"/>.
-        /// </summary>
-        public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XmlPlusXsl;
     }
 }

@@ -95,14 +95,6 @@ namespace RT.Servers
     }
 
     /// <summary>
-    /// Controls which style of directory listing should be used by <see cref="HttpServer.FileSystemResponse"/> to list the contents of directories.
-    /// </summary>
-    public enum DirectoryListingStyle
-    {
-        XmlPlusXsl
-    }
-
-    /// <summary>
     /// Contains values for the supported values of the Content-Type HTTP request header when used in HTTP POST requests.
     /// </summary>
     public enum HttpPostContentType

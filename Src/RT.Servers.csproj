@@ -49,6 +49,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Authentication.cs" />
+    <Compile Include="FileSystemHandler.cs" />
+    <Compile Include="FileSystemOptions.cs" />
     <Compile Include="HtmlTag.cs" />
     <Compile Include="HttpEnums.cs" />
     <Compile Include="HttpInternalObjects.cs" />
