@@ -133,7 +133,7 @@ namespace RT.Servers
         }
 
         /// <summary>Enables the use of sessions in an HTTP request handler.</summary>
-        /// <typeparam name="TSession">The type of session to be used. Must be derived from <see cref="Session"/> and have a default constructor.</typeparam>
+        /// <typeparam name="TSession">The type of session to be used.</typeparam>
         /// <param name="req">The HTTP request for which to enable session support.</param>
         /// <param name="handler">HTTP request handler code that can make free use of a session variable.</param>
         /// <remarks>See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
