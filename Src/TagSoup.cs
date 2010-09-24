@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using RT.Util.ExtensionMethods;
-using System.Linq;
 
 namespace RT.TagSoup
 {
@@ -204,6 +205,18 @@ namespace RT.TagSoup
                 else if (fn[i] != '_')
                     sb.Append(fn[i]);
             return sb.ToString();
+        }
+
+        /// <summary>Creates a new file and outputs this tag and all its contents to it.</summary>
+        /// <param name="filename">The path and filename of the file to create. If the file already exists, it will be overwritten.</param>
+        public void WriteToFile(string filename)
+        {
+            using (var f = File.Open(filename, FileMode.Create, FileAccess.Write, FileShare.Write))
+            using (var t = new StreamWriter(f))
+            {
+                foreach (var str in ToEnumerable())
+                    t.Write(str);
+            }
         }
     }
 
