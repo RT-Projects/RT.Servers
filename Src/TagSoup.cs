@@ -112,20 +112,34 @@ namespace RT.TagSoup
                 if (content is string)
                     yield return ((string) content).HtmlEscape();
                 else if (content is Func<string>)
-                    yield return ((Func<string>) content)().HtmlEscape();
+                {
+                    string result = null;
+                    try { result = ((Func<string>) content)().HtmlEscape(); }
+                    catch (Exception e) { toThrow = e; }
+                    if (toThrow == null && result != null)
+                        yield return result;
+                }
                 else
                 {
                     IEnumerator<string> en = null;
-                    try { en = stringify(content).GetEnumerator(); }
-                    catch (Exception e) { toThrow = e; }
-                    while (toThrow == null)
+                    try
                     {
-                        bool hasNext = false;
-                        try { hasNext = en.MoveNext(); }
+                        try { en = stringify(content).GetEnumerator(); }
                         catch (Exception e) { toThrow = e; }
-                        if (!hasNext)
-                            break;
-                        yield return en.Current;
+                        while (toThrow == null)
+                        {
+                            bool hasNext = false;
+                            try { hasNext = en.MoveNext(); }
+                            catch (Exception e) { toThrow = e; }
+                            if (!hasNext)
+                                break;
+                            yield return en.Current;
+                        }
+                    }
+                    finally
+                    {
+                        if (en != null)
+                            ((IDisposable) en).Dispose();
                     }
                 }
             }
