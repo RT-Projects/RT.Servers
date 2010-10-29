@@ -12,7 +12,8 @@
     <AssemblyName>RT.ServersTests</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <StartupObject></StartupObject>
+    <StartupObject>
+    </StartupObject>
     <OutputPath>..\Builds\$(Configuration)</OutputPath>
     <IntermediateOutputPath>..\Builds\$(Configuration)\obj-$(AssemblyName)</IntermediateOutputPath>
     <BaseIntermediateOutputPath>..\Builds\$(Configuration)\obj-$(AssemblyName)</BaseIntermediateOutputPath>
@@ -35,17 +36,6 @@
       <HintPath>..\..\RT.NUnitDirect\ThirdParty\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Core">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
-    </Reference>
-    <Reference Include="System.Xml.Linq">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
-    </Reference>
-    <Reference Include="System.Data.DataSetExtensions">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
-    </Reference>
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ServersTests.cs" />
@@ -55,6 +45,10 @@
     <ProjectReference Include="..\..\RT.NUnitDirect\Src\RT.NUnitDirect.csproj">
       <Project>{275ECB9D-F75E-45F8-BB34-AD122589D2CC}</Project>
       <Name>NUnitDirect</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\RT.TagSoup\Src\RT.TagSoup.csproj">
+      <Project>{8F80D916-8999-45D8-ACB2-FFA7E2698FD6}</Project>
+      <Name>TagSoup</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\RT.Util\Src\RT.Util.csproj">
       <Project>{8D0FE79C-AD8D-475C-9E6F-9CAE85365B5D}</Project>
