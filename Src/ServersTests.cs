@@ -220,7 +220,7 @@ Content-Type: text/html
             }
         }
 
-        [Test]
+        [Test, Timeout(5 * 60 * 1000)]
         public void TestSomeRequests()
         {
             var store = 1024 * 1024;
