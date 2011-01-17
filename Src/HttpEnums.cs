@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.RegularExpressions;
+using RT.Util;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
@@ -77,6 +78,7 @@ namespace RT.Servers
     /// <summary>
     /// Contains values for the supported values of the Accept-Encoding HTTP request header and the Content-Encoding HTTP response header.
     /// </summary>
+    [RummageNoRenameAnything]
     public enum HttpContentEncoding
     {
         Identity,
