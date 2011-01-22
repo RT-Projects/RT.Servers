@@ -77,7 +77,7 @@ namespace RT.Servers
                     if (request.Url != baseUrl + soFarUrl)
                         return HttpResponse.Redirect(baseUrl + soFarUrl);
 
-                    return generateFileResponse(p + nextSoFar, (Options ?? DefaultOptions).MimeTypes);
+                    return generateFileResponse(p + nextSoFar, (Options ?? DefaultOptions).GetMimeType);
                 }
                 else if (Directory.Exists(p + nextSoFar))
                 {
@@ -106,13 +106,11 @@ namespace RT.Servers
                 return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
         }
 
-        private HttpResponse generateFileResponse(string filePath, IDictionary<string, string> mimeTypes)
+        private HttpResponse generateFileResponse(string filePath, Func<string, string> getMimeType)
         {
-            FileInfo f = new FileInfo(filePath);
-            string extension = f.Extension.Length > 1 ? f.Extension.Substring(1) : "";
-            string mimeType = mimeTypes.ContainsKey(extension) ? mimeTypes[extension] : mimeTypes.ContainsKey("*") ? mimeTypes["*"] : "detect";
+            string mimeType = getMimeType(filePath);
 
-            if (mimeType == "detect")
+            if (mimeType == null)
             {
                 // Look at the first 1 KB. If there are special control characters in it, it's likely a binary file. Otherwise, output as text/plain.
                 byte[] buf = new byte[1024];

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.IO;
 
 namespace RT.Servers
 {
@@ -12,34 +11,53 @@ namespace RT.Servers
         /// <summary>Maps from file extension to MIME type. Use the key "*" to specify a default (fallback) MIME type.
         /// Use the value "detect" to specify that <see cref="FileSystemHandler"/> should examine the file and decide between
         /// "text/plain; charset=utf-8" and "application/octet-stream", depending on whether the file is text or binary.</summary>
-        public Dictionary<string, string> MimeTypes = new Dictionary<string, string>
+        public Dictionary<string, string> MimeTypeOverrides;
+
+        /// <summary>Returns a default MIME type for the specified extension.</summary>
+        public static string GetDefaultMimeType(string extension)
         {
-            // Plain text
-            { "txt", "text/plain; charset=utf-8" },
-            { "csv", "text/csv; charset=utf-8" },
+            switch (extension)
+            {
+                // Plain text
+                case "txt": return "text/plain; charset=utf-8";
+                case "csv": return "text/csv; charset=utf-8";
 
-            // HTML and dependancies
-            { "htm", "text/html; charset=utf-8" },
-            { "html", "text/html; charset=utf-8" },
-            { "css", "text/css; charset=utf-8" },
-            { "js", "text/javascript; charset=utf-8" },
+                // HTML and dependancies
+                case "htm": return "text/html; charset=utf-8";
+                case "html": return "text/html; charset=utf-8";
+                case "css": return "text/css; charset=utf-8";
+                case "js": return "text/javascript; charset=utf-8";
 
-            // XML and stuff
-            { "xhtml", "application/xhtml+xml; charset=utf-8" },
-            { "xml", "application/xml; charset=utf-8" },
-            { "xsl", "application/xml; charset=utf-8" },
+                // XML and stuff
+                case "xhtml": return "application/xhtml+xml; charset=utf-8";
+                case "xml": return "application/xml; charset=utf-8";
+                case "xsl": return "application/xml; charset=utf-8";
 
-            // Images
-            { "gif", "image/gif" },
-            { "png", "image/png" },
-            { "jp2", "image/jp2" },
-            { "jpg", "image/jpeg" },
-            { "jpeg", "image/jpeg" },
-            { "bmp", "image/bmp" },
+                // Images
+                case "gif": return "image/gif";
+                case "png": return "image/png";
+                case "jp2": return "image/jp2";
+                case "jpg": return "image/jpeg";
+                case "jpeg": return "image/jpeg";
+                case "bmp": return "image/bmp";
 
-            // Default
-            { "*", "detect" }
-        };
+                default: return null;
+            }
+        }
+
+        /// <summary>Returns the MIME type for the specified local file.</summary>
+        public string GetMimeType(string localFilePath)
+        {
+            var extension = Path.GetExtension(localFilePath);
+            if (extension.Length > 1)
+                extension = extension.Substring(1).ToLowerInvariant();
+
+            string mime;
+            if (MimeTypeOverrides != null && MimeTypeOverrides.TryGetValue(extension, out mime))
+                return mime;
+
+            return GetDefaultMimeType(extension);
+        }
 
         /// <summary>
         /// Specifies which way directory listings should be generated. Default is <see cref="RT.Servers.DirectoryListingStyle.XmlPlusXsl"/>.
