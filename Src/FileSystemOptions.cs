@@ -46,7 +46,7 @@ namespace RT.Servers
         }
 
         /// <summary>Returns the MIME type for the specified local file.</summary>
-        public string GetMimeType(string localFilePath)
+        public virtual string GetMimeType(string localFilePath)
         {
             var extension = Path.GetExtension(localFilePath);
             if (extension.Length > 1)
