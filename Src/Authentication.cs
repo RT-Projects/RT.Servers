@@ -67,7 +67,7 @@ namespace RT.Servers
             if (parts.Length != 2)
                 return false;
             var expected = SHA1.Create().ComputeHash((parts[0].ToLowerInvariant() + password).ToUtf8()).ToHex();
-            return string.Equals(parts[2], expected, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(parts[1], expected, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string _formCss = @"
