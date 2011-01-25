@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
+using RT.TagSoup.HtmlTags;
 using RT.Util.ExtensionMethods;
 using RT.Util.Xml;
-using RT.TagSoup.HtmlTags;
-using System.Threading;
 
 namespace RT.Servers
 {
@@ -36,11 +34,10 @@ namespace RT.Servers
             {
                 if (File.Exists(usersPath))
                 {
-                    var hash = getHash(username, password); ;
                     AuthUsers users;
                     lock (_lock)
                         users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath);
-                    var user = users.Users.FirstOrDefault(u => u.Username == username && u.PasswordHash == hash);
+                    var user = users.Users.FirstOrDefault(u => u.Username == username && verifyHash(password, u.PasswordHash));
                     if (user != null)
                     {
                         // Login successful!
@@ -56,10 +53,21 @@ namespace RT.Servers
             return loginForm(returnTo, true, username, password, req.UrlWithoutQuery, appName);
         }
 
-        private static string getHash(string username, string password)
+        private static string createHash(string password)
         {
-            // SHA1 ( username + SHA1 ( password ) )
-            return SHA1.Create().ComputeHash((username + SHA1.Create().ComputeHash(password.ToUtf8()).ToHex()).ToUtf8()).ToHex();
+            var salt = new byte[8];
+            new RNGCryptoServiceProvider().GetBytes(salt);
+            var saltstr = salt.ToHex().ToLowerInvariant(); // just in case we ever change ToHex to return uppercase
+            return saltstr + ":" + SHA1.Create().ComputeHash((saltstr + password).ToUtf8()).ToHex();
+        }
+
+        private static bool verifyHash(string password, string hash)
+        {
+            var parts = hash.Split(':');
+            if (parts.Length != 2)
+                return false;
+            var expected = SHA1.Create().ComputeHash((parts[0].ToLowerInvariant() + password).ToUtf8()).ToHex();
+            return string.Equals(parts[2], expected, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string _formCss = @"
@@ -120,32 +128,32 @@ namespace RT.Servers
 
             if (usersPath != null)
             {
-                if (File.Exists(usersPath))
+                lock (_lock)
                 {
-                    var hash = getHash(username, oldpassword); ;
                     AuthUsers users;
-                    lock (_lock)
-                        users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath);
-                    var user = users.Users.FirstOrDefault(u => u.Username == username);
-                    if ((user == null && allowCreateNew && username != "") || user.PasswordHash == hash)
+                    try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath); }
+                    catch { users = null; }
+                    if (users != null)
                     {
-                        if (newpassword2 != newpassword)
-                            return changePasswordForm(returnTo, false, true, username, oldpassword, newpassword, newpassword2, req.UrlWithoutQuery);
-
-                        if (user == null)
+                        var user = users.Users.FirstOrDefault(u => u.Username == username);
+                        if ((user == null && allowCreateNew && username != "") || verifyHash(oldpassword, user.PasswordHash))
                         {
-                            user = new AuthUser { Username = username };
-                            users.Users.Add(user);
-                        }
-                        user.PasswordHash = getHash(username, newpassword);
-                        lock (_lock)
+                            if (newpassword2 != newpassword)
+                                return changePasswordForm(returnTo, false, true, username, oldpassword, newpassword, newpassword2, req.UrlWithoutQuery);
+
+                            if (user == null)
+                            {
+                                user = new AuthUser { Username = username };
+                                users.Users.Add(user);
+                            }
+                            user.PasswordHash = createHash(newpassword);
                             XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, usersPath);
-                        return HttpResponse.Redirect(returnTo ?? defaultReturnTo);
+                            return HttpResponse.Redirect(returnTo ?? defaultReturnTo);
+                        }
                     }
-                }
-                else
-                    lock (_lock)
+                    else
                         XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
+                }
             }
             // Username or old password was wrong
             return changePasswordForm(returnTo, true, false, username, oldpassword, newpassword, newpassword2, req.UrlWithoutQuery);
@@ -178,6 +186,36 @@ namespace RT.Servers
                     )
                 )
             );
+        }
+
+        /// <summary>
+        /// Creates a new user with the specified username/password, or sets the existing user's password.
+        /// </summary>
+        /// <param name="usersPath">Path to the file in which usernames and passwords are stored.</param>
+        /// <param name="username">Username, case sensitive, to be added or modified.</param>
+        /// <param name="password">Password that the new/updated user should have.</param>
+        /// <returns>True if a new user was created, false if an existing one was modified.</returns>
+        public static bool AddUser(string usersPath, string username, string password)
+        {
+            lock (_lock)
+            {
+                AuthUsers users;
+                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath); }
+                catch (FileNotFoundException) { users = new AuthUsers(); }
+
+                bool created = false;
+                var user = users.Users.FirstOrDefault(usr => usr.Username == username);
+                if (user == null)
+                {
+                    user = new AuthUser { Username = username };
+                    users.Users.Add(user);
+                    created = true;
+                }
+                user.PasswordHash = createHash(password);
+
+                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, usersPath);
+                return created;
+            }
         }
 
         /// <summary>Used to ensure that the AuthUsers XML file is not read and written concurrently.</summary>
