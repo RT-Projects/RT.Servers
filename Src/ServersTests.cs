@@ -184,7 +184,7 @@ Content-Type: text/html
         private void testRequest(string testName, int storeFileUploadInFileAtSize, string request, Action<string[], byte[]> verify)
         {
             var requestBytes = request.ToUtf8();
-            for (int chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Math.Max(1, Math.Min(requestBytes.Length - chunkSize, Rnd.Next(64))))
+            for (int chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Rnd.Next(1, 64).ClipMax(requestBytes.Length - chunkSize).ClipMin(1))
             {
                 if (chunkSize == 0)
                     continue;
