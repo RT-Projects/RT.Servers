@@ -83,7 +83,6 @@ namespace RT.Servers
         [Test]
         public void TestParsePost()
         {
-            Directory.CreateDirectory(@"C:\temp\testresults");
             string inputStr = @"-----------------------------265001916915724
 Content-Disposition: form-data; name=""y""
 
