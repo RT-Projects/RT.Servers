@@ -95,13 +95,13 @@ namespace RT.Servers
                 soFar = nextSoFar;
             }
 
-            // If this point is reached, it's a directory
-            string trueDirURL = baseUrl + soFarUrl + "/";
-            if (request.Url != trueDirURL)
-                return HttpResponse.Redirect(trueDirURL);
+            // If this point is reached, it’s a directory
+            string trueDirUrl = baseUrl + soFarUrl + "/";
+            if (request.Url != trueDirUrl)
+                return HttpResponse.Redirect(trueDirUrl);
 
             if ((Options ?? DefaultOptions).DirectoryListingStyle == DirectoryListingStyle.XmlPlusXsl)
-                return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirURL, request.BaseUrl), "application/xml; charset=utf-8");
+                return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
             else
                 return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
         }
