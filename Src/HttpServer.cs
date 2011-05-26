@@ -26,7 +26,7 @@ namespace RT.Servers
         public HttpServer(HttpServerOptions options = null)
         {
             _opt = options ?? new HttpServerOptions();
-            Stats = new HttpServerStats();
+            Stats = new Statistics(this);
         }
 
         /// <summary>
@@ -37,7 +37,7 @@ namespace RT.Servers
         /// <summary>
         /// Gets an object containing various server performance statistics.
         /// </summary>
-        public HttpServerStats Stats { get; private set; }
+        public Statistics Stats { get; private set; }
 
         /// <summary>
         /// Returns a boolean specifying whether the server is currently running (listening) in non-blocking mode.
@@ -49,12 +49,6 @@ namespace RT.Servers
         private Thread _listeningThread;
         private HttpServerOptions _opt;
         private HashSet<readingThreadRunner> _activeReadingThreads = new HashSet<readingThreadRunner>();
-
-        /// <summary>Gets the number of connections which are currently alive, that is receiving data, waiting to receive data, or sending a response.</summary>
-        public int ActiveHandlers { get { lock (_activeReadingThreads) { return _activeReadingThreads.Count; } } }
-
-        /// <summary>Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
-        public int KeepAliveHandlers { get { lock (_activeReadingThreads) { return _activeReadingThreads.Where(r => r.KeepAliveActive).Count(); } } }
 
         /// <summary>Add request handlers here. See the documentation for <see cref="HttpRequestHandlerHook"/> for more information.
         /// If you wish to make changes to this list while the server is running, use a lock around it.</summary>
@@ -893,6 +887,31 @@ namespace RT.Servers
             lock (_activeReadingThreads)
                 _activeReadingThreads.Add(readingRunner);
             readingRunner.Begin(); // the runner will remove itself from active threads when it's done
+        }
+
+        /// <summary>Keeps track of and exposes getters for various server performance statistics.</summary>
+        public sealed class Statistics
+        {
+            private HttpServer _server;
+
+            /// <summary>Constructor.</summary>
+            public Statistics(HttpServer server) { _server = server; }
+
+            /// <summary>Gets the number of connections which are currently alive, that is receiving data, waiting to receive data, or sending a response.</summary>
+            public int ActiveHandlers { get { lock (_server._activeReadingThreads) { return _server._activeReadingThreads.Count; } } }
+
+            /// <summary>Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
+            public int KeepAliveHandlers { get { lock (_server._activeReadingThreads) { return _server._activeReadingThreads.Where(r => r.KeepAliveActive).Count(); } } }
+
+            private long _totalRequestsReceived = 0;
+            /// <summary>Gets the total number of requests received by the server.</summary>
+            public long TotalRequestsReceived { get { return Interlocked.Read(ref _totalRequestsReceived); } }
+            /// <summary>Used internally to count a received request.</summary>
+            public void AddRequestReceived() { Interlocked.Increment(ref _totalRequestsReceived); }
+
+            // bytes sent/received
+            // max open connections
+            // request serve time stats
         }
     }
 }

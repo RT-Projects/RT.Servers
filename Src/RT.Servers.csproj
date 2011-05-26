@@ -47,7 +47,6 @@
     <Compile Include="HttpResponse.cs" />
     <Compile Include="HttpServer.cs" />
     <Compile Include="HttpServerOptions.cs" />
-    <Compile Include="HttpServerStats.cs" />
     <Compile Include="HttpStatusCode.cs" />
     <Compile Include="HttpStructs.cs" />
     <Compile Include="Resources.Designer.cs">
