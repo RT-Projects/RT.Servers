@@ -50,10 +50,11 @@ namespace RT.Servers
         private HttpServerOptions _opt;
         private HashSet<readingThreadRunner> _activeReadingThreads = new HashSet<readingThreadRunner>();
 
-        /// <summary>
-        /// Returns the number of currently active threads that are processing a request.
-        /// </summary>
+        /// <summary>Gets the number of connections which are currently alive, that is receiving data, waiting to receive data, or sending a response.</summary>
         public int ActiveHandlers { get { lock (_activeReadingThreads) { return _activeReadingThreads.Count; } } }
+
+        /// <summary>Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
+        public int KeepAliveHandlers { get { lock (_activeReadingThreads) { return _activeReadingThreads.Where(r => r.KeepAliveActive).Count(); } } }
 
         /// <summary>Add request handlers here. See the documentation for <see cref="HttpRequestHandlerHook"/> for more information.
         /// If you wish to make changes to this list while the server is running, use a lock around it.</summary>
@@ -144,9 +145,12 @@ namespace RT.Servers
             private SocketError _errorCode;
             private LoggerBase _log;
             private HttpServer _server;
+            private int _begunReceives = 0;
+            private int _endedReceives = 0;
 
             public Thread CurrentThread;
             public bool Abort;
+            public bool KeepAliveActive = false;
 
             public readingThreadRunner(Socket socket, HttpServer server, LoggerBase log)
             {
@@ -159,18 +163,33 @@ namespace RT.Servers
 
                 _stopWatchFilename = _socket.RemoteEndPoint.ToString().Replace(':', '_');
                 _sw = new StopwatchDummy();
-                _sw.Log("Start readingThreadRunner");
+                _sw.Log("ctor() - Start readingThreadRunner");
 
                 _nextRead = null;
                 _nextReadOffset = 0;
                 _nextReadLength = 0;
 
                 _buffer = new byte[65536];
-                _sw.Log("Allocate buffer");
 
                 _headersSoFar = "";
+                _sw.Log("ctor() - end");
+            }
 
-                beginReceive();
+            public void Begin()
+            {
+                // Sometimes the whole lot happens synchronously, probably when the data is already fully received by the OS.
+                // The cleanup method needs the runner to already be in the list of runners. In order for it to get into that list,
+                // the cleanup method must never happen before the constructor returns. Hence, Begin() must be a separate method.
+                try
+                {
+                    beginReceive();
+                }
+                finally
+                {
+                    // if there are no outstanding endReceives...
+                    if (Interlocked.CompareExchange(ref _begunReceives, 0, 0) <= Interlocked.CompareExchange(ref _endedReceives, 0, 0))
+                        cleanup();
+                }
             }
 
             private void beginReceive()
@@ -184,30 +203,48 @@ namespace RT.Servers
                 _nextRead = _buffer;
                 _nextReadOffset = 0;
 
-                _sw.Log("beginReceive()");
-                try { _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, out _errorCode, endReceive, this); }
+                try
+                {
+                    _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, out _errorCode, endReceive, this);
+                    Interlocked.Increment(ref _begunReceives);
+                }
                 catch (SocketException) { _socket.Close(); return; }
             }
 
             private void endReceive(IAsyncResult res)
             {
-                if (Abort)
-                    return;
-                _sw.Log("Start of endReceive()");
-                CurrentThread = Thread.CurrentThread;
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
+
                 try
                 {
-                    try { _nextReadLength = _socket.EndReceive(res); }
-                    catch (SocketException) { _socket.Close(); return; }
-                    if (_nextReadLength == 0 || _errorCode != SocketError.Success) { _socket.Close(); return; }
-                    processHeaderData();
+                    if (Abort)
+                        return;
+                    CurrentThread = Thread.CurrentThread;
+                    try
+                    {
+                        try { _nextReadLength = _socket.EndReceive(res); }
+                        catch (SocketException) { _socket.Close(); return; }
+                        if (_nextReadLength == 0 || _errorCode != SocketError.Success) { _socket.Close(); return; }
+                        processHeaderData();
+                    }
+                    finally
+                    {
+                        CurrentThread = null;
+                    }
                 }
                 finally
                 {
-                    CurrentThread = null;
-                    lock (_server._activeReadingThreads)
-                        _server._activeReadingThreads.Remove(this);
+                    // if there are no outstanding endReceives...
+                    if (Interlocked.CompareExchange(ref _begunReceives, 0, 0) <= Interlocked.CompareExchange(ref _endedReceives, 0, 0))
+                        cleanup();
                 }
+            }
+
+            private void cleanup()
+            {
+                lock (_server._activeReadingThreads)
+                    _server._activeReadingThreads.Remove(this);
             }
 
             private void processHeaderData()
@@ -852,11 +889,10 @@ namespace RT.Servers
             Stats.AddRequestReceived();
             if (_opt.IdleTimeout != 0)
                 incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
-            var readingThreadRunner = new readingThreadRunner(incomingConnection, this, Log);
-            //while (ActiveHandlers > 100)
-            //    Thread.Sleep(100);
+            var readingRunner = new readingThreadRunner(incomingConnection, this, Log);
             lock (_activeReadingThreads)
-                _activeReadingThreads.Add(readingThreadRunner);
+                _activeReadingThreads.Add(readingRunner);
+            readingRunner.Begin(); // the runner will remove itself from active threads when it's done
         }
     }
 }
