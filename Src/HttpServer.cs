@@ -23,12 +23,21 @@ namespace RT.Servers
         /// Constructs an HTTP server with the specified configuration settings.
         /// </summary>
         /// <param name="options">Specifies the configuration settings to use for this <see cref="HttpServer"/>, or null to set all configuration values to default values.</param>
-        public HttpServer(HttpServerOptions options = null) { _opt = options ?? new HttpServerOptions(); }
+        public HttpServer(HttpServerOptions options = null)
+        {
+            _opt = options ?? new HttpServerOptions();
+            Stats = new HttpServerStats();
+        }
 
         /// <summary>
         /// Returns the configuration settings currently in effect for this server.
         /// </summary>
         public HttpServerOptions Options { get { return _opt; } }
+
+        /// <summary>
+        /// Gets an object containing various server performance statistics.
+        /// </summary>
+        public HttpServerStats Stats { get; private set; }
 
         /// <summary>
         /// Returns a boolean specifying whether the server is currently running (listening) in non-blocking mode.
@@ -39,7 +48,7 @@ namespace RT.Servers
         private TcpListener _listener;
         private Thread _listeningThread;
         private HttpServerOptions _opt;
-        private List<readingThreadRunner> _activeReadingThreads = new List<readingThreadRunner>();
+        private HashSet<readingThreadRunner> _activeReadingThreads = new HashSet<readingThreadRunner>();
 
         /// <summary>
         /// Returns the number of currently active threads that are processing a request.
@@ -78,7 +87,8 @@ namespace RT.Servers
                         if (thr.CurrentThread != null)
                             thr.CurrentThread.Abort();
                     }
-                _activeReadingThreads = new List<readingThreadRunner>();
+                _activeReadingThreads.Clear(); // paranoia to be extra safe against leaks
+                _activeReadingThreads = new HashSet<readingThreadRunner>();
             }
         }
 
@@ -132,19 +142,17 @@ namespace RT.Servers
             private byte[] _buffer;
             private string _headersSoFar;
             private SocketError _errorCode;
-            private HttpServerOptions _opt;
             private LoggerBase _log;
-            private List<HttpRequestHandlerHook> _requestHandlerHooks;
+            private HttpServer _server;
 
             public Thread CurrentThread;
             public bool Abort;
 
-            public readingThreadRunner(Socket socket, HttpServerOptions opt, LoggerBase log, List<HttpRequestHandlerHook> requestHandlerHooks)
+            public readingThreadRunner(Socket socket, HttpServer server, LoggerBase log)
             {
                 _socket = socket;
-                _opt = opt;
+                _server = server;
                 _log = log;
-                _requestHandlerHooks = requestHandlerHooks;
 
                 CurrentThread = null;
                 Abort = false;
@@ -177,7 +185,7 @@ namespace RT.Servers
                 _nextReadOffset = 0;
 
                 _sw.Log("beginReceive()");
-                try { _socket.BeginReceive(_buffer, 0, 65536, SocketFlags.None, out _errorCode, endReceive, this); }
+                try { _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, out _errorCode, endReceive, this); }
                 catch (SocketException) { _socket.Close(); return; }
             }
 
@@ -197,6 +205,8 @@ namespace RT.Servers
                 finally
                 {
                     CurrentThread = null;
+                    lock (_server._activeReadingThreads)
+                        _server._activeReadingThreads.Remove(this);
                 }
             }
 
@@ -205,7 +215,7 @@ namespace RT.Servers
                 _sw.Log("Start of processHeaderData()");
 
                 // Stop soon if the headers become too large.
-                if (_headersSoFar.Length + _nextReadLength > _opt.MaxSizeHeaders)
+                if (_headersSoFar.Length + _nextReadLength > _server.Options.MaxSizeHeaders)
                 {
                     _socket.Close();
                     return;
@@ -287,7 +297,7 @@ namespace RT.Servers
                 {
                     // If no Content-Type is given and there is no Location header, use default
                     if (response.Headers.ContentType == null && response.Headers.Location == null)
-                        response.Headers.ContentType = _opt.DefaultContentType;
+                        response.Headers.ContentType = _server.Options.DefaultContentType;
 
                     bool keepAliveRequested = originalRequest.Headers.Connection == HttpConnection.KeepAlive;
                     bool gzipRequested = false;
@@ -387,20 +397,20 @@ namespace RT.Servers
 
                     bool useGzip = response.UseGzip != UseGzipOption.DontUseGzip && gzipRequested && !(contentLengthKnown && contentLength <= 1024) && originalRequest.HttpVersion == HttpProtocolVersion.Http11;
 
-                    if (useGzip && response.UseGzip == UseGzipOption.AutoDetect && contentLengthKnown && contentLength >= _opt.GzipAutodetectThreshold && response.Content.CanSeek)
+                    if (useGzip && response.UseGzip == UseGzipOption.AutoDetect && contentLengthKnown && contentLength >= _server.Options.GzipAutodetectThreshold && response.Content.CanSeek)
                     {
                         try
                         {
-                            response.Content.Seek((contentLength - _opt.GzipAutodetectThreshold) / 2, SeekOrigin.Begin);
-                            byte[] buf = new byte[_opt.GzipAutodetectThreshold];
-                            response.Content.Read(buf, 0, _opt.GzipAutodetectThreshold);
+                            response.Content.Seek((contentLength - _server.Options.GzipAutodetectThreshold) / 2, SeekOrigin.Begin);
+                            byte[] buf = new byte[_server.Options.GzipAutodetectThreshold];
+                            response.Content.Read(buf, 0, _server.Options.GzipAutodetectThreshold);
                             MemoryStream ms = new MemoryStream();
                             GZipOutputStream gzTester = new GZipOutputStream(ms);
                             gzTester.SetLevel(1);
-                            gzTester.Write(buf, 0, _opt.GzipAutodetectThreshold);
+                            gzTester.Write(buf, 0, _server.Options.GzipAutodetectThreshold);
                             gzTester.Close();
                             ms.Close();
-                            if (ms.ToArray().Length >= 0.99 * _opt.GzipAutodetectThreshold)
+                            if (ms.ToArray().Length >= 0.99 * _server.Options.GzipAutodetectThreshold)
                                 useGzip = false;
                             response.Content.Seek(0, SeekOrigin.Begin);
                         }
@@ -413,7 +423,7 @@ namespace RT.Servers
                     _sw.Log("OutputResponse() - find out things");
 
                     // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
-                    if (useGzip && contentLengthKnown && contentLength < _opt.GzipInMemoryUpToSize)
+                    if (useGzip && contentLengthKnown && contentLength < _server.Options.GzipInMemoryUpToSize)
                     {
                         _sw.Log("OutputResponse() - using in-memory gzip");
                         // In this case, do all the gzipping before sending the headers.
@@ -502,13 +512,13 @@ namespace RT.Servers
                     _sw.Log("OutputResponse() - instantiating output stream");
 
                     // Finally output the actual content
-                    int bufferSize = 65536;
-                    byte[] buffer = new byte[bufferSize];
+                    byte[] buffer = new byte[65536];
+                    int bufferSize = buffer.Length;
                     _sw.Log("OutputResponse() - Allocate buffer");
                     int bytesRead;
                     while (true)
                     {
-                        if (_opt.ReturnExceptionsToClient)
+                        if (_server.Options.ReturnExceptionsToClient)
                         {
                             try { bytesRead = response.Content.Read(buffer, 0, bufferSize); }
                             catch (Exception e)
@@ -523,9 +533,9 @@ namespace RT.Servers
                         if (bytesRead == 0) break;
                         output.Write(buffer, 0, bytesRead);
                         _sw.Log("OutputResponse() - Output.Write()");
+                        output.Close();
+                        _sw.Log("OutputResponse() - Output.Close()");
                     }
-                    output.Close();
-                    _sw.Log("OutputResponse() - Output.Close()");
                     return useKeepAlive;
                 }
                 finally
@@ -560,7 +570,7 @@ namespace RT.Servers
                 if (_log != null)
                     lock (_log)
                         _log.Info(headersStr);
-                _socket.Send(Encoding.UTF8.GetBytes(headersStr));
+                //_socket.Send(Encoding.UTF8.GetBytes(headersStr));
             }
 
             private void serveSingleRange(HttpResponse response, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
@@ -702,7 +712,7 @@ namespace RT.Servers
 
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
 
-                if (_opt.ReturnExceptionsToClient)
+                if (_server.Options.ReturnExceptionsToClient)
                 {
                     try
                     {
@@ -765,9 +775,9 @@ namespace RT.Servers
 
                     string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
 
-                    lock (_requestHandlerHooks)
+                    lock (_server.RequestHandlerHooks)
                     {
-                        var hook = _requestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
+                        var hook = _server.RequestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
                                 (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
                                 (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))));
                         if (hook == null)
@@ -794,7 +804,7 @@ namespace RT.Servers
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
                     return HttpResponse.Error(HttpStatusCode._411_LengthRequired, connectionClose: true);
-                if (req.Headers.ContentLength.Value > _opt.MaxSizePostContent)
+                if (req.Headers.ContentLength.Value > _server.Options.MaxSizePostContent)
                     return HttpResponse.Error(HttpStatusCode._413_RequestEntityTooLarge, connectionClose: true);
                 if (req.Headers.ContentType == HttpPostContentType.None)
                     return HttpResponse.Error(HttpStatusCode._501_NotImplemented, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", connectionClose: true);
@@ -819,7 +829,7 @@ namespace RT.Servers
                 }
                 try
                 {
-                    req.ParsePostBody(contentStream, _opt.TempDir, _opt.StoreFileUploadInFileAtSize);
+                    req.ParsePostBody(contentStream, _server.Options.TempDir, _server.Options.StoreFileUploadInFileAtSize);
                 }
                 catch (SocketException) { }
                 catch (EndOfStreamException) { }
@@ -839,9 +849,12 @@ namespace RT.Servers
         /// If false, spawns a new thread and returns immediately.</param>
         public void HandleRequest(Socket incomingConnection, bool blocking)
         {
+            Stats.AddRequestReceived();
             if (_opt.IdleTimeout != 0)
                 incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
-            var readingThreadRunner = new readingThreadRunner(incomingConnection, _opt, Log, RequestHandlerHooks);
+            var readingThreadRunner = new readingThreadRunner(incomingConnection, this, Log);
+            //while (ActiveHandlers > 100)
+            //    Thread.Sleep(100);
             lock (_activeReadingThreads)
                 _activeReadingThreads.Add(readingThreadRunner);
         }
