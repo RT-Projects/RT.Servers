@@ -564,9 +564,9 @@ namespace RT.Servers
                         if (bytesRead == 0) break;
                         output.Write(buffer, 0, bytesRead);
                         _sw.Log("OutputResponse() - Output.Write()");
-                        output.Close();
-                        _sw.Log("OutputResponse() - Output.Close()");
                     }
+                    output.Close();
+                    _sw.Log("OutputResponse() - Output.Close()");
                     return useKeepAlive;
                 }
                 finally
@@ -601,7 +601,7 @@ namespace RT.Servers
                 if (_log != null)
                     lock (_log)
                         _log.Info(headersStr);
-                //_socket.Send(Encoding.UTF8.GetBytes(headersStr));
+                _socket.Send(Encoding.UTF8.GetBytes(headersStr));
             }
 
             private void serveSingleRange(HttpResponse response, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
