@@ -310,6 +310,7 @@ namespace RT.Servers
                 {
                     _headersSoFar = "";
                     _sw.Log("Reusing connection");
+                    KeepAliveActive = true;
                     beginReceive();
                     return;
                 }
@@ -690,16 +691,28 @@ namespace RT.Servers
                     return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
 
                 // Parse the method line
-                Match match = Regex.Match(lines[0], @"^(GET|POST|HEAD) ([^ ]+) HTTP/1.([01])$");
-                if (!match.Success)
+                _sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
+                var line = lines[0];
+                if (line.StartsWith("GET "))
+                    req.Method = HttpMethod.Get;
+                else if (line.StartsWith("HEAD "))
+                    req.Method = HttpMethod.Head;
+                else if (line.StartsWith("POST "))
+                    req.Method = HttpMethod.Post;
+                else
                     return HttpResponse.Error(HttpStatusCode._501_NotImplemented, connectionClose: true);
 
-                _sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
-                req.HttpVersion = match.Groups[3].Value == "0" ? HttpProtocolVersion.Http10 : HttpProtocolVersion.Http11;
-                req.Method =
-                    match.Groups[1].Value == "HEAD" ? HttpMethod.Head :
-                    match.Groups[1].Value == "POST" ? HttpMethod.Post : HttpMethod.Get;
-                req.Url = match.Groups[2].Value;
+                if (line.EndsWith(" HTTP/1.0"))
+                    req.HttpVersion = HttpProtocolVersion.Http10;
+                else if (line.EndsWith(" HTTP/1.1"))
+                    req.HttpVersion = HttpProtocolVersion.Http10;
+                else
+                    return HttpResponse.Error(HttpStatusCode._505_HttpVersionNotSupported, connectionClose: true);
+
+                int start = req.Method == HttpMethod.Get ? 4 : 5;
+                req.Url = line.Substring(start, line.Length - start - 9);
+                if (req.Url.Contains(' '))
+                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
 
@@ -714,7 +727,7 @@ namespace RT.Servers
                             valueSoFar += " " + lines[i].Trim();
                         else
                         {
-                            match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
+                            var match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
                             if (!match.Success)
                                 return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
                             parseHeader(lastHeader, valueSoFar, req);
