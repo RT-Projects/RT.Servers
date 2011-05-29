@@ -705,7 +705,7 @@ namespace RT.Servers
                 if (line.EndsWith(" HTTP/1.0"))
                     req.HttpVersion = HttpProtocolVersion.Http10;
                 else if (line.EndsWith(" HTTP/1.1"))
-                    req.HttpVersion = HttpProtocolVersion.Http10;
+                    req.HttpVersion = HttpProtocolVersion.Http11;
                 else
                     return HttpResponse.Error(HttpStatusCode._505_HttpVersionNotSupported, connectionClose: true);
 
