@@ -99,8 +99,11 @@ namespace RT.Servers
                 b.Append("Content-Language: " + ContentLanguage + "\r\n");
             if (ContentLength != null)
                 b.Append("Content-Length: " + ContentLength.Value + "\r\n");
-            if (ContentDisposition.Mode != HttpContentDispositionMode.None && ContentDisposition.Filename != null)
-                b.Append("Content-Disposition: attachment; filename=" + ContentDisposition.Filename + "\r\n");
+            if (ContentDisposition.Mode != HttpContentDispositionMode.None)
+                if (ContentDisposition.Filename == null)
+                    b.Append("Content-Disposition: attachment\r\n");
+                else
+                    b.Append("Content-Disposition: attachment; filename=" + ContentDisposition.Filename + "\r\n");
             if (ContentMD5 != null)
                 b.Append("Content-MD5: " + ContentMD5 + "\r\n");
             if (ContentRange != null)
