@@ -304,6 +304,12 @@ namespace RT.Servers
                         response.Content.Close();
                         _sw.Log("Response.Content.Close()");
                     }
+                    if (response.CleanUpCallback != null)
+                    {
+                        _sw.Log("Stuff before Response.CleanUpCallback()");
+                        response.CleanUpCallback();
+                        _sw.Log("Response.CleanUpCallback()");
+                    }
                 }
 
                 if (connectionKeepAlive && _socket.Connected)

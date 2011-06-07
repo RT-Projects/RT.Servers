@@ -169,10 +169,11 @@ namespace RT.Servers
         /// </summary>
         public Stream Content;
 
-        /// <summary>
-        /// Specifies whether gzip should be used.
-        /// </summary>
+        /// <summary>Specifies whether gzip should be used.</summary>
         public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
+
+        /// <summary>Specifies an action to perform when the request finishes.</summary>
+        public Action CleanUpCallback;
 
         private HttpResponse() { }
 
