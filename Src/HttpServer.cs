@@ -818,7 +818,8 @@ namespace RT.Servers
                     if (host.Contains(":"))
                     {
                         int pos = host.IndexOf(":");
-                        int.TryParse(host.Substring(pos + 1), out port);
+                        if (!int.TryParse(host.Substring(pos + 1), out port))
+                            port = 80;
                         host = host.Remove(pos);
                     }
                     host = host.TrimEnd('.');
@@ -839,6 +840,7 @@ namespace RT.Servers
                         req.Domain = host;
                         req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
                         req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
+                        req.Port = port;
                     }
                 }
                 else if (nameLower == "expect")

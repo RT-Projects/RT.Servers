@@ -435,10 +435,13 @@ namespace RT.Servers
         /// </summary>
         public string BaseDomain;
 
+        /// <summary>Contains the port number at which the server was contacted for this request.</summary>
+        public int Port;
+
         /// <summary>Specifies the HTTP protocol version that was used for this request.</summary>
         public HttpProtocolVersion HttpVersion;
 
-        /// <summary>Specifies the HTTP request method (GET, POST or HEAD) that was used for thsi request.</summary>
+        /// <summary>Specifies the HTTP request method (GET, POST or HEAD) that was used for this request.</summary>
         public HttpMethod Method;
 
         /// <summary>Contains the HTTP request headers that were received and understood by <see cref="HttpServer"/>.</summary>
@@ -479,7 +482,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Returns the raw GET query parameters, if any
+        /// Returns the raw GET query parameters, if any.
         /// </summary>
         public string Query
         {
@@ -923,6 +926,15 @@ namespace RT.Servers
         {
             var qs = Get.Keys.Where(predicate).SelectMany(key => Get[key].Select(val => key.UrlEscape() + "=" + val.UrlEscape())).JoinString("&");
             return UrlWithoutQuery + (qs == "" ? "" : "?" + qs);
+        }
+
+        /// <summary>Gets the full URL of the request, including the protocol, domain, port number (if different from 80), path and query parameters.</summary>
+        public string FullUrl
+        {
+            get
+            {
+                return "http://" + Domain + (Port != 80 ? ":" + Port : "") + Url;
+            }
         }
     }
 
