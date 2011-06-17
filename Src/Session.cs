@@ -86,7 +86,9 @@ namespace RT.Servers
             };
         }
 
-        private void initialiseFromRequest(HttpRequest req)
+        /// <summary>Initialises this session instance from the specified request. Only use this if you are not using <see cref="Enable{TSession}"/>, as that already calls it.</summary>
+        /// <param name="req">Request containing the cookie information from which to initialise the session.</param>
+        public void InitialiseFromRequest(HttpRequest req)
         {
             _isNew = false;
 
@@ -140,11 +142,18 @@ namespace RT.Servers
         public static HttpResponse Enable<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, new()
         {
             var session = new TSession();
-            session.initialiseFromRequest(req);
+            session.InitialiseFromRequest(req);
             var response = handler(session);
-            session.setCookie(response.Headers);
-            session.close();
+            session.CleanUp(response);
             return response;
+        }
+
+        /// <summary>Saves/deletes the session and/or sets the session cookie, as appropriate. Only use this if you are not using <see cref="Enable{TSession}"/>, as that already calls it.</summary>
+        /// <param name="response">Response to add cookie information to.</param>
+        public void CleanUp(HttpResponse response)
+        {
+            setCookie(response.Headers);
+            close();
         }
     }
 
