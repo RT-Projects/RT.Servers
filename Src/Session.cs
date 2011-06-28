@@ -114,11 +114,14 @@ namespace RT.Servers
 
         private void setCookie(HttpResponseHeaders headers)
         {
-            if (_isNew && CloseAction == SessionCloseAction.Save)
+            if ((_isNew && CloseAction == SessionCloseAction.Save) || (!_isNew && CloseAction == SessionCloseAction.Delete))
             {
                 if (headers.SetCookie == null)
                     headers.SetCookie = new List<Cookie>();
-                headers.SetCookie.Add(createCookie());
+                var cookie = createCookie();
+                if (CloseAction == SessionCloseAction.Delete)
+                    cookie.Expires = DateTime.Today - TimeSpan.FromDays(300);
+                headers.SetCookie.Add(cookie);
             }
         }
 
