@@ -131,10 +131,9 @@ namespace RT.Servers
             private Socket _socket;
             private Stopwatch _sw;
             private string _stopWatchFilename;
-            private byte[] _nextRead;
-            private int _nextReadOffset;
-            private int _nextReadLength;
             private byte[] _buffer;
+            private int _bufferDataOffset;
+            private int _bufferDataLength;
             private string _headersSoFar;
             private SocketError _errorCode;
             private LoggerBase _log;
@@ -159,11 +158,9 @@ namespace RT.Servers
                 _sw = new StopwatchDummy();
                 _sw.Log("ctor() - Start readingThreadRunner");
 
-                _nextRead = null;
-                _nextReadOffset = 0;
-                _nextReadLength = 0;
-
-                _buffer = new byte[65536];
+                _buffer = new byte[1024];
+                _bufferDataOffset = 0;
+                _bufferDataLength = 0;
 
                 _headersSoFar = "";
                 _sw.Log("ctor() - end");
@@ -188,15 +185,15 @@ namespace RT.Servers
 
             private void beginReceive()
             {
-                if (_nextRead != null)
+                // If there is data left to be processed, process it
+                if (_bufferDataLength > 0)
                 {
                     processHeaderData();
                     return;
                 }
 
-                _nextRead = _buffer;
-                _nextReadOffset = 0;
-
+                // Need to receive more data from the socket
+                _bufferDataOffset = 0;
                 try
                 {
                     _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, out _errorCode, endReceive, this);
@@ -217,9 +214,9 @@ namespace RT.Servers
                     CurrentThread = Thread.CurrentThread;
                     try
                     {
-                        try { _nextReadLength = _socket.EndReceive(res); }
+                        try { _bufferDataLength = _socket.EndReceive(res); }
                         catch (SocketException) { _socket.Close(); return; }
-                        if (_nextReadLength == 0 || _errorCode != SocketError.Success) { _socket.Close(); return; }
+                        if (_bufferDataLength == 0 || _errorCode != SocketError.Success) { _socket.Close(); return; }
                         processHeaderData();
                     }
                     finally
@@ -246,7 +243,7 @@ namespace RT.Servers
                 _sw.Log("Start of processHeaderData()");
 
                 // Stop soon if the headers become too large.
-                if (_headersSoFar.Length + _nextReadLength > _server.Options.MaxSizeHeaders)
+                if (_headersSoFar.Length + _bufferDataLength > _server.Options.MaxSizeHeaders)
                 {
                     _socket.Close();
                     return;
@@ -254,13 +251,13 @@ namespace RT.Servers
 
                 int prevHeadersLength = _headersSoFar.Length;
                 _sw.Log("Stuff before headersSoFar += Encoding.UTF8.GetString(...)");
-                _headersSoFar += Encoding.UTF8.GetString(_nextRead, _nextReadOffset, _nextReadLength);
+                _headersSoFar += Encoding.UTF8.GetString(_buffer, _bufferDataOffset, _bufferDataLength);
                 _sw.Log("headersSoFar += Encoding.UTF8.GetString(...)");
                 bool cont = _headersSoFar.Contains("\r\n\r\n");
                 _sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
                 if (!cont)
                 {
-                    _nextRead = null;
+                    _bufferDataLength = 0;
                     beginReceive();
                     return;
                 }
@@ -274,14 +271,12 @@ namespace RT.Servers
                     lock (_log)
                         _log.Info(_headersSoFar);
 
-                _nextReadOffset += sepIndex + 4 - prevHeadersLength;
-                _nextReadLength -= sepIndex + 4 - prevHeadersLength;
+                _bufferDataOffset += sepIndex + 4 - prevHeadersLength;
+                _bufferDataLength -= sepIndex + 4 - prevHeadersLength;
                 _sw.Log("Stuff before HandleRequestAfterHeaders()");
                 HttpRequest originalRequest;
                 HttpResponse response = handleRequestAfterHeaders(out originalRequest);
                 _sw.Log("Returned from HandleRequestAfterHeaders()");
-                if (_nextReadLength == 0)
-                    _nextRead = null;
                 bool connectionKeepAlive = false;
                 try
                 {
@@ -755,6 +750,7 @@ namespace RT.Servers
 
                 if (req.Method == HttpMethod.Post)
                 {
+                    // This returns null in case of success and an error response in case of error
                     var result = processPostContent(_socket, req);
                     if (result != null)
                         return result;
@@ -867,17 +863,17 @@ namespace RT.Servers
 
                 // Read the contents of the POST request
                 Stream contentStream;
-                if (_nextReadLength >= req.Headers.ContentLength.Value)
+                if (_bufferDataLength >= req.Headers.ContentLength.Value)
                 {
-                    contentStream = new MemoryStream(_nextRead, _nextReadOffset, (int) req.Headers.ContentLength.Value, false);
-                    _nextReadOffset += (int) req.Headers.ContentLength.Value;
-                    _nextReadLength -= (int) req.Headers.ContentLength.Value;
+                    contentStream = new MemoryStream(_buffer, _bufferDataOffset, (int) req.Headers.ContentLength.Value, false);
+                    _bufferDataOffset += (int) req.Headers.ContentLength.Value;
+                    _bufferDataLength -= (int) req.Headers.ContentLength.Value;
                 }
                 else
                 {
-                    contentStream = new SocketReaderStream(socket, req.Headers.ContentLength.Value, _nextRead, _nextReadOffset, _nextReadLength);
-                    _nextReadOffset = 0;
-                    _nextReadLength = 0;
+                    contentStream = new SocketReaderStream(socket, req.Headers.ContentLength.Value, _buffer, _bufferDataOffset, _bufferDataLength);
+                    _bufferDataOffset = 0;
+                    _bufferDataLength = 0;
                 }
                 try
                 {
