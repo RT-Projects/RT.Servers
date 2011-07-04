@@ -821,7 +821,7 @@ namespace RT.Servers
                 return ret;
 
             char[] buffer = new char[65536];
-            int bytesRead = s.Read(buffer, 0, buffer.Length);
+            int charsRead = s.Read(buffer, 0, buffer.Length);
             int bufferIndex = 0;
             string curKey = "";
             string curValue = null;
@@ -834,14 +834,14 @@ namespace RT.Servers
             });
 
             bool inKey = true;
-            while (bytesRead > 0)
+            while (charsRead > 0)
             {
-                while (bufferIndex < bytesRead)
+                while (bufferIndex < charsRead)
                 {
                     int i = bufferIndex;
-                    while (i < bytesRead && buffer[i] != '&' && buffer[i] != '=')
+                    while (i < charsRead && buffer[i] != '&' && buffer[i] != '=')
                         i++;
-                    if (i == bytesRead)
+                    if (i == charsRead)
                     {
                         if (inKey)
                             curKey += new string(buffer, bufferIndex, i - bufferIndex);
@@ -876,7 +876,7 @@ namespace RT.Servers
                         bufferIndex = i + 1;
                     }
                 }
-                bytesRead = s.Read(buffer, 0, buffer.Length);
+                charsRead = s.Read(buffer, 0, buffer.Length);
                 bufferIndex = 0;
             }
 

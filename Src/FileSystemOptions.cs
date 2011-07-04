@@ -40,6 +40,7 @@ namespace RT.Servers
                 case "jpg": return "image/jpeg";
                 case "jpeg": return "image/jpeg";
                 case "bmp": return "image/bmp";
+                case "svg": return "image/svg+xml";
 
                 default: return null;
             }
