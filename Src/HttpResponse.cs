@@ -262,9 +262,9 @@ namespace RT.Servers
                 headers.Connection = HttpConnection.Close;
 
             string contentStr =
-                "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">\n" +
-                "<html>\n <head>\n  <title>HTTP " + statusCodeNameHtml + "</title>\n </head>\n <body>\n  <h1>" + statusCodeNameHtml + "</h1>\n" +
-                (errorMessage != null ? "  <p>" + errorMessage.HtmlEscape() + "</p>" : "") + "\n </body>\n</html>";
+                "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">" +
+                "<html><head><title>HTTP " + statusCodeNameHtml + "</title></head><body><h1>" + statusCodeNameHtml + "</h1>" +
+                (errorMessage != null ? "<p>" + errorMessage.HtmlEscape() + "</p>" : "") + "</body></html>";
             return new HttpResponse
             {
                 Status = statusCode,
@@ -406,6 +406,12 @@ namespace RT.Servers
         public static HttpResponse Exception(Exception exception)
         {
             return Create(ExceptionAsString(exception, true), HttpStatusCode._500_InternalServerError);
+        }
+
+        /// <summary>Generates a 304 Not Modified response.</summary>
+        public static HttpResponse NotModified()
+        {
+            return new HttpResponse { Status = HttpStatusCode._304_NotModified };
         }
 
         /// <summary>Generates a string describing the <paramref name="exception"/>, including the type, message

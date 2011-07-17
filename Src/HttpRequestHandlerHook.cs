@@ -54,7 +54,7 @@ namespace RT.Servers
         public HttpRequestHandlerHook(HttpRequestHandler handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
         {
             if (domain == null && specificDomain)
-                throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
+                 throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
             if (domain != null && !Regex.IsMatch(domain, @"^[-.a-z0-9]+$"))
                 throw new ArgumentException("The domain specified by the domain parameter must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
             if (domain != null && (domain.Contains(".-") || domain.Contains("-.") || domain.StartsWith("-") || domain.EndsWith("-")))
