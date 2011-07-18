@@ -324,6 +324,7 @@ namespace RT.Servers
 
             private bool outputResponse(HttpResponse response, HttpRequest originalRequest)
             {
+                _socket.NoDelay = false;
                 _sw.Log("OutputResponse() - enter");
 
                 try
@@ -564,7 +565,23 @@ namespace RT.Servers
                             bytesRead = response.Content.Read(buffer, 0, bufferSize);
                         _sw.Log("OutputResponse() - Response.Content.Read()");
                         if (bytesRead == 0) break;
+
+                        // Performance optimisation: If we’re at the end of a body of known length, cause
+                        // the last bit to be sent to the socket without the Nagle delay
+                        try
+                        {
+                            if (response.Content.CanSeek && response.Content.Position == response.Content.Length)
+                                _socket.NoDelay = true;
+                        }
+                        catch { }
+
                         output.Write(buffer, 0, bytesRead);
+
+                        // If we are actually gzipping and chunking something of known length, we don’t want several TCP packets
+                        // of just a few bytes from when the gzip and chunked stream finish. The chunked stream already sets this
+                        // back to true just before outputting the real final bit.
+                        _socket.NoDelay = false;
+
                         _sw.Log("OutputResponse() - Output.Write()");
                     }
                     output.Close();
