@@ -367,6 +367,23 @@ namespace RT.Servers
                     if (useKeepAlive)
                         response.Headers.Connection = HttpConnection.KeepAlive;
 
+                    // Special case: empty body
+                    if (contentLengthKnown && contentLength == 0)
+                    {
+                        // 304 Not Modified doesn’t need Content-Type. 
+                        if (response.Status == HttpStatusCode._304_NotModified)
+                        {
+                            // Also omit ContentLength if not using keep-alive
+                            if (!useKeepAlive)
+                                response.Headers.ContentLength = null;
+                            response.Headers.ContentType = null;
+                        }
+                        else
+                            response.Headers.ContentLength = 0;
+                        sendHeaders(response);
+                        return useKeepAlive;
+                    }
+
                     // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 16 KB
                     if (originalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && response.Status == HttpStatusCode._200_OK && response.Content.CanSeek)
                     {
@@ -535,9 +552,7 @@ namespace RT.Servers
                         sendHeaders(response);
                         _sw.Log("OutputResponse() - sending headers");
 
-                        // If the content length is zero, we can exit as quickly as possible
-                        // (no need to instantiate an output stream)
-                        if ((contentLengthKnown && contentLength == 0) || originalRequest.Method == HttpMethod.Head)
+                        if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
 
                         output = new SocketWriterStream(_socket);
