@@ -10,35 +10,29 @@ namespace RT.Servers
     /// Encapsulates the various ways in which a URL can map to a request handler. Add instances of this class to <see cref="HttpServer.RequestHandlerHooks"/>
     /// to hook a handler to a specific <see cref="HttpServer"/> instance. This class is immutable.
     /// </summary>
-    public sealed class HttpRequestHandlerHook
+    public class HttpRequestHandlerHook
     {
         /// <summary>Gets a value indicating what domain name the handler applies to. Returns null if it applies to all domains.</summary>
         /// <seealso cref="SpecificDomain"/>
-        public string Domain { get { return _domain; } }
-        private string _domain;
+        public string Domain { get; private set; }
 
         /// <summary>Gets a value indicating what port the handler applies to. Returns null if it applies to all ports.</summary>
-        public int? Port { get { return _port; } }
-        private int? _port;
+        public int? Port { get; private set; }
 
         /// <summary>Gets a value indicating what URL path the handler applies to. Returns null if it applies to all paths.</summary>
         /// <seealso cref="SpecificPath"/>
-        public string Path { get { return _path; } }
-        private string _path;
+        public string Path { get; private set; }
 
         /// <summary>Gets a value indicating whether the handler applies to all subdomains of the domain specified by
         /// <see cref="Domain"/> (false) or the specific domain only (true).</summary>
-        public bool SpecificDomain { get { return _specificDomain; } }
-        private bool _specificDomain;
+        public bool SpecificDomain { get; private set; }
 
         /// <summary>Gets a value indicating whether the handler applies to all subpaths of the path specified by
         /// <see cref="Path"/> (false) or to the specific path only (true).</summary>
-        public bool SpecificPath { get { return _specificPath; } }
-        private bool _specificPath;
+        public bool SpecificPath { get; private set; }
 
         /// <summary>Gets the request handler for this hook.</summary>
-        public HttpRequestHandler Handler { get { return _handler; } }
-        private HttpRequestHandler _handler;
+        public HttpRequestHandler Handler { get; private set; }
 
         /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
         /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
@@ -54,7 +48,7 @@ namespace RT.Servers
         public HttpRequestHandlerHook(HttpRequestHandler handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
         {
             if (domain == null && specificDomain)
-                 throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
+                throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
             if (domain != null && !Regex.IsMatch(domain, @"^[-.a-z0-9]+$"))
                 throw new ArgumentException("The domain specified by the domain parameter must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
             if (domain != null && (domain.Contains(".-") || domain.Contains("-.") || domain.StartsWith("-") || domain.EndsWith("-")))
@@ -78,12 +72,12 @@ namespace RT.Servers
             if (port != null && (port.Value < 1 || port.Value > 65535))
                 throw new ArgumentException("The port parameter must contain an integer in the range 1 to 65535 or null.");
 
-            _domain = domain;
-            _port = port;
-            _path = path;
-            _specificDomain = specificDomain;
-            _specificPath = specificPath;
-            _handler = handler;
+            Domain = domain;
+            Port = port;
+            Path = path;
+            SpecificDomain = specificDomain;
+            SpecificPath = specificPath;
+            Handler = handler;
         }
     }
 }
