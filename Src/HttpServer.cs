@@ -51,7 +51,7 @@ namespace RT.Servers
         private HashSet<readingThreadRunner> _activeReadingThreads = new HashSet<readingThreadRunner>();
 
         /// <summary>Add request handlers here. See the documentation for <see cref="HttpRequestHandlerHook"/> for more information.
-        /// If you wish to make changes to this list while the server is running, use a lock around it.</summary>
+        /// If you wish to make changes to this list while the server is running, take a lock on this list while making the changes.</summary>
         public List<HttpRequestHandlerHook> RequestHandlerHooks = new List<HttpRequestHandlerHook>();
 
         /// <summary>If set, various debug events will be logged to here.</summary>
