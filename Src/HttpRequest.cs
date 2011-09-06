@@ -77,6 +77,7 @@ namespace RT.Servers
         public Dictionary<string, string> Expect;
         public string Host;
         public DateTime? IfModifiedSince;
+#warning TODO: IfNoneMatch should be a collection, and each value may potentially be a "weak" match.
         public string IfNoneMatch;
         public List<HttpRange> Range;
         public string UserAgent;
@@ -207,7 +208,7 @@ namespace RT.Servers
                     DateTime output;
                     if (DateTime.TryParse(value, out output))
                     {
-                        IfModifiedSince = output;
+                        IfModifiedSince = output.ToUniversalTime();
                         recognised = true;
                     }
                 }
@@ -299,7 +300,7 @@ namespace RT.Servers
                     DateTime output;
                     if (DateTime.TryParse(cookieHeaderValue, out output))
                     {
-                        prevCookie.Expires = output;
+                        prevCookie.Expires = output.ToUniversalTime();
                         cookies[prevCookie.Name] = prevCookie;
                     }
                 }

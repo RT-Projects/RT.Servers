@@ -122,13 +122,13 @@ namespace RT.Servers
             if (ContentType != null)
                 b.Append("Content-Type: " + ContentType + "\r\n");
             if (Date != null)
-                b.Append("Date: " + Date.Value.ToString("r" /* = RFC1123 */) + "\r\n");
+                b.Append("Date: " + Date.Value.ToUniversalTime().ToString("r" /* = RFC1123 */) + "\r\n");
             if (ETag != null)
                 b.Append("ETag: " + ETag + "\r\n");
             if (Expires != null)
-                b.Append("Expires: " + Expires.Value.ToString("r" /* = RFC1123 */) + "\r\n");
+                b.Append("Expires: " + Expires.Value.ToUniversalTime().ToString("r" /* = RFC1123 */) + "\r\n");
             if (LastModified != null)
-                b.Append("Last-Modified: " + LastModified.Value.ToString("r" /* = RFC1123 */) + "\r\n");
+                b.Append("Last-Modified: " + LastModified.Value.ToUniversalTime().ToString("r" /* = RFC1123 */) + "\r\n");
             if (Location != null)
                 b.Append("Location: " + Location + "\r\n");
             if (Pragma != null)
@@ -145,7 +145,7 @@ namespace RT.Servers
                     if (c.Path != null)
                         b.Append("; path=" + c.Path);
                     if (c.Expires != null)
-                        b.Append("; expires=" + c.Expires.Value.ToString("r"));
+                        b.Append("; expires=" + c.Expires.Value.ToUniversalTime().ToString("r" /* = RFC1123 */));
                     b.Append(c.HttpOnly ? "; httponly\r\n" : "\r\n");
                 }
             }
@@ -195,16 +195,20 @@ namespace RT.Servers
         /// <summary>Returns the specified file from the local file system using the specified MIME content type to the client.</summary>
         /// <param name="filePath">Full path and filename of the file to return.</param>
         /// <param name="contentType">MIME type to use in the Content-Type header.</param>
-        public static HttpResponse File(string filePath, string contentType)
+        /// <param name="ifModifiedSince">If specified, a 304 Not Modified will be served if the file's last modified timestamp is at or before this time.</param>
+        public static HttpResponse File(string filePath, string contentType, DateTime? ifModifiedSince = null)
         {
             try
             {
                 FileStream fileStream = System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var timestamp = System.IO.File.GetLastWriteTimeUtc(filePath).TruncatedToSeconds();
+                if (timestamp <= ifModifiedSince)
+                    return NotModified();
                 return new HttpResponse
                 {
                     Status = HttpStatusCode._200_OK,
                     Content = fileStream,
-                    Headers = new HttpResponseHeaders { ContentType = contentType }
+                    Headers = new HttpResponseHeaders { ContentType = contentType, LastModified = timestamp }
                 };
             }
             catch (FileNotFoundException)

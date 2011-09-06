@@ -77,7 +77,7 @@ namespace RT.Servers
                     if (request.Url != baseUrl + soFarUrl)
                         return HttpResponse.Redirect(baseUrl + soFarUrl);
 
-                    return generateFileResponse(p + nextSoFar, (Options ?? DefaultOptions).GetMimeType);
+                    return generateFileResponse(p + nextSoFar, (Options ?? DefaultOptions).GetMimeType, request.Headers.IfModifiedSince);
                 }
                 else if (Directory.Exists(p + nextSoFar))
                 {
@@ -106,7 +106,7 @@ namespace RT.Servers
                 return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
         }
 
-        private HttpResponse generateFileResponse(string filePath, Func<string, string> getMimeType)
+        private HttpResponse generateFileResponse(string filePath, Func<string, string> getMimeType, DateTime? ifModifiedSince)
         {
             string mimeType = getMimeType(filePath);
 
@@ -128,7 +128,7 @@ namespace RT.Servers
                 }
                 mimeType = plainText ? "text/plain; charset=utf-8" : "application/octet-stream";
             }
-            return HttpResponse.File(filePath, mimeType);
+            return HttpResponse.File(filePath, mimeType, ifModifiedSince);
         }
 
         private static IEnumerable<string> generateDirectoryXml(string localPath, string url, string baseUrl)
