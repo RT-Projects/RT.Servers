@@ -886,7 +886,7 @@ namespace RT.Servers
                     return HttpResponse.Error(HttpStatusCode._411_LengthRequired, connectionClose: true);
                 if (req.Headers.ContentLength.Value > _server.Options.MaxSizePostContent)
                     return HttpResponse.Error(HttpStatusCode._413_RequestEntityTooLarge, connectionClose: true);
-                if (req.Headers.ContentType == HttpPostContentType.None)
+                if (req.Headers.ContentType == null)
                     return HttpResponse.Error(HttpStatusCode._501_NotImplemented, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", connectionClose: true);
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here

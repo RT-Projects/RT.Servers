@@ -69,9 +69,9 @@ namespace RT.Servers
         public ListSorted<QValue<string>> AcceptCharset;
         public ListSorted<QValue<HttpContentEncoding>> AcceptEncoding;
         public ListSorted<QValue<string>> AcceptLanguage;
-        public HttpConnection Connection;
+        public HttpConnection? Connection;
         public long? ContentLength;                 // required only for POST
-        public HttpPostContentType ContentType;     // required only for POST
+        public HttpPostContentType? ContentType;     // required only for POST
         public string ContentMultipartBoundary;     // required only for POST and only if ContentType == HttpPostContentType.MultipartFormData
         public Dictionary<string, Cookie> Cookie = new Dictionary<string, Cookie>();
         public Dictionary<string, string> Expect;
@@ -121,7 +121,7 @@ namespace RT.Servers
                     splitAndAddByQ(ref AcceptLanguage, value);
                     recognised = true;
                 }
-                else if (nameLower == "connection" && Connection == HttpConnection.None)
+                else if (nameLower == "connection" && Connection == null)
                 {
                     Connection = HttpEnumsParser.ParseHttpConnection(value);
                     recognised = true;

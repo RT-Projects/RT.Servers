@@ -33,7 +33,6 @@ namespace RT.Servers
     /// <summary>Contains values for the supported values of the Connection HTTP request or response header.</summary>
     public enum HttpConnection
     {
-        None,
         Close,
         KeepAlive
     }
@@ -41,8 +40,6 @@ namespace RT.Servers
     /// <summary>Contains values for the Cache-Control HTTP request or response header. None of these currently have any effect.</summary>
     public enum HttpCacheControlState
     {
-        None,
-
         // Request
         MaxStale,   // IntParameter = in seconds, optional
         MinFresh,   // IntParameter = in seconds
@@ -71,7 +68,6 @@ namespace RT.Servers
     /// <seealso cref="HttpContentDisposition"/>
     public enum HttpContentDispositionMode
     {
-        None,
         Attachment,
     }
 
@@ -91,7 +87,6 @@ namespace RT.Servers
     /// </summary>
     public enum HttpTransferEncoding
     {
-        None,
         Chunked
     }
 
@@ -100,7 +95,6 @@ namespace RT.Servers
     /// </summary>
     public enum HttpPostContentType
     {
-        None,
         ApplicationXWwwFormUrlEncoded,
         MultipartFormData
     }
@@ -144,10 +138,7 @@ namespace RT.Servers
             }
             if (hasClose == hasKeepalive)
                 throw new ArgumentException(@"""Connection"" value ""{0}"" could not be parsed.".Fmt(value));
-            else if (hasClose)
-                return HttpConnection.Close;
-            else
-                return HttpConnection.KeepAlive;
+            return hasClose ? HttpConnection.Close : HttpConnection.KeepAlive;
         }
     }
 

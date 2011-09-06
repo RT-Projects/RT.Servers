@@ -22,15 +22,15 @@ namespace RT.Servers
 
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
-        public HttpAcceptRanges AcceptRanges;
+        public HttpAcceptRanges? AcceptRanges;
         public int? Age; // in seconds
         public string[] Allow;  // usually: { "GET", "HEAD", "POST" }
         public HttpCacheControl[] CacheControl;
-        public HttpConnection Connection;
-        public HttpContentEncoding ContentEncoding;
+        public HttpConnection? Connection;
+        public HttpContentEncoding? ContentEncoding;
         public string ContentLanguage;
         public long? ContentLength;
-        public HttpContentDisposition ContentDisposition;
+        public HttpContentDisposition? ContentDisposition;
         public string ContentMD5;
         public HttpContentRange? ContentRange;
         public string ContentType = "text/html; charset=utf-8";
@@ -42,7 +42,7 @@ namespace RT.Servers
         public string Pragma;
         public string Server;
         public List<Cookie> SetCookie;
-        public HttpTransferEncoding TransferEncoding;
+        public HttpTransferEncoding? TransferEncoding;
 
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
@@ -53,15 +53,19 @@ namespace RT.Servers
         public override string ToString()
         {
             StringBuilder b = new StringBuilder();
-            if (AcceptRanges != HttpAcceptRanges.None)
-                b.Append("Accept-Ranges: bytes\r\n");
+            switch (AcceptRanges)
+            {
+                case HttpAcceptRanges.Bytes:
+                    b.Append("Accept-Ranges: bytes\r\n");
+                    break;
+            }
             if (Age != null)
                 b.Append("Age: " + Age.Value + "\r\n");
             if (Allow != null)
                 b.Append("Allow: " + string.Join(", ", Allow));
             if (CacheControl != null)
             {
-                var coll = CacheControl.Where(c => c.State != HttpCacheControlState.None).SelectMany(c =>
+                var coll = CacheControl.SelectMany(c =>
                     c.State == HttpCacheControlState.MaxAge && c.IntParameter != null ? new[] { "max-age=" + c.IntParameter.Value } :
                     c.State == HttpCacheControlState.MaxStale && c.IntParameter != null ? new[] { "max-stale=" + c.IntParameter.Value } :
                     c.State == HttpCacheControlState.MaxStale ? new[] { "max-stale" } :
@@ -77,7 +81,7 @@ namespace RT.Servers
                     c.State == HttpCacheControlState.ProxyRevalidate ? new[] { "proxy-revalidate" } :
                     c.State == HttpCacheControlState.Public ? new[] { "public" } :
                     c.State == HttpCacheControlState.SMaxAge && c.IntParameter != null ? new[] { "s-maxage=" + c.IntParameter.Value } :
-                    new string[0]
+                    Enumerable.Empty<string>()
                 );
                 if (coll.Any())
                 {
@@ -86,24 +90,31 @@ namespace RT.Servers
                     b.Append("\r\n");
                 }
             }
-            if (Connection != HttpConnection.None)
+            switch (Connection)
             {
-                if (Connection == HttpConnection.Close)
+                case HttpConnection.Close:
                     b.Append("Connection: close\r\n");
-                else
+                    break;
+                case HttpConnection.KeepAlive:
                     b.Append("Connection: keep-alive\r\n");
+                    break;
             }
-            if (ContentEncoding != HttpContentEncoding.Identity)
-                b.Append("Content-Encoding: " + ContentEncoding.ToString().ToLowerInvariant() + "\r\n");
+            if (ContentEncoding != null)
+                b.Append("Content-Encoding: " + ContentEncoding.Value.ToString().ToLowerInvariant() + "\r\n");
             if (ContentLanguage != null)
                 b.Append("Content-Language: " + ContentLanguage + "\r\n");
             if (ContentLength != null)
                 b.Append("Content-Length: " + ContentLength.Value + "\r\n");
-            if (ContentDisposition.Mode != HttpContentDispositionMode.None)
-                if (ContentDisposition.Filename == null)
-                    b.Append("Content-Disposition: attachment\r\n");
-                else
-                    b.Append("Content-Disposition: attachment; filename=" + ContentDisposition.Filename + "\r\n");
+            if (ContentDisposition != null)
+                switch (ContentDisposition.Value.Mode)
+                {
+                    case HttpContentDispositionMode.Attachment:
+                        if (ContentDisposition.Value.Filename == null)
+                            b.Append("Content-Disposition: attachment\r\n");
+                        else
+                            b.Append("Content-Disposition: attachment; filename=" + ContentDisposition.Value.Filename + "\r\n");
+                        break;
+                }
             if (ContentMD5 != null)
                 b.Append("Content-MD5: " + ContentMD5 + "\r\n");
             if (ContentRange != null)
@@ -138,8 +149,12 @@ namespace RT.Servers
                     b.Append(c.HttpOnly ? "; httponly\r\n" : "\r\n");
                 }
             }
-            if (TransferEncoding != HttpTransferEncoding.None)
-                b.Append("Transfer-Encoding: chunked\r\n");
+            switch (TransferEncoding)
+            {
+                case HttpTransferEncoding.Chunked:
+                    b.Append("Transfer-Encoding: chunked\r\n");
+                    break;
+            }
             return b.ToString();
         }
     }

@@ -38,9 +38,9 @@ namespace RT.Servers
     /// </summary>
     public struct HttpContentDisposition
     {
-        /// <summary>Supports only two values ("None" and "Attachment").</summary>
+        /// <summary>Currently supports only one value (“Attachment”).</summary>
         public HttpContentDispositionMode Mode;
-        /// <summary>If Mode is "Attachment", contains the filename of the attachment.</summary>
+        /// <summary>If Mode is “Attachment”, contains the filename of the attachment.</summary>
         public string Filename;
         /// <summary>Returns a value representing Content-Disposition: attachment, using the specified filename.</summary>
         /// <param name="filename">If null, the "filename" part is omitted from the header.</param>
