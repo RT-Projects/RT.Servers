@@ -10,7 +10,7 @@ namespace RT.Servers
     /// Encapsulates the various ways in which a URL can map to a request handler. Add instances of this class to <see cref="HttpServer.RequestHandlerHooks"/>
     /// to hook a handler to a specific <see cref="HttpServer"/> instance. This class is immutable.
     /// </summary>
-    public sealed class HttpRequestHandlerHook
+    public sealed class HttpRequestHandlerHook : IEquatable<HttpRequestHandlerHook>, IComparable<HttpRequestHandlerHook>
     {
         /// <summary>Gets a value indicating what domain name the handler applies to. Returns null if it applies to all domains.</summary>
         /// <seealso cref="SpecificDomain"/>
@@ -78,6 +78,85 @@ namespace RT.Servers
             SpecificDomain = specificDomain;
             SpecificPath = specificPath;
             Handler = handler;
+        }
+
+        /// <summary>Compares this hook to another one, and returns a value indicating which hook should be checked for a match first.</summary>
+        public int CompareTo(HttpRequestHandlerHook other)
+        {
+            int result;
+            // "any port" handlers match last; other port handlers match in numeric port order
+            result = (this.Port ?? int.MaxValue).CompareTo(other.Port ?? int.MaxValue);
+            if (result != 0) return result;
+            // specific single domains match first
+            result = (this.SpecificDomain ? 0 : 1).CompareTo(other.SpecificDomain ? 0 : 1);
+            if (result != 0) return result;
+            // match more specified domains before less specified ones (e.g. blah.thingy.stuff matches before thingy.stuff)
+            // match catch-all domain last
+            if (this.Domain != null || other.Domain != null)
+            {
+                if (this.Domain != null && other.Domain == null)
+                    return -1;
+                else if (this.Domain == null && other.Domain != null)
+                    return 1;
+                else if (this.Domain != other.Domain)
+                {
+                    result = new string(this.Domain.Reverse().ToArray()).CompareTo(new string(other.Domain.Reverse().ToArray()));
+                    if (result != 0) return -result;
+                }
+            }
+            // specific single paths match first
+            result = (this.SpecificPath ? 0 : 1).CompareTo(other.SpecificPath ? 0 : 1);
+            if (result != 0) return result;
+            // match more specified paths before less specified ones (e.g. /blah/thingy/stuff matches before /blah/thingy)
+            // match catch-all path last
+            if (this.Path == other.Path)  // includes the case when both are null
+                return 0;
+            else if (this.Domain != null && other.Domain == null)
+                return -1;
+            else if (this.Domain == null && other.Domain != null)
+                return 1;
+            else
+                return -(this.Path).CompareTo(other.Path);
+        }
+
+        /// <summary>Compares hooks for equality. Two hooks are equal if their match specification is the same; the handler is ignored.</summary>
+        public bool Equals(HttpRequestHandlerHook other)
+        {
+            if (this.Path != other.Path) return false;
+            if (this.SpecificPath != other.SpecificPath) return false;
+            if (this.Domain != other.Domain) return false;
+            if (this.SpecificDomain != other.SpecificDomain) return false;
+            if (this.Port != other.Port) return false;
+            return true;
+        }
+
+        /// <summary>Compares hooks for equality. Two hooks are equal if their match specification is the same; the handler is ignored.</summary>
+        public override bool Equals(object obj)
+        {
+            var other = obj as HttpRequestHandlerHook;
+            if (other == null)
+                return false; // could be an actual null or just a different type
+            return this.Equals(other);
+        }
+
+        /// <summary>Computes a hash code suitable as a heuristic for the kind of equality defined by <see cref="Equals(object)"/>.</summary>
+        public override int GetHashCode()
+        {
+            return unchecked(
+                (Path == null ? -47 : Path.GetHashCode()) * 1669 +
+                (Domain == null ? -53 : Domain.GetHashCode()) * 2089 +
+                (Port == null ? -59 : Port.Value) * 2819 +
+                (SpecificPath ? 7919 : 5237) +
+                (SpecificDomain ? 6709 : 4079)
+            );
+        }
+
+        /// <summary>Returns a debugging-friendly representation of this hook's match specification.</summary>
+        public override string ToString()
+        {
+            return (this.Domain == null ? "http://*" : ((this.SpecificDomain ? "http://" : "http://*.") + this.Domain))
+                + (this.Port == null ? "" : (":" + this.Port))
+                + (this.Path == null ? "/*" : (this.Path + (this.SpecificPath ? "" : "/*")));
         }
     }
 }

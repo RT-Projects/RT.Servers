@@ -27,7 +27,7 @@ namespace RT.Servers
         public string[] Allow;  // usually: { "GET", "HEAD", "POST" }
         public HttpCacheControl[] CacheControl;
         public HttpConnection? Connection;
-        public HttpContentEncoding? ContentEncoding;
+        public HttpContentEncoding ContentEncoding = HttpContentEncoding.Identity;
         public string ContentLanguage;
         public long? ContentLength;
         public HttpContentDisposition? ContentDisposition;
@@ -99,8 +99,8 @@ namespace RT.Servers
                     b.Append("Connection: keep-alive\r\n");
                     break;
             }
-            if (ContentEncoding != null)
-                b.Append("Content-Encoding: " + ContentEncoding.Value.ToString().ToLowerInvariant() + "\r\n");
+            if (ContentEncoding != HttpContentEncoding.Identity)
+                b.Append("Content-Encoding: " + ContentEncoding.ToString().ToLowerInvariant() + "\r\n");
             if (ContentLanguage != null)
                 b.Append("Content-Language: " + ContentLanguage + "\r\n");
             if (ContentLength != null)
