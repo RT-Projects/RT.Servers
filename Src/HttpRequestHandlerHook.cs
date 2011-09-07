@@ -100,23 +100,23 @@ namespace RT.Servers
                     return 1;
                 else if (this.Domain != other.Domain)
                 {
-                    result = new string(this.Domain.Reverse().ToArray()).CompareTo(new string(other.Domain.Reverse().ToArray()));
+                    result = -this.Domain.Length.CompareTo(other.Domain.Length);
                     if (result != 0) return -result;
                 }
             }
             // specific single paths match first
-            result = (this.SpecificPath ? 0 : 1).CompareTo(other.SpecificPath ? 0 : 1);
+            result = -this.SpecificPath.CompareTo(other.SpecificPath);
             if (result != 0) return result;
-            // match more specified paths before less specified ones (e.g. /blah/thingy/stuff matches before /blah/thingy)
+            // match more specific paths before less specific ones (e.g. /blah/thingy/stuff matches before /blah/thingy)
             // match catch-all path last
             if (this.Path == other.Path)  // includes the case when both are null
                 return 0;
-            else if (this.Domain != null && other.Domain == null)
+            if (this.Path != null && other.Path == null)
                 return -1;
-            else if (this.Domain == null && other.Domain != null)
+            if (this.Path == null && other.Path != null)
                 return 1;
-            else
-                return -(this.Path).CompareTo(other.Path);
+
+            return -this.Path.Length.CompareTo(other.Path.Length);
         }
 
         /// <summary>Compares hooks for equality. Two hooks are equal if their match specification is the same; the handler is ignored.</summary>
