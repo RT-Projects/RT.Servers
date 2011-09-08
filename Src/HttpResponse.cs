@@ -225,7 +225,12 @@ namespace RT.Servers
                 {
                     Status = HttpStatusCode._200_OK,
                     Content = fileStream,
-                    Headers = new HttpResponseHeaders { ContentType = contentType, LastModified = timestamp }
+                    Headers = new HttpResponseHeaders
+                    {
+                        ContentType = contentType,
+                        LastModified = timestamp,
+                        CacheControl = new[] { new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = 30 * 86400 } },
+                    }
                 };
             }
             catch (FileNotFoundException)

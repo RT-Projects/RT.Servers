@@ -124,7 +124,8 @@ namespace RT.Servers
         {
             if (this.Path != other.Path) return false;
             if (this.SpecificPath != other.SpecificPath) return false;
-            if (string.Equals(this.Domain, other.Domain, StringComparison.OrdinalIgnoreCase)) return false;
+            if (this.Domain != null || other.Domain != null) // string.Equals of two nulls is, unfortunately, false.
+                if (string.Equals(this.Domain, other.Domain, StringComparison.OrdinalIgnoreCase)) return false;
             if (this.SpecificDomain != other.SpecificDomain) return false;
             if (this.Port != other.Port) return false;
             return true;

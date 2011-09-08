@@ -75,7 +75,7 @@ namespace RT.Servers
                         break;
                     }
 
-                    if (request.Url != baseUrl + soFarUrl)
+                    if (request.UrlWithoutQuery != baseUrl + soFarUrl)
                         return HttpResponse.Redirect(baseUrl + soFarUrl);
 
                     return HttpResponse.File(curPath, (Options ?? DefaultOptions).GetMimeType(curPath), request.Headers.IfModifiedSince);
