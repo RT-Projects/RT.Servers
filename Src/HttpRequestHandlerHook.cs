@@ -101,7 +101,7 @@ namespace RT.Servers
                 else if (this.Domain != other.Domain)
                 {
                     result = -this.Domain.Length.CompareTo(other.Domain.Length);
-                    if (result != 0) return -result;
+                    if (result != 0) return result;
                 }
             }
             // specific single paths match first
@@ -124,7 +124,7 @@ namespace RT.Servers
         {
             if (this.Path != other.Path) return false;
             if (this.SpecificPath != other.SpecificPath) return false;
-            if (this.Domain != other.Domain) return false;
+            if (string.Equals(this.Domain, other.Domain, StringComparison.OrdinalIgnoreCase)) return false;
             if (this.SpecificDomain != other.SpecificDomain) return false;
             if (this.Port != other.Port) return false;
             return true;
@@ -157,6 +157,104 @@ namespace RT.Servers
             return (this.Domain == null ? "http://*" : ((this.SpecificDomain ? "http://" : "http://*.") + this.Domain))
                 + (this.Port == null ? "" : (":" + this.Port))
                 + (this.Path == null ? "/*" : (this.Path + (this.SpecificPath ? "" : "/*")));
+        }
+    }
+
+    /// <summary>
+    /// Maintains a collection of <see cref="HttpRequestHandlerHook"/> objects, making sure that they are always enumerated
+    /// in a sensible order, ensuring that there are no duplicate hooks added in error, and synchronizing all operations except for
+    /// enumeration.
+    /// </summary>
+    public sealed class HttpRequestHandlerHookCollection : ICollection<HttpRequestHandlerHook>
+    {
+        private List<HttpRequestHandlerHook> _hooks = new List<HttpRequestHandlerHook>();
+
+        /// <summary>Gets a value indicating the number of hooks in this collection.</summary>
+        public int Count
+        {
+            get
+            {
+                lock (this)
+                    return _hooks.Count;
+            }
+        }
+
+        /// <summary>Determines whether a hook with the same match specification is present in this collection.</summary>
+        public bool Contains(HttpRequestHandlerHook item)
+        {
+            lock (this)
+                return _hooks.BinarySearch(item) >= 0;
+        }
+
+        /// <summary>Enumerates the hooks. To maintain thread safety, you must hold a lock on the instance until the enumeration is finished.</summary>
+        public IEnumerator<HttpRequestHandlerHook> GetEnumerator() { return _hooks.GetEnumerator(); }
+
+        /// <summary>Enumerates the hooks. To maintain thread safety, you must hold a lock on the instance until the enumeration is finished.</summary>
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
+
+        /// <summary>Throws a "not implemented" exception.</summary>
+        public void CopyTo(HttpRequestHandlerHook[] array, int arrayIndex) { throw new NotImplementedException(); }
+
+        /// <summary>Returns false.</summary>
+        public bool IsReadOnly { get { return false; } }
+
+        /// <summary>Removes all hooks from this collection.</summary>
+        public void Clear()
+        {
+            lock (this)
+                _hooks.Clear();
+        }
+
+        /// <summary>Adds the specified hook to this collection.</summary>
+        public void Add(HttpRequestHandlerHook item)
+        {
+            lock (this)
+            {
+                int i = _hooks.BinarySearch(item);
+                if (i >= 0)
+                    throw newDuplicateHookException(item);
+                i = ~i;
+                _hooks.Insert(i, item);
+            }
+        }
+
+        /// <summary>Efficiently adds multiple hooks to this collection. Use this method whenever adding multiple hooks at once.</summary>
+        public void AddRange(IEnumerable<HttpRequestHandlerHook> items)
+        {
+            lock (this)
+            {
+                var oldHooks = _hooks;
+                var newHooks = items.ToList();
+                newHooks.Sort();
+                var allHooks = new List<HttpRequestHandlerHook>(oldHooks.Count + newHooks.Count);
+                int oldIndex = 0, newIndex = 0;
+                while (oldIndex < oldHooks.Count || newIndex < newHooks.Count)
+                {
+                    // Take a hook from one of the two lists
+                    var hook = newIndex >= newHooks.Count || (oldIndex < oldHooks.Count && oldHooks[oldIndex].CompareTo(newHooks[newIndex]) < 0)
+                        ? oldHooks[oldIndex++]   // take old if the new ones ran out, or if neither ran out and old is less than new
+                        : newHooks[newIndex++];   // take new if old ones ran out, or if neither ran out and old is not less than new
+                    // Check it's not a dupe
+                    if (allHooks.Count > 0 && hook.Equals(allHooks[allHooks.Count - 1]))
+                        throw newDuplicateHookException(hook);
+                    // Looks ok, add
+                    allHooks.Add(hook);
+                }
+                // There were no duplicates and hence the operation succeeded, so can modify the real list now
+                _hooks = allHooks;
+            }
+        }
+
+        private Exception newDuplicateHookException(HttpRequestHandlerHook hook)
+        {
+            return new InvalidOperationException("There is already a request handler hook with the same match specification; the new one would always be ignored. Hook: " + hook.ToString());
+        }
+
+        /// <summary>Removes a hook with the given match specification.</summary>
+        public bool Remove(HttpRequestHandlerHook item)
+        {
+            lock (this)
+                return _hooks.Remove(item);
         }
     }
 }

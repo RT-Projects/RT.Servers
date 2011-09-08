@@ -50,9 +50,15 @@ namespace RT.Servers
         private HttpServerOptions _opt;
         private HashSet<readingThreadRunner> _activeReadingThreads = new HashSet<readingThreadRunner>();
 
-        /// <summary>Add request handlers here. See the documentation for <see cref="HttpRequestHandlerHook"/> for more information.
-        /// If you wish to make changes to this list while the server is running, take a lock on this list while making the changes.</summary>
-        public List<HttpRequestHandlerHook> RequestHandlerHooks = new List<HttpRequestHandlerHook>();
+        /// <summary>
+        /// Add request handlers here. See the documentation for <see cref="HttpRequestHandlerHook"/> for more information.
+        /// This collection may be safely modified while the server is running.
+        /// </summary>
+        /// <remarks>
+        /// If you modify this collection in one thread and enumerate it in another, you must take a lock on it for the duration of
+        /// the enumeration. Multiple modifications that need to be atomic should also be made inside a lock on the collection.
+        /// </remarks>
+        public HttpRequestHandlerHookCollection RequestHandlerHooks = new HttpRequestHandlerHookCollection();
 
         /// <summary>If set, various debug events will be logged to here.</summary>
         public LoggerBase Log;
@@ -854,22 +860,21 @@ namespace RT.Servers
 
                     string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
 
+                    HttpRequestHandlerHook hook;
                     lock (_server.RequestHandlerHooks)
-                    {
-                        var hook = _server.RequestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
+                        hook = _server.RequestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
                                 (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
                                 (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))));
-                        if (hook == null)
-                            throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._404_NotFound, connectionClose: true));
+                    if (hook == null)
+                        throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._404_NotFound, connectionClose: true));
 
-                        req.Handler = hook.Handler;
-                        req.BaseUrl = hook.Path == null ? "" : hook.Path;
-                        req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
-                        req.Domain = host;
-                        req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
-                        req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
-                        req.Port = port;
-                    }
+                    req.Handler = hook.Handler;
+                    req.BaseUrl = hook.Path == null ? "" : hook.Path;
+                    req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
+                    req.Domain = host;
+                    req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
+                    req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
+                    req.Port = port;
                 }
                 else if (nameLower == "expect")
                 {
