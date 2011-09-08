@@ -194,7 +194,7 @@ namespace RT.Servers
 
         /// <summary>Returns the specified file from the local file system using the specified MIME content type to the client.</summary>
         /// <param name="filePath">Full path and filename of the file to return.</param>
-        /// <param name="contentType">MIME type to use in the Content-Type header.</param>
+        /// <param name="contentType">MIME type to use in the Content-Type header. If null, the first kilobyte will be looked at to choose between the plaintext and the octet-stream content type.</param>
         /// <param name="ifModifiedSince">If specified, a 304 Not Modified will be served if the file's last modified timestamp is at or before this time.</param>
         public static HttpResponse File(string filePath, string contentType, DateTime? ifModifiedSince = null)
         {
@@ -204,6 +204,23 @@ namespace RT.Servers
                 var timestamp = System.IO.File.GetLastWriteTimeUtc(filePath).TruncatedToSeconds();
                 if (timestamp <= ifModifiedSince)
                     return NotModified();
+
+                // Do a limited amount of content-type guessing if necessary.
+                if (contentType == null)
+                {
+                    // Look at the first 1 KB. If there are special control characters in it, it's likely a binary file. Otherwise, output as text/plain.
+                    byte[] buf = new byte[1024];
+                    int bytesRead = fileStream.FillBuffer(buf, 0, buf.Length);
+                    fileStream.Position = 0;
+                    contentType = "text/plain; charset=utf-8";
+                    for (int i = 0; i < bytesRead; i++)
+                        if (buf[i] < 32 && buf[i] != 9 && buf[i] != 10 && buf[i] != 13)
+                        {
+                            contentType = "application/octet-stream";
+                            break;
+                        }
+                }
+
                 return new HttpResponse
                 {
                     Status = HttpStatusCode._200_OK,

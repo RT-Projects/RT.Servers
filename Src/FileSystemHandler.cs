@@ -64,8 +64,9 @@ namespace RT.Servers
             {
                 string piece = urlPieces[i].UrlUnescape();
                 string nextSoFar = soFar + Path.DirectorySeparatorChar + piece;
+                string curPath = p + nextSoFar;
 
-                if (File.Exists(p + nextSoFar))
+                if (File.Exists(curPath))
                 {
                     DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
                     foreach (var fileInf in parentDir.GetFiles(piece))
@@ -77,9 +78,9 @@ namespace RT.Servers
                     if (request.Url != baseUrl + soFarUrl)
                         return HttpResponse.Redirect(baseUrl + soFarUrl);
 
-                    return generateFileResponse(p + nextSoFar, (Options ?? DefaultOptions).GetMimeType, request.Headers.IfModifiedSince);
+                    return HttpResponse.File(curPath, (Options ?? DefaultOptions).GetMimeType(curPath), request.Headers.IfModifiedSince);
                 }
-                else if (Directory.Exists(p + nextSoFar))
+                else if (Directory.Exists(curPath))
                 {
                     DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
                     foreach (var dirInfo in parentDir.GetDirectories(piece))
@@ -104,31 +105,6 @@ namespace RT.Servers
                 return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
             else
                 return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
-        }
-
-        private HttpResponse generateFileResponse(string filePath, Func<string, string> getMimeType, DateTime? ifModifiedSince)
-        {
-            string mimeType = getMimeType(filePath);
-
-            if (mimeType == null)
-            {
-                // Look at the first 1 KB. If there are special control characters in it, it's likely a binary file. Otherwise, output as text/plain.
-                byte[] buf = new byte[1024];
-                int bytesRead;
-                using (var s = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    bytesRead = s.Read(buf, 0, 1024);
-                    s.Close();
-                }
-                bool plainText = true;
-                for (int i = 0; i < bytesRead && plainText; i++)
-                {
-                    if (buf[i] < 32 && buf[i] != 9 && buf[i] != 10 && buf[i] != 13)
-                        plainText = false;
-                }
-                mimeType = plainText ? "text/plain; charset=utf-8" : "application/octet-stream";
-            }
-            return HttpResponse.File(filePath, mimeType, ifModifiedSince);
         }
 
         private static IEnumerable<string> generateDirectoryXml(string localPath, string url, string baseUrl)
