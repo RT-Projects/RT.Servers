@@ -212,8 +212,19 @@ namespace RT.Servers
             {
                 int i = _hooks.BinarySearch(item);
                 if (i >= 0)
-                    throw newDuplicateHookException(item);
-                i = ~i;
+                {
+                    // Need to check for duplicates both up and down from here, because CompareTo == 0 doesn't imply equality.
+                    if (item.Equals(_hooks[i]))
+                        throw newDuplicateHookException(item);
+                    for (int k = i - 1; k >= 0 && _hooks[k].CompareTo(item) == 0; k--)
+                        if (item.Equals(_hooks[k]))
+                            throw newDuplicateHookException(item);
+                    for (i++; i < _hooks.Count && _hooks[i].CompareTo(item) == 0; i++)
+                        if (item.Equals(_hooks[i]))
+                            throw newDuplicateHookException(item);
+                }
+                else
+                    i = ~i;
                 _hooks.Insert(i, item);
             }
         }
@@ -223,25 +234,17 @@ namespace RT.Servers
         {
             lock (this)
             {
-                var oldHooks = _hooks;
-                var newHooks = items.ToList();
-                newHooks.Sort();
-                var allHooks = new List<HttpRequestHandlerHook>(oldHooks.Count + newHooks.Count);
-                int oldIndex = 0, newIndex = 0;
-                while (oldIndex < oldHooks.Count || newIndex < newHooks.Count)
+                var hooks = _hooks.Concat(items).ToList();
+                if (hooks.Count == _hooks.Count)
+                    return;
+                hooks.Sort();
+                for (int i = 1; i < hooks.Count; i++)
                 {
-                    // Take a hook from one of the two lists
-                    var hook = newIndex >= newHooks.Count || (oldIndex < oldHooks.Count && oldHooks[oldIndex].CompareTo(newHooks[newIndex]) < 0)
-                        ? oldHooks[oldIndex++]   // take old if the new ones ran out, or if neither ran out and old is less than new
-                        : newHooks[newIndex++];   // take new if old ones ran out, or if neither ran out and old is not less than new
-                    // Check it's not a dupe
-                    if (allHooks.Count > 0 && hook.Equals(allHooks[allHooks.Count - 1]))
-                        throw newDuplicateHookException(hook);
-                    // Looks ok, add
-                    allHooks.Add(hook);
+                    for (int k = i - 1; k >= 0 && hooks[i].CompareTo(hooks[k]) == 0; k--)
+                        if (hooks[i].Equals(hooks[k]))
+                            throw newDuplicateHookException(hooks[i]);
                 }
-                // There were no duplicates and hence the operation succeeded, so can modify the real list now
-                _hooks = allHooks;
+                _hooks = hooks;
             }
         }
 
