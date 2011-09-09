@@ -239,10 +239,13 @@ namespace RT.Servers
                 if (hooks.Count == _hooks.Count)
                     return;
                 hooks.Sort();
+                var curEqual = 0;
                 for (int i = 1; i < hooks.Count; i++)
                 {
-                    for (int k = i - 1; k >= 0 && hooks[i].CompareTo(hooks[k]) == 0; k--)
-                        if (hooks[i].Equals(hooks[k]))
+                    if (hooks[i].CompareTo(hooks[curEqual]) != 0)
+                        curEqual = i;
+                    for (int j = curEqual; j < i; j++)
+                        if (hooks[i].Equals(hooks[j]))
                             throw newDuplicateHookException(hooks[i]);
                 }
                 _hooks = hooks;
