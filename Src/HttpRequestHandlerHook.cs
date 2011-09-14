@@ -32,7 +32,7 @@ namespace RT.Servers
         public bool SpecificPath { get; private set; }
 
         /// <summary>Gets the request handler for this hook.</summary>
-        public HttpRequestHandler Handler { get; private set; }
+        public Func<HttpRequest, HttpResponse> Handler { get; private set; }
 
         /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
         /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
@@ -45,7 +45,7 @@ namespace RT.Servers
         /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
         /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
         /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(HttpRequestHandler handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
+        public HttpRequestHandlerHook(Func<HttpRequest, HttpResponse> handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
         {
             if (domain == null && specificDomain)
                 throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");

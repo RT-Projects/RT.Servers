@@ -12,13 +12,6 @@ using RT.Util.ExtensionMethods;
 namespace RT.Servers
 {
     /// <summary>
-    /// An HTTP request handler is a function that takes an HTTP request (<see cref="HttpRequest"/>) and returns an HTTP response (<see cref="HttpResponse"/>).
-    /// </summary>
-    /// <param name="request">The HTTP request to be processed.</param>
-    /// <returns>The HTTP response generated from the HTTP request.</returns>
-    public delegate HttpResponse HttpRequestHandler(HttpRequest request);
-
-    /// <summary>
     /// Encapsulates a value with a Q rating, where Q is between 0 and 1. Provides a comparer such
     /// that the values with Q = 1 are the smallest.
     /// </summary>
@@ -378,7 +371,7 @@ namespace RT.Servers
 
     /// <summary>
     /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HttpServer"/> generates this when it receives an
-    /// HTTP request and passes it to the relevant <see cref="HttpRequestHandler"/>.
+    /// HTTP request and passes it to the relevant request handler.
     /// </summary>
     public sealed class HttpRequest
     {
@@ -456,7 +449,7 @@ namespace RT.Servers
         /// <summary>
         /// Contains the delegate function used to handle this request.
         /// </summary>
-        internal HttpRequestHandler Handler;
+        internal Func<HttpRequest, HttpResponse> Handler;
 
         /// <summary>
         /// A default constructor that initialises all fields to their defaults.
