@@ -892,7 +892,12 @@ namespace RT.Servers
                 if (req.Headers.ContentLength.Value > _server.Options.MaxSizePostContent)
                     return HttpResponse.Error(HttpStatusCode._413_RequestEntityTooLarge, connectionClose: true);
                 if (req.Headers.ContentType == null)
-                    return HttpResponse.Error(HttpStatusCode._501_NotImplemented, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", connectionClose: true);
+                {
+                    if (req.Headers.ContentLength != 0)
+                        return HttpResponse.Error(HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", connectionClose: true);
+                    // Tolerate empty bodies without Content-Type (seems that jQuery generates those)
+                    req.Headers.ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
+                }
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here
                 if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
