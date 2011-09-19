@@ -31,6 +31,27 @@ namespace RT.Servers
         public int? IntParameter;
         /// <summary>Some values of the Cache-Control header have a string parameter.</summary>
         public string StringParameter;
+
+        /// <summary>Converts this structure to a valid element for the Cache-Control HTTP header. Throws if a required Int/String Parameter is missing.</summary>
+        public override string ToString()
+        {
+            switch (State)
+            {
+                case HttpCacheControlState.MaxStale: return IntParameter == null ? "max-stale" : ("max-stale=" + IntParameter.Value);
+                case HttpCacheControlState.MinFresh: return "min-fresh=" + IntParameter.Value;
+                case HttpCacheControlState.OnlyIfCached: return "only-if-cached";
+                case HttpCacheControlState.MustRevalidate: return "must-revalidate";
+                case HttpCacheControlState.ProxyRevalidate: return "proxy-revalidate";
+                case HttpCacheControlState.Public: return "public";
+                case HttpCacheControlState.SMaxAge: return "s-maxage=" + IntParameter.Value;
+                case HttpCacheControlState.MaxAge: return "max-age=" + IntParameter.Value;
+                case HttpCacheControlState.NoCache: return StringParameter == null ? "no-cache" : ("no-cache=\"" + StringParameter + "\"");
+                case HttpCacheControlState.NoStore: return "no-store";
+                case HttpCacheControlState.NoTransform: return "no-transform";
+                case HttpCacheControlState.Private: return StringParameter == null ? "private" : ("private=\"" + StringParameter + "\"");
+                default: return null;
+            }
+        }
     }
 
     /// <summary>

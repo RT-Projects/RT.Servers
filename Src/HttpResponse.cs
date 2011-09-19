@@ -63,32 +63,16 @@ namespace RT.Servers
                 b.Append("Age: " + Age.Value + "\r\n");
             if (Allow != null)
                 b.Append("Allow: " + string.Join(", ", Allow));
-            if (CacheControl != null)
+            if (CacheControl != null && CacheControl.Length > 0)
             {
-                var coll = CacheControl.SelectMany(c =>
-                    c.State == HttpCacheControlState.MaxAge && c.IntParameter != null ? new[] { "max-age=" + c.IntParameter.Value } :
-                    c.State == HttpCacheControlState.MaxStale && c.IntParameter != null ? new[] { "max-stale=" + c.IntParameter.Value } :
-                    c.State == HttpCacheControlState.MaxStale ? new[] { "max-stale" } :
-                    c.State == HttpCacheControlState.MinFresh && c.IntParameter != null ? new[] { "min-fresh=" + c.IntParameter.Value } :
-                    c.State == HttpCacheControlState.MustRevalidate ? new[] { "must-revalidate" } :
-                    c.State == HttpCacheControlState.NoCache ? new[] { "no-cache" } :
-                    c.State == HttpCacheControlState.NoStore ? new[] { "no-store" } :
-                    c.State == HttpCacheControlState.NoTransform ? new[] { "no-transform" } :
-                    c.State == HttpCacheControlState.OnlyIfCached ? new[] { "only-if-cached" } :
-                    c.State == HttpCacheControlState.PostCheck && c.IntParameter != null ? new[] { "post-check=" + c.IntParameter.Value } :
-                    c.State == HttpCacheControlState.PreCheck && c.IntParameter != null ? new[] { "pre-check=" + c.IntParameter.Value } :
-                    c.State == HttpCacheControlState.Private && c.StringParameter != null ? new[] { "private=\"" + c.StringParameter + "\"" } :
-                    c.State == HttpCacheControlState.ProxyRevalidate ? new[] { "proxy-revalidate" } :
-                    c.State == HttpCacheControlState.Public ? new[] { "public" } :
-                    c.State == HttpCacheControlState.SMaxAge && c.IntParameter != null ? new[] { "s-maxage=" + c.IntParameter.Value } :
-                    Enumerable.Empty<string>()
-                );
-                if (coll.Any())
+                b.Append("Cache-Control: ");
+                for (int i = 0; i < CacheControl.Length; i++)
                 {
-                    b.Append("Cache-Control: ");
-                    b.Append(coll.JoinString(", "));
-                    b.Append("\r\n");
+                    if (i > 0)
+                        b.Append(", ");
+                    b.Append(CacheControl[i].ToString());
                 }
+                b.Append("\r\n");
             }
             switch (Connection)
             {
