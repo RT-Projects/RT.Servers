@@ -243,7 +243,9 @@ namespace RT.Servers
             while (cookieHeaderValue.Length > 0)
             {
                 string key, value;
-                Match m = Regex.Match(cookieHeaderValue, @"^\s*(\$?\w+)=([^;]*)(;\s*|$)");
+                // permissible characters in cookie names are all characters 0x20-0x7E except: ()<>@,;:\"/[]?={}
+
+                Match m = Regex.Match(cookieHeaderValue, @"^\s*([- !#-'*+.0-9A-Z^-z|~]+)=([^;]*)(;\s*|$)");
                 if (m.Success)
                 {
                     key = m.Groups[1].Value;
@@ -251,7 +253,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    m = Regex.Match(cookieHeaderValue, @"^\s*(\$?\w+)=""([^""]*)""(;\s*|$)");
+                    m = Regex.Match(cookieHeaderValue, @"^\s*([- !#-'*+.0-9A-Z^-z|~]+)=""([^""]*)""\s*(;\s*|$)");
                     if (m.Success)
                     {
                         key = m.Groups[1].Value;
