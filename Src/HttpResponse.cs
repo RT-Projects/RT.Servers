@@ -123,7 +123,7 @@ namespace RT.Servers
             {
                 foreach (Cookie c in SetCookie)
                 {
-                    b.Append("Set-Cookie: " + c.Name + "=" + c.Value);
+                    b.Append("Set-Cookie: " + c.Name + "=" + c.Value.UrlEscape());
                     if (c.Domain != null)
                         b.Append("; domain=" + c.Domain);
                     if (c.Path != null)
