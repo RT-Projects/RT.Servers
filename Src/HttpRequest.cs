@@ -239,7 +239,7 @@ namespace RT.Servers
         /// </summary>
         private static void parseAndAddCookies(ref Dictionary<string, Cookie> cookies, string cookieHeaderValue)
         {
-            Cookie prevCookie = new Cookie { Name = null };
+            Cookie prevCookie = null;
             while (cookieHeaderValue.Length > 0)
             {
                 string key, value;
@@ -280,28 +280,19 @@ namespace RT.Servers
                 if (cookies == null)
                     cookies = new Dictionary<string, Cookie>();
 
-                if (key == "$Path" && prevCookie.Name != null)
-                {
+                if (key == "$Path" && prevCookie != null)
                     prevCookie.Path = value;
-                    cookies[prevCookie.Name] = prevCookie;
-                }
-                else if (key == "$Domain" && prevCookie.Name != null)
-                {
+                else if (key == "$Domain" && prevCookie != null)
                     prevCookie.Domain = value;
-                    cookies[prevCookie.Name] = prevCookie;
-                }
-                else if (key == "$Expires" && prevCookie.Name != null)
+                else if (key == "$Expires" && prevCookie != null)
                 {
                     DateTime output;
                     if (DateTime.TryParse(cookieHeaderValue, out output))
-                    {
                         prevCookie.Expires = output.ToUniversalTime();
-                        cookies[prevCookie.Name] = prevCookie;
-                    }
                 }
                 else
                 {
-                    prevCookie = new Cookie { Name = key, Value = value };
+                    prevCookie = new Cookie { Name = key, Value = value.UrlUnescape() };
                     cookies[key] = prevCookie;
                 }
             }
