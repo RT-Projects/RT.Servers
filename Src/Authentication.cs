@@ -95,7 +95,7 @@ namespace RT.Servers
                                 returnto == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnto },
                                 new P("Please log in to access ", appName, "."),
                                 failed ? new P("The specified username and/or password has not been recognised.") { class_ = "error" } : null,
-                                new HtmlTable(null,
+                                HtmlTag.HtmlTable(null,
                                     new object[] { "Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username } },
                                     new object[] { "Password:", new INPUT { name = "password", type = itype.password, size = 60, value = password } },
                                     new[] { null, new INPUT { value = "Log in", type = itype.submit } }
@@ -174,7 +174,7 @@ namespace RT.Servers
                                 new P("To change your password, type your username, the old password, and then the new password twice."),
                                 loginFailed ? new P("The specified username or old password is wrong.") { class_ = "error" } : null,
                                 passwordsDiffer ? new P("The specified new passwords do not match. You have to type the same new password twice.") { class_ = "error" } : null,
-                                new HtmlTable(null,
+                                HtmlTag.HtmlTable(null,
                                     new object[] { "Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username } },
                                     new object[] { "Old password:", new INPUT { name = "password", type = itype.password, size = 60, value = oldpassword } },
                                     new object[] { "New password (1):", new INPUT { name = "newpassword1", type = itype.password, size = 60, value = newpassword1 } },
