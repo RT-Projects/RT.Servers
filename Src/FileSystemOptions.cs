@@ -70,6 +70,8 @@ namespace RT.Servers
     /// <summary>Controls which style of directory listing should be used by <see cref="FileSystemHandler"/> to list the contents of directories.</summary>
     public enum DirectoryListingStyle
     {
+        /// <summary>Specifies that directory listing is forbidden (returns a 401 Unauthorised error).</summary>
+        Forbidden,
         /// <summary>Specifies a directory style that uses an XML file with an XSL style sheet.</summary>
         XmlPlusXsl
     }

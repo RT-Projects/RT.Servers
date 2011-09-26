@@ -91,7 +91,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    return HttpResponse.Error(HttpStatusCode._404_NotFound, "\"" + baseUrl + soFarUrl + "/" + piece + "\" doesn't exist.");
+                    return HttpResponse.Error(HttpStatusCode._404_NotFound, "“" + baseUrl + soFarUrl + "/" + piece + "” doesn’t exist.");
                 }
                 soFar = nextSoFar;
             }
@@ -101,10 +101,15 @@ namespace RT.Servers
             if (request.Url != trueDirUrl)
                 return HttpResponse.Redirect(trueDirUrl);
 
-            if ((Options ?? DefaultOptions).DirectoryListingStyle == DirectoryListingStyle.XmlPlusXsl)
-                return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
-            else
-                return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
+            switch ((Options ?? DefaultOptions).DirectoryListingStyle)
+            {
+                case DirectoryListingStyle.Forbidden:
+                    return HttpResponse.Error(HttpStatusCode._401_Unauthorized);
+                case DirectoryListingStyle.XmlPlusXsl:
+                    return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
+                default:
+                    return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
+            }
         }
 
         private static IEnumerable<string> generateDirectoryXml(string localPath, string url, string baseUrl)
