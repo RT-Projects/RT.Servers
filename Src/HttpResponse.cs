@@ -257,19 +257,18 @@ namespace RT.Servers
             return Create(content, "text/plain; charset=utf-8", buffered: buffered);
         }
 
-        /// <summary>Redirects the client to a new URL, using the HTTP status code 301 Moved Permanently.</summary>
+        /// <summary>Redirects the client to a new URL, using the HTTP status code 302 Found and making the response uncacheable.</summary>
         /// <param name="newUrl">URL to redirect the client to.</param>
-        /// <param name="uncacheable">If true, Cache-Control headers are added to indicate that the redirect should not be cached by browsers.</param>
-        public static HttpResponse Redirect(string newUrl, bool uncacheable = false)
+        public static HttpResponse Redirect(string newUrl)
         {
             return new HttpResponse
             {
                 Headers = new HttpResponseHeaders
                 {
                     Location = newUrl,
-                    CacheControl = uncacheable ? new[] { new HttpCacheControl { State = HttpCacheControlState.Private }, new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = 0 } } : null
+                    CacheControl = new[] { new HttpCacheControl { State = HttpCacheControlState.Private }, new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = 0 } },
                 },
-                Status = HttpStatusCode._301_MovedPermanently
+                Status = HttpStatusCode._302_Found,
             };
         }
 
