@@ -727,7 +727,7 @@ namespace RT.Servers
                 string[] lines = _headersSoFar.Split(new string[] { "\r\n" }, StringSplitOptions.None);
                 req = new HttpRequest() { OriginIP = _socket.RemoteEndPoint as IPEndPoint };
                 if (lines.Length < 2)
-                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
+                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
 
                 // Parse the method line
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
@@ -739,19 +739,19 @@ namespace RT.Servers
                 else if (line.StartsWith("POST "))
                     req.Method = HttpMethod.Post;
                 else
-                    return HttpResponse.Error(HttpStatusCode._501_NotImplemented, connectionClose: true);
+                    return HttpResponse.Error(HttpStatusCode._501_NotImplemented, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
 
                 if (line.EndsWith(" HTTP/1.0"))
                     req.HttpVersion = HttpProtocolVersion.Http10;
                 else if (line.EndsWith(" HTTP/1.1"))
                     req.HttpVersion = HttpProtocolVersion.Http11;
                 else
-                    return HttpResponse.Error(HttpStatusCode._505_HttpVersionNotSupported, connectionClose: true);
+                    return HttpResponse.Error(HttpStatusCode._505_HttpVersionNotSupported, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
                 req.Url = line.Substring(start, line.Length - start - 9);
                 if (req.Url.Contains(' '))
-                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
+                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
 
@@ -768,7 +768,7 @@ namespace RT.Servers
                         {
                             var match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
                             if (!match.Success)
-                                return HttpResponse.Error(HttpStatusCode._400_BadRequest, connectionClose: true);
+                                return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
                             parseHeader(lastHeader, valueSoFar, req);
                             lastHeader = match.Groups[1].Value;
                             valueSoFar = match.Groups[2].Value.Trim();
@@ -784,7 +784,7 @@ namespace RT.Servers
                 _sw.Log("HandleRequestAfterHeaders() - Parse headers");
 
                 if (req.Handler == null)
-                    return HttpResponse.Error(HttpStatusCode._404_NotFound, connectionClose: true);
+                    return HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
 
                 if (req.Method == HttpMethod.Post)
                 {
@@ -866,7 +866,7 @@ namespace RT.Servers
                                 (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
                                 (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))));
                     if (hook == null)
-                        throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._404_NotFound, connectionClose: true));
+                        throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
 
                     req.Handler = hook.Handler;
                     req.BaseUrl = hook.Path == null ? "" : hook.Path;
@@ -880,7 +880,7 @@ namespace RT.Servers
                 {
                     foreach (var kvp in req.Headers.Expect)
                         if (kvp.Key != "100-continue")
-                            throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._417_ExpectationFailed, connectionClose: true));
+                            throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._417_ExpectationFailed, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
                 }
             }
 
@@ -888,13 +888,13 @@ namespace RT.Servers
             {
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
-                    return HttpResponse.Error(HttpStatusCode._411_LengthRequired, connectionClose: true);
+                    return HttpResponse.Error(HttpStatusCode._411_LengthRequired, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
                 if (req.Headers.ContentLength.Value > _server.Options.MaxSizePostContent)
-                    return HttpResponse.Error(HttpStatusCode._413_RequestEntityTooLarge, connectionClose: true);
+                    return HttpResponse.Error(HttpStatusCode._413_RequestEntityTooLarge, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
                 if (req.Headers.ContentType == null)
                 {
                     if (req.Headers.ContentLength != 0)
-                        return HttpResponse.Error(HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", connectionClose: true);
+                        return HttpResponse.Error(HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
                     // Tolerate empty bodies without Content-Type (seems that jQuery generates those)
                     req.Headers.ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                 }

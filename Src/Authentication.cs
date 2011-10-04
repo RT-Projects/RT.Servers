@@ -83,7 +83,7 @@ namespace RT.Servers
 
         private static HttpResponse loginForm(string returnto, bool failed, string username, string password, string url, string appName)
         {
-            return HttpResponse.Create(
+            return HttpResponse.Html(
                 new HTML(
                     new HEAD(
                         new TITLE("Log in"),
@@ -161,7 +161,7 @@ namespace RT.Servers
 
         private static HttpResponse changePasswordForm(string returnto, bool loginFailed, bool passwordsDiffer, string username, string oldpassword, string newpassword1, string newpassword2, string url)
         {
-            return HttpResponse.Create(
+            return HttpResponse.Html(
                 new HTML(
                     new HEAD(
                         new TITLE("Change Password"),

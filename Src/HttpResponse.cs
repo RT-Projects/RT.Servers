@@ -227,36 +227,6 @@ namespace RT.Servers
             }
         }
 
-        /// <summary>Returns the specified content to the client with the MIME type “text/html; charset=utf-8”.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        public static HttpResponse Html(string content)
-        {
-            return Create(content, "text/html; charset=utf-8");
-        }
-
-        /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/html; charset=utf-8”.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
-        public static HttpResponse Html(IEnumerable<string> content, bool buffered = true)
-        {
-            return Create(content, "text/html; charset=utf-8", buffered: buffered);
-        }
-
-        /// <summary>Returns the specified content to the client with the MIME type “text/plain; charset=utf-8”.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        public static HttpResponse Plaintext(string content)
-        {
-            return Create(content, "text/plain; charset=utf-8");
-        }
-
-        /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/plain; charset=utf-8”.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
-        public static HttpResponse Plaintext(IEnumerable<string> content, bool buffered = true)
-        {
-            return Create(content, "text/plain; charset=utf-8", buffered: buffered);
-        }
-
         /// <summary>Redirects the client to a new URL, using the HTTP status code 302 Found and making the response uncacheable.</summary>
         /// <param name="newUrl">URL to redirect the client to.</param>
         public static HttpResponse Redirect(string newUrl)
@@ -277,18 +247,10 @@ namespace RT.Servers
         /// <param name="statusCode">HTTP status code to use in the response.</param>
         /// <param name="errorMessage">Message to display along with the HTTP status code.</param>
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
-        /// <param name="connectionClose">If true, the “Connection: Close” header is included, causing the HTTP connection to close after this response.
-        /// Otherwise, the behaviour depends on the client’s original request.</param>
         /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code, headers and message.</returns>
-        public static HttpResponse Error(HttpStatusCode statusCode = HttpStatusCode._500_InternalServerError, string errorMessage = null, HttpResponseHeaders headers = null, bool connectionClose = false)
+        public static HttpResponse Error(HttpStatusCode statusCode = HttpStatusCode._500_InternalServerError, string errorMessage = null, HttpResponseHeaders headers = null)
         {
-            if (headers == null)
-                headers = new HttpResponseHeaders();
-
             string statusCodeNameHtml = string.Concat(((int) statusCode).ToString(), " ", statusCode.ToText()).HtmlEscape();
-
-            if (connectionClose)
-                headers.Connection = HttpConnection.Close;
 
             string contentStr =
                 "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">" +
@@ -297,136 +259,8 @@ namespace RT.Servers
             return new HttpResponse
             {
                 Status = statusCode,
-                Headers = headers,
+                Headers = headers ?? new HttpResponseHeaders(),
                 Content = new MemoryStream(contentStr.ToUtf8())
-            };
-        }
-
-        /// <summary>Returns a response to the client consisting of an empty body.</summary>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Create(HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = headers ?? new HttpResponseHeaders()
-            };
-        }
-
-        /// <summary>Returns the specified string to the client, designating it as a specific MIME type.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="contentType">MIME type of the content.</param>
-        /// <param name="statusCode">HTTP status code to use in the response.</param>
-        public static HttpResponse Create(string content, string contentType, HttpStatusCode statusCode = HttpStatusCode._200_OK)
-        {
-            return new HttpResponse
-            {
-                Content = new MemoryStream(content.ToUtf8()),
-                Headers = new HttpResponseHeaders { ContentType = contentType },
-                Status = statusCode
-            };
-        }
-
-        /// <summary>Returns the specified content to the client.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Create(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = headers ?? new HttpResponseHeaders(),
-                Content = new MemoryStream(content.ToUtf8())
-            };
-        }
-
-        /// <summary>Returns the specified content to the client as a single concatenated piece of text.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="contentType">MIME type of the content.</param>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
-        public static HttpResponse Create(IEnumerable<string> content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, bool buffered = true)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = new HttpResponseHeaders() { ContentType = contentType },
-                Content = new DynamicContentStream(content, buffered)
-            };
-        }
-
-        /// <summary>Returns the specified content to the client as a single concatenated piece of text.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
-        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
-        public static HttpResponse Create(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = headers ?? new HttpResponseHeaders(),
-                Content = new DynamicContentStream(content, buffered)
-            };
-        }
-
-        /// <summary>Returns the specified tag content to the client.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="contentType">MIME type of the content.</param>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
-        public static HttpResponse Create(Tag content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, bool buffered = true)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = new HttpResponseHeaders() { ContentType = contentType },
-                Content = new DynamicContentStream(content.ToEnumerable(), buffered)
-            };
-        }
-
-        /// <summary>Returns the specified tag content to the client.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
-        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
-        public static HttpResponse Create(Tag content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = headers ?? new HttpResponseHeaders(),
-                Content = new DynamicContentStream(content.ToEnumerable(), buffered)
-            };
-        }
-
-        /// <summary>Returns the contents of the specified stream to the client.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="contentType">MIME type of the content.</param>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        public static HttpResponse Create(Stream content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = new HttpResponseHeaders() { ContentType = contentType },
-                Content = content
-            };
-        }
-
-        /// <summary>Returns the contents of the specified stream to the client.</summary>
-        /// <param name="content">Content to return to the client.</param>
-        /// <param name="status">HTTP status code to use in the response.</param>
-        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Create(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
-        {
-            return new HttpResponse
-            {
-                Status = status,
-                Headers = headers ?? new HttpResponseHeaders(),
-                Content = content
             };
         }
 
@@ -434,7 +268,7 @@ namespace RT.Servers
         /// <param name="exception">Exception to format.</param>
         public static HttpResponse Exception(Exception exception)
         {
-            return Create(ExceptionAsString(exception, true), HttpStatusCode._500_InternalServerError);
+            return Html(ExceptionAsString(exception, html: true), HttpStatusCode._500_InternalServerError);
         }
 
         /// <summary>Generates a 304 Not Modified response.</summary>
@@ -442,6 +276,149 @@ namespace RT.Servers
         {
             return new HttpResponse { Status = HttpStatusCode._304_NotModified };
         }
+
+        /// <summary>Returns a response to the client consisting of an empty body.</summary>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Empty(HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return new HttpResponse { Status = status, Headers = headers ?? new HttpResponseHeaders() };
+        }
+
+
+        /// <summary>Returns the specified tag content to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
+        public static HttpResponse Html(Tag content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        {
+            return create(new DynamicContentStream(content.ToEnumerable(), buffered), "text/html; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client with the MIME type “text/html; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Html(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content.ToUtf8()), "text/html; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/html; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
+        public static HttpResponse Html(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        {
+            return create(new DynamicContentStream(content, buffered), "text/html; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified byte array to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Html(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content), "text/html; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified stream to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Html(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(content, "text/html; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client with the MIME type “text/plain; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse PlainText(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content.ToUtf8()), "text/plain; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/plain; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
+        public static HttpResponse PlainText(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        {
+            return create(new DynamicContentStream(content, buffered), "text/plain; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified byte array to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse PlainText(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content), "text/plain; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified stream to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse PlainText(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(content, "text/plain; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client with the specified MIME type.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="contentType">MIME type to use. This overrides any MIME type specified in <paramref name="headers"/> (if any).</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Create(string content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content.ToUtf8()), contentType, status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client as a single concatenated piece of text with the specified MIME type.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="contentType">MIME type to use. This overrides any MIME type specified in <paramref name="headers"/> (if any).</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
+        public static HttpResponse Create(IEnumerable<string> content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        {
+            return create(new DynamicContentStream(content, buffered), contentType, status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified byte array to the client with the specified MIME type.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="contentType">MIME type to use. This overrides any MIME type specified in <paramref name="headers"/> (if any).</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Create(byte[] content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content), contentType, status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified stream to the client with the specified MIME type.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="contentType">MIME type to use. This overrides any MIME type specified in <paramref name="headers"/> (if any).</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Create(Stream content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(content, contentType, status, headers);
+        }
+
+
+        private static HttpResponse create(Stream content, string contentType, HttpStatusCode status, HttpResponseHeaders headers)
+        {
+            headers = headers ?? new HttpResponseHeaders();
+            headers.ContentType = contentType;
+            return new HttpResponse { Content = content, Status = status, Headers = headers };
+        }
+
 
         /// <summary>Generates a string describing the <paramref name="exception"/>, including the type, message
         /// and stack trace, and iterating over the InnerException chain.</summary>

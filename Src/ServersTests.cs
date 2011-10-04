@@ -502,13 +502,13 @@ Content-Type: text/html
         private HttpResponse handlerStatic(HttpRequest req)
         {
             // This passes a single string, which causes HttpResponse to UTF8ify it and use a MemoryStream
-            return HttpResponse.Plaintext(generateGetPostFilesOutput(req).JoinString(""));
+            return HttpResponse.PlainText(generateGetPostFilesOutput(req).JoinString(""));
         }
 
         private HttpResponse handlerDynamic(HttpRequest req)
         {
             // This passes an IEnumerable<string>, which causes HttpResponse to use a DynamicContentStream
-            return HttpResponse.Plaintext(generateGetPostFilesOutput(req), buffered: false);
+            return HttpResponse.PlainText(generateGetPostFilesOutput(req), buffered: false);
         }
 
         private HttpResponse handler64KFile(HttpRequest req)
