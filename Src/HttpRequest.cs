@@ -52,6 +52,22 @@ namespace RT.Servers
         }
     }
 
+    /// <summary>Encapsulates a value that can additionally be either weak or not.</summary>
+    public struct WValue<T>
+    {
+        /// <summary>Gets or sets the value.</summary>
+        public T Value { get; set; }
+        /// <summary>Gets or sets whether the value is “weak”.</summary>
+        public bool Weak { get; set; }
+        /// <summary>Constructor.</summary>
+        public WValue(T value, bool weak) : this() { Value = value; Weak = weak; }
+        /// <summary>Override; see base.</summary>
+        public override string ToString()
+        {
+            return (Weak ? "W/" : "") + "\"" + Value.ToString().CLiteralEscape() + "\"";
+        }
+    }
+
     /// <summary>
     /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
     /// </summary>
@@ -70,8 +86,7 @@ namespace RT.Servers
         public Dictionary<string, string> Expect;
         public string Host;
         public DateTime? IfModifiedSince;
-#warning TODO: IfNoneMatch should be a collection, and each value may potentially be a "weak" match.
-        public string IfNoneMatch;
+        public List<WValue<string>> IfNoneMatch;
         public List<HttpRange> Range;
         public string UserAgent;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
@@ -207,7 +222,13 @@ namespace RT.Servers
                 }
                 else if (nameLower == "if-none-match" && IfNoneMatch == null)
                 {
-                    IfNoneMatch = value.ToLowerInvariant();
+                    IfNoneMatch = new List<WValue<string>>();
+                    Match m;
+                    while ((m = Regex.Match(value, @"^\s*((W/)?""((?:\\.|[^""])*)""|(\*))\s*(?:,\s*|$)", RegexOptions.Singleline)).Success)
+                    {
+                        IfNoneMatch.Add(new WValue<string>(m.Groups[3].Value.CLiteralUnescape() + m.Groups[4].Value, m.Groups[2].Length > 0));
+                        value = value.Substring(m.Length);
+                    }
                     recognised = true;
                 }
                 else if (nameLower == "range" && value.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase))

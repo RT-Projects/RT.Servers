@@ -35,7 +35,7 @@ namespace RT.Servers
         public HttpContentRange? ContentRange;
         public string ContentType = "text/html; charset=utf-8";
         public DateTime? Date;
-        public string ETag;
+        public WValue<string> ETag;
         public DateTime? Expires;
         public DateTime? LastModified;
         public string Location; // used in redirection
@@ -107,8 +107,8 @@ namespace RT.Servers
                 b.Append("Content-Type: " + ContentType + "\r\n");
             if (Date != null)
                 b.Append("Date: " + Date.Value.ToUniversalTime().ToString("r" /* = RFC1123 */) + "\r\n");
-            if (ETag != null)
-                b.Append("ETag: " + ETag + "\r\n");
+            if (ETag.Value != null)
+                b.Append("ETag: " + ETag.ToString() + "\r\n");
             if (Expires != null)
                 b.Append("Expires: " + Expires.Value.ToUniversalTime().ToString("r" /* = RFC1123 */) + "\r\n");
             if (LastModified != null)
