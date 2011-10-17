@@ -363,8 +363,11 @@ namespace RT.Servers
                         // See if we can deduce the content length from the stream
                         try
                         {
-                            contentLength = response.Content.Length;
-                            contentLengthKnown = true;
+                            if (response.Content.CanSeek)
+                            {
+                                contentLength = response.Content.Length;
+                                contentLengthKnown = true;
+                            }
                         }
                         catch (NotSupportedException) { }
                     }
