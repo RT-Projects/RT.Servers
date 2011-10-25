@@ -35,7 +35,7 @@ namespace RT.Servers
         public HttpContentRange? ContentRange;
         public string ContentType = "text/html; charset=utf-8";
         public DateTime? Date;
-        public WValue<string> ETag;
+        public WValue ETag;
         public DateTime? Expires;
         public DateTime? LastModified;
         public string Location; // used in redirection

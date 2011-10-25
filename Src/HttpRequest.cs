@@ -52,15 +52,17 @@ namespace RT.Servers
         }
     }
 
-    /// <summary>Encapsulates a value that can additionally be either weak or not.</summary>
-    public struct WValue<T>
+    /// <summary>Encapsulates a string value that can additionally be either weak or not.</summary>
+    public struct WValue
     {
         /// <summary>Gets or sets the value.</summary>
-        public T Value { get; set; }
+        public string Value { get; private set; }
         /// <summary>Gets or sets whether the value is “weak”.</summary>
-        public bool Weak { get; set; }
+        public bool Weak { get; private set; }
+        /// <summary>Constructs a non-weak value.</summary>
+        public WValue(string value) : this() { Value = value; Weak = false; }
         /// <summary>Constructor.</summary>
-        public WValue(T value, bool weak) : this() { Value = value; Weak = weak; }
+        public WValue(string value, bool weak) : this() { Value = value; Weak = weak; }
         /// <summary>Override; see base.</summary>
         public override string ToString()
         {
@@ -86,7 +88,7 @@ namespace RT.Servers
         public Dictionary<string, string> Expect;
         public string Host;
         public DateTime? IfModifiedSince;
-        public List<WValue<string>> IfNoneMatch;
+        public List<WValue> IfNoneMatch;
         public List<HttpRange> Range;
         public string UserAgent;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
@@ -222,11 +224,11 @@ namespace RT.Servers
                 }
                 else if (nameLower == "if-none-match" && IfNoneMatch == null)
                 {
-                    IfNoneMatch = new List<WValue<string>>();
+                    IfNoneMatch = new List<WValue>();
                     Match m;
                     while ((m = Regex.Match(value, @"^\s*((W/)?""((?:\\.|[^""])*)""|(\*))\s*(?:,\s*|$)", RegexOptions.Singleline)).Success)
                     {
-                        IfNoneMatch.Add(new WValue<string>(m.Groups[3].Value.CLiteralUnescape() + m.Groups[4].Value, m.Groups[2].Length > 0));
+                        IfNoneMatch.Add(new WValue(m.Groups[3].Value.CLiteralUnescape() + m.Groups[4].Value, m.Groups[2].Length > 0));
                         value = value.Substring(m.Length);
                     }
                     recognised = true;
