@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using RT.TagSoup;
-using RT.Util.Streams;
 using RT.Util.ExtensionMethods;
-using System.Linq;
+using RT.Util.Streams;
 
 namespace RT.Servers
 {

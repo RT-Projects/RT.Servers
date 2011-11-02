@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using RT.TagSoup.HtmlTags;
+using RT.TagSoup;
 using RT.Util.ExtensionMethods;
 using RT.Util.Xml;
 
