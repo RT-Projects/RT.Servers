@@ -183,10 +183,11 @@ namespace RT.Servers
         {
             try
             {
-                FileStream fileStream = System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 var timestamp = System.IO.File.GetLastWriteTimeUtc(filePath).TruncatedToSeconds();
                 if (timestamp <= ifModifiedSince)
                     return NotModified();
+
+                var fileStream = System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
 
                 // Do a limited amount of content-type guessing if necessary.
                 if (contentType == null)
