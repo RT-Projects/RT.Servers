@@ -17,7 +17,7 @@ namespace RT.Servers
     /// <summary>
     /// Provides an HTTP server.
     /// </summary>
-    public partial class HttpServer
+    public class HttpServer
     {
         /// <summary>
         /// Constructs an HTTP server with the specified configuration settings.
