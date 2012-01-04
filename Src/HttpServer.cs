@@ -786,9 +786,6 @@ namespace RT.Servers
 
                 _sw.Log("HandleRequestAfterHeaders() - Parse headers");
 
-                if (req.Handler == null)
-                    return HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
-
                 if (req.Method == HttpMethod.Post)
                 {
                     // This returns null in case of success and an error response in case of error
@@ -803,7 +800,7 @@ namespace RT.Servers
                 {
                     try
                     {
-                        HttpResponse resp = req.Handler(req);
+                        HttpResponse resp = handleRequest(req.Handlers);
                         _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                         return resp;
                     }
@@ -823,7 +820,7 @@ namespace RT.Servers
                 {
                     try
                     {
-                        HttpResponse resp = req.Handler(req);
+                        HttpResponse resp = handleRequest(req.Handlers);
                         _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                         return resp;
                     }
@@ -833,6 +830,17 @@ namespace RT.Servers
                         return e.Response;
                     }
                 }
+            }
+
+            private HttpResponse handleRequest(Func<HttpResponse>[] handlers)
+            {
+                foreach (var handler in handlers)
+                {
+                    var response = handler();
+                    if (response != null)
+                        return response;
+                }
+                return HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
             }
 
             private void parseHeader(string headerName, string headerValue, HttpRequest req)
@@ -863,21 +871,23 @@ namespace RT.Servers
 
                     string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
 
-                    HttpRequestHandlerHook hook;
                     lock (_server.RequestHandlerHooks)
-                        hook = _server.RequestHandlerHooks.FirstOrDefault(hk => (hk.Port == null || hk.Port.Value == port) &&
+                        req.Handlers = _server.RequestHandlerHooks.Where(hk => (hk.Port == null || hk.Port.Value == port) &&
                                 (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
-                                (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))));
-                    if (hook == null)
+                                (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))))
+                            .Select(hook => Ut.Lambda(() =>
+                            {
+                                req.BaseUrl = hook.Path == null ? "" : hook.Path;
+                                req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
+                                req.Domain = host;
+                                req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
+                                req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
+                                req.Port = port;
+                                return hook.Handler(req);
+                            }))
+                            .ToArray();
+                    if (req.Handlers.Length == 0)
                         throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
-
-                    req.Handler = hook.Handler;
-                    req.BaseUrl = hook.Path == null ? "" : hook.Path;
-                    req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
-                    req.Domain = host;
-                    req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
-                    req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
-                    req.Port = port;
                 }
                 else if (nameLower == "expect")
                 {
