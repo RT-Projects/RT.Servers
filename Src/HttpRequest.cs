@@ -481,7 +481,7 @@ namespace RT.Servers
         public string Url
         {
             get { return _url; }
-            set { _url = value; _getFields = null; }
+            internal set { _url = value; _getFields = null; }
         }
 
         /// <summary>
@@ -493,11 +493,11 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Returns the raw GET query parameters, if any.
+        /// Returns the raw GET query parameters, if any. <see cref="UrlWithoutQuery"/> + <see cref="Query"/> is always equal to <see cref="Url"/>.
         /// </summary>
         public string Query
         {
-            get { return _url.Contains('?') ? _url.Substring(_url.IndexOf('?') + 1) : null; }
+            get { return _url.Contains('?') ? _url.Substring(_url.IndexOf('?')) : ""; }
         }
 
         /// <summary>
