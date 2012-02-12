@@ -409,19 +409,19 @@ namespace RT.Servers
         ///     In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
         ///     would have BaseURL set to <c>/homepages</c> and RestURL set to <c>/a/adam</c>. Note the leading slashes.
         /// </example>
-        public string RestUrl;
+        public string RestUrl { get; internal set; }
 
         /// <summary>
         /// Contains the part of the URL to which the request handler is hooked.
         /// BaseUrl + <see cref="RestUrl"/> is equal to <see cref="Url"/>.
         /// For an example, see <see cref="RestUrl"/>.
         /// </summary>
-        public string BaseUrl;
+        public string BaseUrl { get; internal set; }
 
         /// <summary>
         /// Stores the domain name from the Host header, without the port number.
         /// </summary>
-        public string Domain;
+        public string Domain { get; internal set; }
 
         /// <summary>
         /// Contains the part of the domain that precedes the domain where the request handler is hooked.
@@ -436,23 +436,23 @@ namespace RT.Servers
         ///     In the above example, an HTTP request for the URL <c>http://peter.schmidt.homepages.mydomain.com/</c>
         ///     would have the RestDomain field set to the value <c>peter.schmidt.</c>. Note the trailing dot.
         /// </example>
-        public string RestDomain;
+        public string RestDomain { get; internal set; }
 
         /// <summary>
         /// Contains the part of the domain to which the request handler is hooked.
         /// <see cref="RestDomain"/> + BaseDomain is equal to <see cref="Domain"/>.
         /// For an example see <see cref="RestDomain"/>.
         /// </summary>
-        public string BaseDomain;
+        public string BaseDomain { get; internal set; }
 
         /// <summary>Contains the port number at which the server was contacted for this request.</summary>
-        public int Port;
+        public int Port { get; internal set; }
 
         /// <summary>Specifies the HTTP protocol version that was used for this request.</summary>
-        public HttpProtocolVersion HttpVersion;
+        public HttpProtocolVersion HttpVersion { get; internal set; }
 
         /// <summary>Specifies the HTTP request method (GET, POST or HEAD) that was used for this request.</summary>
-        public HttpMethod Method;
+        public HttpMethod Method { get; internal set; }
 
         /// <summary>Contains the HTTP request headers that were received and understood by <see cref="HttpServer"/>.</summary>
         public HttpRequestHeaders Headers = new HttpRequestHeaders();
@@ -460,7 +460,7 @@ namespace RT.Servers
         /// <summary>
         /// Identifies the client that sent this request.
         /// </summary>
-        public IPEndPoint OriginIP;
+        public IPEndPoint OriginIP { get; internal set; }
 
         /// <summary>
         /// Contains an ordered list of handlers that can handle this request. The reference to this request is "baked in", so they take no parameters.
