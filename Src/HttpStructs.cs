@@ -52,6 +52,9 @@ namespace RT.Servers
                 default: return null;
             }
         }
+
+        /// <summary>Provides a ready-made cache control collection that disables the caching completely.</summary>
+        public static HttpCacheControl[] NoCache { get { return new[] { new HttpCacheControl { State = HttpCacheControlState.NoCache } }; } }
     }
 
     /// <summary>
