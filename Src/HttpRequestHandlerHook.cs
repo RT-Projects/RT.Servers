@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace RT.Servers
@@ -31,10 +30,15 @@ namespace RT.Servers
         /// <see cref="Path"/> (false) or to the specific path only (true).</summary>
         public bool SpecificPath { get; private set; }
 
+        /// <summary>Gets a value indicating whether the handler may be skipped by returning null for response. Skippable handler
+        /// hooks may be identical to other hooks.</summary>
+        public bool Skippable { get; private set; }
+
         /// <summary>Gets the request handler for this hook.</summary>
         public Func<HttpRequest, HttpResponse> Handler { get; private set; }
 
         /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
+        /// <param name="handler">The request handler to hook.</param>
         /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
         /// domain and all subdomains or to this domain only, depending on the value of <paramref name="specificDomain"/>.</param>
         /// <param name="port">If null, the handler applies to all ports; otherwise to the specified port only.</param>
@@ -44,8 +48,8 @@ namespace RT.Servers
         /// <paramref name="domain"/>. Otherwise it applies to the specific domain only.</param>
         /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
         /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
-        /// <param name="handler">The request handler to hook.</param>
-        public HttpRequestHandlerHook(Func<HttpRequest, HttpResponse> handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
+        /// <param name="skippable">If true, the handler may be skipped by returning null for response.</param>
+        public HttpRequestHandlerHook(Func<HttpRequest, HttpResponse> handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false, bool skippable = false)
         {
             if (domain == null && specificDomain)
                 throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
@@ -77,10 +81,16 @@ namespace RT.Servers
             Path = path;
             SpecificDomain = specificDomain;
             SpecificPath = specificPath;
+            Skippable = skippable;
             Handler = handler;
         }
 
-        /// <summary>Compares this hook to another one, and returns a value indicating which hook should be checked for a match first.</summary>
+        /// <summary>
+        /// Compares this hook to another one, and returns a value indicating which hook should be checked for a match first. The
+        /// ordering is such that more specific hooks are checked first, so that they trigger even if a more generic hook encompasses
+        /// the specific one. Hence skippable hooks are treated exactly the same, and are only reordered with respect to the single
+        /// non-skippable hook that matches the exact same request.
+        /// </summary>
         public int CompareTo(HttpRequestHandlerHook other)
         {
             int result;
@@ -109,14 +119,15 @@ namespace RT.Servers
             if (result != 0) return result;
             // match more specific paths before less specific ones (e.g. /blah/thingy/stuff matches before /blah/thingy)
             // match catch-all path last
-            if (this.Path == other.Path)  // includes the case when both are null
-                return 0;
-            if (this.Path != null && other.Path == null)
-                return -1;
-            if (this.Path == null && other.Path != null)
-                return 1;
+            if (this.Path == null)
+                result = other.Path == null ? 0 : 1;
+            else if (other.Path == null)
+                result = -1;
+            else
+                result = -this.Path.Length.CompareTo(other.Path.Length);
+            if (result != 0) return result;
 
-            return -this.Path.Length.CompareTo(other.Path.Length);
+            return -this.Skippable.CompareTo(other.Skippable);
         }
 
         /// <summary>Compares hooks for equality. Two hooks are equal if their match specification is the same; the handler is ignored.</summary>
@@ -128,6 +139,7 @@ namespace RT.Servers
                 if (string.Equals(this.Domain, other.Domain, StringComparison.OrdinalIgnoreCase)) return false;
             if (this.SpecificDomain != other.SpecificDomain) return false;
             if (this.Port != other.Port) return false;
+            if (this.Skippable != other.Skippable) return false;
             return true;
         }
 
@@ -155,9 +167,10 @@ namespace RT.Servers
         /// <summary>Returns a debugging-friendly representation of this hook's match specification.</summary>
         public override string ToString()
         {
-            return (this.Domain == null ? "http://*" : ((this.SpecificDomain ? "http://" : "http://*.") + this.Domain))
-                + (this.Port == null ? "" : (":" + this.Port))
-                + (this.Path == null ? "/*" : (this.Path + (this.SpecificPath ? "" : "/*")));
+            return (Domain == null ? "http://*" : ((SpecificDomain ? "http://" : "http://*.") + Domain))
+                + (Port == null ? "" : (":" + Port))
+                + (Path == null ? "/*" : (Path + (SpecificPath ? "" : "/*")))
+                + (Skippable ? " (skippable)" : "");
         }
     }
 
@@ -212,7 +225,7 @@ namespace RT.Servers
             lock (this)
             {
                 int i = _hooks.BinarySearch(item);
-                if (i >= 0)
+                if (i >= 0 && !item.Skippable) // skippable hooks are never considered duplicates
                 {
                     // Need to check for duplicates both up and down from here, because CompareTo == 0 doesn't imply equality.
                     if (item.Equals(_hooks[i]))
@@ -244,9 +257,10 @@ namespace RT.Servers
                 {
                     if (hooks[i].CompareTo(hooks[curEqual]) != 0)
                         curEqual = i;
-                    for (int j = curEqual; j < i; j++)
-                        if (hooks[i].Equals(hooks[j]))
-                            throw newDuplicateHookException(hooks[i]);
+                    if (!hooks[i].Skippable) // skippable hooks are never considered duplicates
+                        for (int j = curEqual; j < i; j++)
+                            if (hooks[i].Equals(hooks[j]))
+                                throw newDuplicateHookException(hooks[i]);
                 }
                 _hooks = hooks;
             }

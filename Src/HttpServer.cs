@@ -883,7 +883,10 @@ namespace RT.Servers
                                 req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
                                 req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
                                 req.Port = port;
-                                return hook.Handler(req);
+                                var response = hook.Handler(req);
+                                if (response == null && !hook.Skippable)
+                                    throw new InvalidOperationException("The handler of a non-skippable hook returned null. Hook: {0}".Fmt(hook));
+                                return response;
                             }))
                             .ToArray();
                     if (req.Handlers.Length == 0)
