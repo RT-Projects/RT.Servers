@@ -50,15 +50,8 @@ namespace RT.Servers
         private HttpServerOptions _opt;
         private HashSet<readingThreadRunner> _activeReadingThreads = new HashSet<readingThreadRunner>();
 
-        /// <summary>
-        /// Add request handlers here. See the documentation for <see cref="HttpRequestHandlerHook"/> for more information.
-        /// This collection may be safely modified while the server is running.
-        /// </summary>
-        /// <remarks>
-        /// If you modify this collection in one thread and enumerate it in another, you must take a lock on it for the duration of
-        /// the enumeration. Multiple modifications that need to be atomic should also be made inside a lock on the collection.
-        /// </remarks>
-        public HttpRequestHandlerHookCollection RequestHandlerHooks = new HttpRequestHandlerHookCollection();
+        /// <summary>Specifies the HTTP request handler for this server.</summary>
+        public Func<HttpRequest, HttpResponse> Handler { get; set; }
 
         /// <summary>If set, various debug events will be logged to here.</summary>
         public LoggerBase Log;
@@ -146,6 +139,7 @@ namespace RT.Servers
             private HttpServer _server;
             private int _begunReceives = 0;
             private int _endedReceives = 0;
+            private Func<HttpRequest, HttpResponse> _handler;
 
             public Thread CurrentThread;
             public bool Abort;
@@ -156,6 +150,7 @@ namespace RT.Servers
                 _socket = socket;
                 _server = server;
                 _log = log;
+                _handler = _server.Handler ?? (req => HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
 
                 CurrentThread = null;
                 Abort = false;
@@ -800,7 +795,7 @@ namespace RT.Servers
                 {
                     try
                     {
-                        HttpResponse resp = handleRequest(req.Handlers);
+                        HttpResponse resp = _handler(req);
                         _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                         return resp;
                     }
@@ -820,7 +815,7 @@ namespace RT.Servers
                 {
                     try
                     {
-                        HttpResponse resp = handleRequest(req.Handlers);
+                        HttpResponse resp = _handler(req);
                         _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                         return resp;
                     }
@@ -830,17 +825,6 @@ namespace RT.Servers
                         return e.Response;
                     }
                 }
-            }
-
-            private HttpResponse handleRequest(Func<HttpResponse>[] handlers)
-            {
-                foreach (var handler in handlers)
-                {
-                    var response = handler();
-                    if (response != null)
-                        return response;
-                }
-                return HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
             }
 
             private void parseHeader(string headerName, string headerValue, HttpRequest req)
@@ -854,45 +838,7 @@ namespace RT.Servers
                 string nameLower = headerName.ToLowerInvariant();
 
                 // Special actions when we encounter certain headers
-                if (nameLower == "host")
-                {
-                    // For performance reasons, we check if we have a handler for this domain/URL as soon as possible.
-                    // If we find out that we don't, stop processing here and immediately output an error
-                    string host = req.Headers.Host;
-                    int port = 80;
-                    if (host.Contains(":"))
-                    {
-                        int pos = host.IndexOf(":");
-                        if (!int.TryParse(host.Substring(pos + 1), out port))
-                            port = 80;
-                        host = host.Remove(pos);
-                    }
-                    host = host.TrimEnd('.');
-
-                    string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
-
-                    lock (_server.RequestHandlerHooks)
-                        req.Handlers = _server.RequestHandlerHooks.Where(hk => (hk.Port == null || hk.Port.Value == port) &&
-                                (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
-                                (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))))
-                            .Select(hook => Ut.Lambda(() =>
-                            {
-                                req.BaseUrl = hook.Path == null ? "" : hook.Path;
-                                req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
-                                req.Domain = host;
-                                req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
-                                req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
-                                req.Port = port;
-                                var response = hook.Handler(req);
-                                if (response == null && !hook.Skippable)
-                                    throw new InvalidOperationException("The handler of a non-skippable hook returned null. Hook: {0}".Fmt(hook));
-                                return response;
-                            }))
-                            .ToArray();
-                    if (req.Handlers.Length == 0)
-                        throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
-                }
-                else if (nameLower == "expect")
+                if (nameLower == "expect")
                 {
                     foreach (var kvp in req.Headers.Expect)
                         if (kvp.Key != "100-continue")

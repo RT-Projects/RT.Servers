@@ -6,10 +6,10 @@ using System.Text.RegularExpressions;
 namespace RT.Servers
 {
     /// <summary>
-    /// Encapsulates the various ways in which a URL can map to a request handler. Add instances of this class to <see cref="HttpServer.RequestHandlerHooks"/>
-    /// to hook a handler to a specific <see cref="HttpServer"/> instance. This class is immutable.
+    /// Encapsulates ways in which a URL path can map to a request handler. Add instances of this class to a <see cref="UrlPathResolver"/>
+    /// to hook a handler to a URL path or domain. This class is immutable.
     /// </summary>
-    public sealed class HttpRequestHandlerHook : IEquatable<HttpRequestHandlerHook>, IComparable<HttpRequestHandlerHook>
+    public sealed class UrlPathHook : IEquatable<UrlPathHook>, IComparable<UrlPathHook>
     {
         /// <summary>Gets a value indicating what domain name the handler applies to. Returns null if it applies to all domains.</summary>
         /// <seealso cref="SpecificDomain"/>
@@ -37,7 +37,7 @@ namespace RT.Servers
         /// <summary>Gets the request handler for this hook.</summary>
         public Func<HttpRequest, HttpResponse> Handler { get; private set; }
 
-        /// <summary>Initialises a new <see cref="HttpRequestHandlerHook"/>.</summary>
+        /// <summary>Initialises a new <see cref="UrlPathHook"/>.</summary>
         /// <param name="handler">The request handler to hook.</param>
         /// <param name="domain">If null, the handler applies to all domain names. Otherwise, the handler applies to this
         /// domain and all subdomains or to this domain only, depending on the value of <paramref name="specificDomain"/>.</param>
@@ -49,7 +49,7 @@ namespace RT.Servers
         /// <param name="specificPath">If false, the handler applies to all subpaths of the path specified by
         /// <paramref name="path"/>. Otherwise it applies to the specific path only.</param>
         /// <param name="skippable">If true, the handler may be skipped by returning null for response.</param>
-        public HttpRequestHandlerHook(Func<HttpRequest, HttpResponse> handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false, bool skippable = false)
+        public UrlPathHook(Func<HttpRequest, HttpResponse> handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false, bool skippable = false)
         {
             if (domain == null && specificDomain)
                 throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
@@ -91,7 +91,7 @@ namespace RT.Servers
         /// the specific one. Hence skippable hooks are treated exactly the same, and are only reordered with respect to the single
         /// non-skippable hook that matches the exact same request.
         /// </summary>
-        public int CompareTo(HttpRequestHandlerHook other)
+        public int CompareTo(UrlPathHook other)
         {
             int result;
             // "any port" handlers match last; other port handlers match in numeric port order
@@ -131,7 +131,7 @@ namespace RT.Servers
         }
 
         /// <summary>Compares hooks for equality. Two hooks are equal if their match specification is the same; the handler is ignored.</summary>
-        public bool Equals(HttpRequestHandlerHook other)
+        public bool Equals(UrlPathHook other)
         {
             if (this.Path != other.Path) return false;
             if (this.SpecificPath != other.SpecificPath) return false;
@@ -146,7 +146,7 @@ namespace RT.Servers
         /// <summary>Compares hooks for equality. Two hooks are equal if their match specification is the same; the handler is ignored.</summary>
         public override bool Equals(object obj)
         {
-            var other = obj as HttpRequestHandlerHook;
+            var other = obj as UrlPathHook;
             if (other == null)
                 return false; // could be an actual null or just a different type
             return this.Equals(other);
@@ -171,111 +171,6 @@ namespace RT.Servers
                 + (Port == null ? "" : (":" + Port))
                 + (Path == null ? "/*" : (Path + (SpecificPath ? "" : "/*")))
                 + (Skippable ? " (skippable)" : "");
-        }
-    }
-
-    /// <summary>
-    /// Maintains a collection of <see cref="HttpRequestHandlerHook"/> objects, making sure that they are always enumerated
-    /// in a sensible order, ensuring that there are no duplicate hooks added in error, and synchronizing all operations except for
-    /// enumeration.
-    /// </summary>
-    public sealed class HttpRequestHandlerHookCollection : ICollection<HttpRequestHandlerHook>
-    {
-        private List<HttpRequestHandlerHook> _hooks = new List<HttpRequestHandlerHook>();
-
-        /// <summary>Gets a value indicating the number of hooks in this collection.</summary>
-        public int Count
-        {
-            get
-            {
-                lock (this)
-                    return _hooks.Count;
-            }
-        }
-
-        /// <summary>Determines whether a hook with the same match specification is present in this collection.</summary>
-        public bool Contains(HttpRequestHandlerHook item)
-        {
-            lock (this)
-                return _hooks.BinarySearch(item) >= 0;
-        }
-
-        /// <summary>Enumerates the hooks. To maintain thread safety, you must hold a lock on the instance until the enumeration is finished.</summary>
-        public IEnumerator<HttpRequestHandlerHook> GetEnumerator() { return _hooks.GetEnumerator(); }
-
-        /// <summary>Enumerates the hooks. To maintain thread safety, you must hold a lock on the instance until the enumeration is finished.</summary>
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
-
-        /// <summary>Throws a "not implemented" exception.</summary>
-        public void CopyTo(HttpRequestHandlerHook[] array, int arrayIndex) { throw new NotImplementedException(); }
-
-        /// <summary>Returns false.</summary>
-        public bool IsReadOnly { get { return false; } }
-
-        /// <summary>Removes all hooks from this collection.</summary>
-        public void Clear()
-        {
-            lock (this)
-                _hooks.Clear();
-        }
-
-        /// <summary>Adds the specified hook to this collection.</summary>
-        public void Add(HttpRequestHandlerHook item)
-        {
-            lock (this)
-            {
-                int i = _hooks.BinarySearch(item);
-                if (i >= 0 && !item.Skippable) // skippable hooks are never considered duplicates
-                {
-                    // Need to check for duplicates both up and down from here, because CompareTo == 0 doesn't imply equality.
-                    if (item.Equals(_hooks[i]))
-                        throw newDuplicateHookException(item);
-                    for (int k = i - 1; k >= 0 && _hooks[k].CompareTo(item) == 0; k--)
-                        if (item.Equals(_hooks[k]))
-                            throw newDuplicateHookException(item);
-                    for (i++; i < _hooks.Count && _hooks[i].CompareTo(item) == 0; i++)
-                        if (item.Equals(_hooks[i]))
-                            throw newDuplicateHookException(item);
-                }
-                else
-                    i = ~i;
-                _hooks.Insert(i, item);
-            }
-        }
-
-        /// <summary>Efficiently adds multiple hooks to this collection. Use this method whenever adding multiple hooks at once.</summary>
-        public void AddRange(IEnumerable<HttpRequestHandlerHook> items)
-        {
-            lock (this)
-            {
-                var hooks = _hooks.Concat(items).ToList();
-                if (hooks.Count == _hooks.Count)
-                    return;
-                hooks.Sort();
-                var curEqual = 0;
-                for (int i = 1; i < hooks.Count; i++)
-                {
-                    if (hooks[i].CompareTo(hooks[curEqual]) != 0)
-                        curEqual = i;
-                    if (!hooks[i].Skippable) // skippable hooks are never considered duplicates
-                        for (int j = curEqual; j < i; j++)
-                            if (hooks[i].Equals(hooks[j]))
-                                throw newDuplicateHookException(hooks[i]);
-                }
-                _hooks = hooks;
-            }
-        }
-
-        private Exception newDuplicateHookException(HttpRequestHandlerHook hook)
-        {
-            return new InvalidOperationException("There is already a request handler hook with the same match specification; the new one would always be ignored. Hook: " + hook.ToString());
-        }
-
-        /// <summary>Removes a hook with the given match specification.</summary>
-        public bool Remove(HttpRequestHandlerHook item)
-        {
-            lock (this)
-                return _hooks.Remove(item);
         }
     }
 }

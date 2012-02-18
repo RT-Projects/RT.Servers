@@ -223,10 +223,14 @@ Content-Type: text/html
         public void TestSomeRequests()
         {
             var store = 1024 * 1024;
-            HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = store });
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerStatic, path: "/static"));
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handler64KFile, path: "/64kfile"));
+            var instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = store })
+            {
+                Handler = new UrlPathResolver(
+                    new UrlPathHook(handlerStatic, path: "/static"),
+                    new UrlPathHook(handlerDynamic, path: "/dynamic"),
+                    new UrlPathHook(handler64KFile, path: "/64kfile")
+                ).Handle
+            };
             instance.StartListening(false);
 
             try
@@ -334,9 +338,13 @@ Content-Type: text/html
 
             foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
             {
-                instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize });
-                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerStatic, path: "/static"));
-                instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
+                instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize })
+                {
+                    Handler = new UrlPathResolver(
+                        new UrlPathHook(handlerStatic, path: "/static"),
+                        new UrlPathHook(handlerDynamic, path: "/dynamic")
+                    ).Handle
+                };
                 instance.StartListening(false);
 
                 try
@@ -410,8 +418,7 @@ Content-Type: text/html
         [Test]
         public void TestKeepaliveAndChunked()
         {
-            HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port });
-            instance.RequestHandlerHooks.Add(new HttpRequestHandlerHook(handlerDynamic, path: "/dynamic"));
+            HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port }) { Handler = handlerDynamic };
             instance.StartListening(false);
 
             TcpClient cl = new TcpClient();

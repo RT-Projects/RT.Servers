@@ -463,12 +463,6 @@ namespace RT.Servers
         public IPEndPoint OriginIP { get; internal set; }
 
         /// <summary>
-        /// Contains an ordered list of handlers that can handle this request. The reference to this request is "baked in", so they take no parameters.
-        /// Each of these functions sets various URL-related parameters on this request prior to calling the actual handler.
-        /// </summary>
-        internal Func<HttpResponse>[] Handlers;
-
-        /// <summary>
         /// A default constructor that initialises all fields to their defaults.
         /// </summary>
         public HttpRequest()
