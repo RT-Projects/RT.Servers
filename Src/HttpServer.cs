@@ -779,6 +779,23 @@ namespace RT.Servers
                     return e.Response;
                 }
 
+                if (req.Headers.Host == null)
+                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                var colonPos = req.Headers.Host.IndexOf(':');
+                if (colonPos != -1)
+                {
+                    req.Domain = req.Headers.Host.Substring(0, colonPos);
+                    int port;
+                    if (!int.TryParse(req.Headers.Host.Substring(colonPos + 1), out port))
+                        return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    req.Port = port;
+                }
+                else
+                {
+                    req.Domain = req.Headers.Host;
+                    req.Port = 80;
+                }
+
                 _sw.Log("HandleRequestAfterHeaders() - Parse headers");
 
                 if (req.Method == HttpMethod.Post)
