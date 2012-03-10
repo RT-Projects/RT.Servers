@@ -43,7 +43,7 @@ namespace RT.Servers
         /// <see cref="BaseDirectory"/> and the <see cref="HttpRequest.RestUrl"/> of the specified <paramref name="request"/>.</summary>
         /// <param name="request">HTTP request from the client.</param>
         /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer or directory listing.</returns>
-        public HttpResponse Handle(HttpRequest request)
+        public HttpResponse Handle(UrlPathRequest request)
         {
             if (request.RestUrlWithoutQuery == "/$/directory-listing/xsl")
                 return HttpResponse.Create(new MemoryStream(DirectoryListingXsl), "application/xml; charset=utf-8");

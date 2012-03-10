@@ -132,8 +132,7 @@ Content-Type: text/html
                         ContentType = HttpPostContentType.MultipartFormData
                     },
                     Method = HttpMethod.Post,
-                    Url = "/",
-                    RestUrl = "/"
+                    Url = "/"
                 };
 
                 using (Stream f = new SlowStream(new MemoryStream(testCase), cs))

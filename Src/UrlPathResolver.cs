@@ -36,23 +36,23 @@ namespace RT.Servers
             }
             host = host.TrimEnd('.');
 
-            string url = req.Url.Contains('?') ? req.Url.Remove(req.Url.IndexOf('?')) : req.Url;
+            string url = req.UrlWithoutQuery;
 
             Func<HttpResponse>[] applicableHandlers;
             lock (_hooks)
             {
                 applicableHandlers = _hooks.Where(hk => (hk.Port == null || hk.Port.Value == port) &&
                         (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
-                        (hk.Path == null || hk.Path == url || (!hk.SpecificPath && url.StartsWith(hk.Path + "/"))))
+                        (hk.Path == null || hk.Path == req.UrlWithoutQuery || (!hk.SpecificPath && req.Url.StartsWith(hk.Path + "/"))))
                     .Select(hook => Ut.Lambda(() =>
                     {
-                        req.BaseUrl = hook.Path == null ? "" : hook.Path;
-                        req.RestUrl = hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length);
-                        req.Domain = host;
-                        req.BaseDomain = hook.Domain == null ? "" : hook.Domain;
-                        req.RestDomain = hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length);
-                        req.Port = port;
-                        var response = hook.Handler(req);
+                        var response = hook.Handler(new UrlPathRequest(
+                            copyFrom: req,
+                            baseUrl: hook.Path == null ? "" : hook.Path,
+                            restUrl: hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length),
+                            baseDomain: hook.Domain == null ? "" : hook.Domain,
+                            restDomain: hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length)
+                        ));
                         if (response == null && !hook.Skippable)
                             throw new InvalidOperationException("The handler of a non-skippable hook returned null. Hook: {0}".Fmt(hook));
                         return response;

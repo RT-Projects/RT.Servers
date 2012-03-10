@@ -12,65 +12,6 @@ using RT.Util.ExtensionMethods;
 namespace RT.Servers
 {
     /// <summary>
-    /// Encapsulates a value with a Q rating, where Q is between 0 and 1. Provides a comparer such
-    /// that the values with Q = 1 are the smallest.
-    /// </summary>
-    public struct QValue<T> : IComparable<QValue<T>>
-    {
-        private float _q;
-        private T _value;
-
-        /// <summary>Constructs a new q value</summary>
-        public QValue(float q, T value)
-        {
-            _q = q;
-            _value = value;
-        }
-
-        /// <summary>Gets the Q number</summary>
-        public float Q
-        {
-            get { return _q; }
-        }
-
-        /// <summary>Gets the value via an implicit conversion</summary>
-        public static implicit operator T(QValue<T> qv)
-        {
-            return qv._value;
-        }
-
-        /// <summary>Compares the Q number of this Q-value to the other one.</summary>
-        public int CompareTo(QValue<T> other)
-        {
-            return -_q.CompareTo(other._q);
-        }
-
-        /// <summary>Converts the q value to a string.</summary>
-        public override string ToString()
-        {
-            return "{0}; q={1:0.0}".Fmt(_value, _q);
-        }
-    }
-
-    /// <summary>Encapsulates a string value that can additionally be either weak or not.</summary>
-    public struct WValue
-    {
-        /// <summary>Gets or sets the value.</summary>
-        public string Value { get; private set; }
-        /// <summary>Gets or sets whether the value is “weak”.</summary>
-        public bool Weak { get; private set; }
-        /// <summary>Constructs a non-weak value.</summary>
-        public WValue(string value) : this() { Value = value; Weak = false; }
-        /// <summary>Constructor.</summary>
-        public WValue(string value, bool weak) : this() { Value = value; Weak = weak; }
-        /// <summary>Override; see base.</summary>
-        public override string ToString()
-        {
-            return (Weak ? "W/" : "") + "\"" + Value.ToString().CLiteralEscape() + "\"";
-        }
-    }
-
-    /// <summary>
     /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
     /// </summary>
     public sealed class HttpRequestHeaders
@@ -389,7 +330,7 @@ namespace RT.Servers
     /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HttpServer"/> generates this when it receives an
     /// HTTP request and passes it to the relevant request handler.
     /// </summary>
-    public sealed class HttpRequest
+    public class HttpRequest
     {
         private string _url;
         private NameValuesCollection<string> _getFields = null;     // will be initialised by Get getter
@@ -397,53 +338,9 @@ namespace RT.Servers
         private Dictionary<string, FileUpload> _fileUploads = new Dictionary<string, FileUpload>();
 
         /// <summary>
-        /// Contains the part of the URL that follows the path where the request handler is hooked.
-        /// <see cref="BaseUrl"/> + RestUrl is equal to <see cref="Url"/>.
-        /// </summary>
-        /// <example>
-        ///     Consider the following example code:
-        ///     <code>
-        ///         HttpServer MyServer = new HttpServer();
-        ///         MyServer.AddHandler(new HttpRequestHandlerHook { Path = "/homepages", Handler = MyHandler });
-        ///     </code>
-        ///     In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
-        ///     would have BaseURL set to <c>/homepages</c> and RestURL set to <c>/a/adam</c>. Note the leading slashes.
-        /// </example>
-        public string RestUrl { get; internal set; }
-
-        /// <summary>
-        /// Contains the part of the URL to which the request handler is hooked.
-        /// BaseUrl + <see cref="RestUrl"/> is equal to <see cref="Url"/>.
-        /// For an example, see <see cref="RestUrl"/>.
-        /// </summary>
-        public string BaseUrl { get; internal set; }
-
-        /// <summary>
         /// Stores the domain name from the Host header, without the port number.
         /// </summary>
         public string Domain { get; internal set; }
-
-        /// <summary>
-        /// Contains the part of the domain that precedes the domain where the request handler is hooked.
-        /// RestDomain + <see cref="BaseDomain"/> is equal to <see cref="Domain"/>.
-        /// </summary>
-        /// <example>
-        ///     Consider the following example code:
-        ///     <code>
-        ///         HttpServer MyServer = new HttpServer();
-        ///         MyServer.AddHandler(new HttpRequestHandlerHook { Domain = "homepages.mydomain.com", Handler = MyHandler });
-        ///     </code>
-        ///     In the above example, an HTTP request for the URL <c>http://peter.schmidt.homepages.mydomain.com/</c>
-        ///     would have the RestDomain field set to the value <c>peter.schmidt.</c>. Note the trailing dot.
-        /// </example>
-        public string RestDomain { get; internal set; }
-
-        /// <summary>
-        /// Contains the part of the domain to which the request handler is hooked.
-        /// <see cref="RestDomain"/> + BaseDomain is equal to <see cref="Domain"/>.
-        /// For an example see <see cref="RestDomain"/>.
-        /// </summary>
-        public string BaseDomain { get; internal set; }
 
         /// <summary>Contains the port number at which the server was contacted for this request.</summary>
         public int Port { get; internal set; }
@@ -455,18 +352,32 @@ namespace RT.Servers
         public HttpMethod Method { get; internal set; }
 
         /// <summary>Contains the HTTP request headers that were received and understood by <see cref="HttpServer"/>.</summary>
-        public HttpRequestHeaders Headers = new HttpRequestHeaders();
+        public HttpRequestHeaders Headers { get; internal set; }
 
-        /// <summary>
-        /// Identifies the client that sent this request.
-        /// </summary>
+        /// <summary>Identifies the client that sent this request.</summary>
         public IPEndPoint OriginIP { get; internal set; }
 
         /// <summary>
         /// A default constructor that initialises all fields to their defaults.
         /// </summary>
-        public HttpRequest()
+        internal HttpRequest()
         {
+            Headers = new HttpRequestHeaders();
+        }
+
+        /// <summary>Initialises this HTTP request from the specified HTTP request.</summary>
+        protected HttpRequest(HttpRequest copyFrom)
+        {
+            _url = copyFrom._url;
+            _getFields = copyFrom._getFields;
+            _postFields = copyFrom._postFields;
+            _fileUploads = copyFrom._fileUploads;
+            Domain = copyFrom.Domain;
+            Port = copyFrom.Port;
+            HttpVersion = copyFrom.HttpVersion;
+            Method = copyFrom.Method;
+            Headers = copyFrom.Headers;
+            OriginIP = copyFrom.OriginIP;
         }
 
         /// <summary>
@@ -492,14 +403,6 @@ namespace RT.Servers
         public string Query
         {
             get { return _url.Contains('?') ? _url.Substring(_url.IndexOf('?')) : ""; }
-        }
-
-        /// <summary>
-        /// The <see cref="RestUrl"/> (q.v.) of the request, not including the domain or any GET query parameters.
-        /// </summary>
-        public string RestUrlWithoutQuery
-        {
-            get { return RestUrl.Contains('?') ? RestUrl.Remove(RestUrl.IndexOf('?')) : RestUrl; }
         }
 
         /// <summary>
@@ -535,7 +438,7 @@ namespace RT.Servers
         /// <param name="tempPath">The temporary directory to use for file uploads. Default is <see cref="Path.GetTempPath"/>.</param>
         /// <param name="storeFileUploadInFileAtSize">The maximum size (in bytes) at which file uploads are stored in memory.
         /// Any uploads that exceed this limit are written to temporary files on disk. Default is 16 MB.</param>
-        public void ParsePostBody(Stream body, string tempPath = null, long storeFileUploadInFileAtSize = 16*1024*1024)
+        internal void ParsePostBody(Stream body, string tempPath = null, long storeFileUploadInFileAtSize = 16*1024*1024)
         {
             _fileUploads.Clear();
             _postFields.Clear();
@@ -819,7 +722,7 @@ namespace RT.Servers
         /// Decodes a URL-encoded stream of UTF-8 characters into key-value pairs.
         /// </summary>
         /// <param name="s">Stream to read from.</param>
-        public static NameValuesCollection<string> ParseQueryValueParameters(TextReader s)
+        internal static NameValuesCollection<string> ParseQueryValueParameters(TextReader s)
         {
             var ret = new NameValuesCollection<string>();
             if (s == null)
@@ -892,23 +795,29 @@ namespace RT.Servers
             return ret;
         }
 
+        /// <summary>Gets the full URL of the request, including the protocol, domain, port number (if different from 80), path and query parameters.</summary>
+        public string FullUrl
+        {
+            get
+            {
+                return "http://" + Domain + (Port != 80 ? ":" + Port : "") + Url;
+            }
+        }
+
         /// <summary>Applies the specified modifications to this request's URL and returns the result.</summary>
         /// <param name="qsAddOrReplace">Replaces existing query-string parameters, or adds them if they are not already in the URL.</param>
         /// <param name="qsRemove">Removes the specified query-string parameters.</param>
-        /// <param name="restUrl">Replaces the <see cref="RestUrlWithoutQuery"/> with the specified new value.</param>
-        /// <param name="baseUrl">Replaces the <see cref="BaseUrl"/> with the specified new value.</param>
         /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace = null, string[] qsRemove = null, string restUrl = null, string baseUrl = null)
+        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace = null, string[] qsRemove = null)
         {
-            var url = (baseUrl ?? BaseUrl) + (restUrl ?? RestUrlWithoutQuery);
             var newQs = Get
                 .Where(g => (qsRemove == null || !qsRemove.Contains(g.Key)) && (qsAddOrReplace == null || !qsAddOrReplace.ContainsKey(g.Key)))
                 .SelectMany(qs => qs.Value.Select(q => new KeyValuePair<string, string>(qs.Key, q)));
             if (qsAddOrReplace != null)
                 newQs = newQs.Concat(qsAddOrReplace);
             return newQs.Any()
-                ? url + '?' + newQs.Select(q => q.Key.UrlEscape() + '=' + q.Value.UrlEscape()).JoinString("&")
-                : url;
+                ? UrlWithoutQuery + '?' + newQs.Select(q => q.Key.UrlEscape() + '=' + q.Value.UrlEscape()).JoinString("&")
+                : UrlWithoutQuery;
         }
 
         /// <summary>Adds or replaces given query-string parameters in this request's URL and returns the result.</summary>
@@ -918,7 +827,7 @@ namespace RT.Servers
         {
             var dict = new Dictionary<string, string>();
             if ((qsAddOrReplace.Length & 1) == 1)
-                throw new RTException("Expected an even number of strings — one pair per query string argument");
+                throw new ArgumentException("Expected an even number of strings — one pair per query string argument.", "qsAddOrReplace");
             for (int i = 0; i < qsAddOrReplace.Length; i += 2)
                 dict.Add(qsAddOrReplace[i], qsAddOrReplace[i + 1]);
             return SameUrlExcept(dict);
@@ -931,15 +840,6 @@ namespace RT.Servers
         {
             var qs = Get.Keys.Where(predicate).SelectMany(key => Get[key].Select(val => key.UrlEscape() + "=" + val.UrlEscape())).JoinString("&");
             return UrlWithoutQuery + (qs == "" ? "" : "?" + qs);
-        }
-
-        /// <summary>Gets the full URL of the request, including the protocol, domain, port number (if different from 80), path and query parameters.</summary>
-        public string FullUrl
-        {
-            get
-            {
-                return "http://" + Domain + (Port != 80 ? ":" + Port : "") + Url;
-            }
         }
     }
 
