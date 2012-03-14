@@ -40,7 +40,7 @@ namespace RT.Servers
 
         /// <summary>Returns an <see cref="HttpResponse"/> that handles the specified request, either by delivering a file from the local file system,
         /// or by listing the contents of a directory in the local file system. The file or directory served is determined from the configured
-        /// <see cref="BaseDirectory"/> and the <see cref="HttpRequest.RestUrl"/> of the specified <paramref name="request"/>.</summary>
+        /// <see cref="BaseDirectory"/> and the <see cref="UrlPathRequest.RestUrl"/> of the specified <paramref name="request"/>.</summary>
         /// <param name="request">HTTP request from the client.</param>
         /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer or directory listing.</returns>
         public HttpResponse Handle(UrlPathRequest request)

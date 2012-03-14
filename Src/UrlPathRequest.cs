@@ -5,6 +5,10 @@ using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
+    /// <summary>
+    /// Encapsulates an <see cref="HttpRequest"/> which was resolved by the <see cref="UrlPathResolver"/> and contains the
+    /// results of this resolution.
+    /// </summary>
     public sealed class UrlPathRequest : HttpRequest
     {
         /// <summary>Initialises a new UrlPathRequest from the specified HTTP request.</summary>
@@ -19,7 +23,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Contains the part of the URL that follows the path where the request handler is hooked.
-        /// <see cref="BaseUrl"/> + RestUrl is equal to <see cref="Url"/>.
+        /// <see cref="BaseUrl"/> + RestUrl is equal to <see cref="HttpRequest.Url"/>.
         /// </summary>
         /// <example>
         ///     Consider the following example code:
@@ -34,14 +38,14 @@ namespace RT.Servers
 
         /// <summary>
         /// Contains the part of the URL to which the request handler is hooked.
-        /// BaseUrl + <see cref="RestUrl"/> is equal to <see cref="Url"/>.
+        /// BaseUrl + <see cref="RestUrl"/> is equal to <see cref="HttpRequest.Url"/>.
         /// For an example, see <see cref="RestUrl"/>.
         /// </summary>
         public string BaseUrl { get; internal set; }
 
         /// <summary>
         /// Contains the part of the domain that precedes the domain where the request handler is hooked.
-        /// RestDomain + <see cref="BaseDomain"/> is equal to <see cref="Domain"/>.
+        /// RestDomain + <see cref="BaseDomain"/> is equal to <see cref="HttpRequest.Domain"/>.
         /// </summary>
         /// <example>
         ///     Consider the following example code:
@@ -56,7 +60,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Contains the part of the domain to which the request handler is hooked.
-        /// <see cref="RestDomain"/> + BaseDomain is equal to <see cref="Domain"/>.
+        /// <see cref="RestDomain"/> + BaseDomain is equal to <see cref="HttpRequest.Domain"/>.
         /// For an example see <see cref="RestDomain"/>.
         /// </summary>
         public string BaseDomain { get; internal set; }
@@ -75,7 +79,7 @@ namespace RT.Servers
         /// <param name="restUrl">Replaces the <see cref="RestUrlWithoutQuery"/> with the specified new value.</param>
         /// <param name="baseUrl">Replaces the <see cref="BaseUrl"/> with the specified new value.</param>
         /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public new string SameUrlExcept(Dictionary<string, string> qsAddOrReplace = null, string[] qsRemove = null, string restUrl = null, string baseUrl = null)
+        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace = null, string[] qsRemove = null, string restUrl = null, string baseUrl = null)
         {
             var url = (baseUrl ?? BaseUrl) + (restUrl ?? RestUrlWithoutQuery);
             var newQs = Get
