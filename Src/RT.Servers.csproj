@@ -48,6 +48,7 @@
     <Compile Include="HttpServerOptions.cs" />
     <Compile Include="HttpStatusCode.cs" />
     <Compile Include="HttpStructs.cs" />
+    <Compile Include="NameValuesCollection.cs" />
     <Compile Include="UrlPathRequest.cs" />
     <Compile Include="ValueTypes.cs" />
     <Compile Include="Resources.Designer.cs">
