@@ -370,6 +370,80 @@ namespace RT.Servers
             return create(content, "text/plain; charset=utf-8", status, headers);
         }
 
+        /// <summary>Returns the specified content to the client with the MIME type “text/javascript; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse JavaScript(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content.ToUtf8()), "text/javascript; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/javascript; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
+        public static HttpResponse JavaScript(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        {
+            return create(new DynamicContentStream(content, buffered), "text/javascript; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified byte array to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse JavaScript(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content), "text/javascript; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified stream to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse JavaScript(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(content, "text/javascript; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client with the MIME type “text/css; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Css(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content.ToUtf8()), "text/css; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/css; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
+        public static HttpResponse Css(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        {
+            return create(new DynamicContentStream(content, buffered), "text/css; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified byte array to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Css(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(new MemoryStream(content), "text/css; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the contents of the specified stream to the client.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Css(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return create(content, "text/css; charset=utf-8", status, headers);
+        }
+
         /// <summary>Returns the specified content to the client with the specified MIME type.</summary>
         /// <param name="content">Content to return to the client.</param>
         /// <param name="contentType">MIME type to use. This overrides any MIME type specified in <paramref name="headers"/> (if any).</param>
