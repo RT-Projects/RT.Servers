@@ -11,10 +11,10 @@ namespace RT.Servers
     public sealed class HttpServerOptions
     {
         /// <summary>
-        /// The IP address of the interface to which the HTTP server should bind, or null to let the server choose any.
+        /// The IP address of the interface to which the HTTP server should bind, or null to let the server listen on all network interfaces.
         /// </summary>
         /// <remarks>
-        /// This is a string rather than System.Net.IPAddress so that it is reasonably XmlClassifyable. If the contents don’t parse, it is silently reverted to default.
+        /// This is a string rather than System.Net.IPAddress so that it is reasonably XmlClassifyable. If the contents don’t parse, null is assumed.
         /// </remarks>
         public string BindAddress = null;
 

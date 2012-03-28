@@ -120,8 +120,8 @@ namespace RT.Servers
         {
             while (true)
             {
-                Socket socket = _listener.AcceptSocket();
-                HandleRequest(socket, false);
+                var socket = _listener.AcceptSocket();
+                HandleRequest(socket);
             }
         }
 
@@ -165,45 +165,37 @@ namespace RT.Servers
 
                 _headersSoFar = "";
                 _sw.Log("ctor() - end");
+
+                lock (server._activeReadingThreads)
+                    server._activeReadingThreads.Add(this);
+
+                processHeaderData();
             }
 
-            public void Begin()
+            /// <summary>
+            /// Initiates the process of receiving more header data. Invoked whenever the header buffer is empty and we haven’t yet
+            /// received all the headers belonging to the current request.
+            /// </summary>
+            private void receiveMoreHeaderData()
             {
-                // Sometimes the whole lot happens synchronously, probably when the data is already fully received by the OS.
-                // The cleanup method needs the runner to already be in the list of runners. In order for it to get into that list,
-                // the cleanup method must never happen before the constructor returns. Hence, Begin() must be a separate method.
                 try
                 {
-                    beginReceive();
+                    _bufferDataOffset = 0;
+                    Interlocked.Increment(ref _begunReceives);
+                    _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, out _errorCode, moreHeaderDataReceived, null);
                 }
-                finally
+                catch (SocketException)
                 {
-                    // if there are no outstanding endReceives...
-                    if (Interlocked.CompareExchange(ref _begunReceives, 0, 0) <= Interlocked.CompareExchange(ref _endedReceives, 0, 0))
-                        cleanup();
-                }
-            }
-
-            private void beginReceive()
-            {
-                // If there is data left to be processed, process it
-                if (_bufferDataLength > 0)
-                {
-                    processHeaderData();
+                    _socket.Close();
                     return;
                 }
-
-                // Need to receive more data from the socket
-                _bufferDataOffset = 0;
-                try
-                {
-                    _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, out _errorCode, endReceive, this);
-                    Interlocked.Increment(ref _begunReceives);
-                }
-                catch (SocketException) { _socket.Close(); return; }
+                // If the receive completed synchronously then the reader will have been cleaned up already, by the receive callback.
             }
 
-            private void endReceive(IAsyncResult res)
+            /// <summary>
+            /// Completes the process of receiving more header data by passing it on to <see cref="processHeaderData"/> for processing.
+            /// </summary>
+            private void moreHeaderDataReceived(IAsyncResult res)
             {
                 KeepAliveActive = false;
                 Interlocked.Increment(ref _endedReceives);
@@ -213,35 +205,38 @@ namespace RT.Servers
                     if (Abort)
                         return;
                     CurrentThread = Thread.CurrentThread;
-                    try
-                    {
-                        try { _bufferDataLength = _socket.EndReceive(res); }
-                        catch (SocketException) { _socket.Close(); return; }
-                        if (_bufferDataLength == 0 || _errorCode != SocketError.Success) { _socket.Close(); return; }
-                        processHeaderData();
-                    }
-                    finally
-                    {
-                        CurrentThread = null;
-                    }
+                    try { _bufferDataLength = _socket.EndReceive(res); }
+                    catch (SocketException) { _socket.Close(); return; }
+                    if (_bufferDataLength == 0 || _errorCode != SocketError.Success) { _socket.Close(); return; }
+                    processHeaderData();
                 }
                 finally
                 {
+                    CurrentThread = null;
                     // if there are no outstanding endReceives...
                     if (Interlocked.CompareExchange(ref _begunReceives, 0, 0) <= Interlocked.CompareExchange(ref _endedReceives, 0, 0))
-                        cleanup();
+                    {
+                        // ... remove self from the active readers because this is the end of the callback chain
+                        lock (_server._activeReadingThreads)
+                            _server._activeReadingThreads.Remove(this);
+                    }
                 }
             }
 
-            private void cleanup()
-            {
-                lock (_server._activeReadingThreads)
-                    _server._activeReadingThreads.Remove(this);
-            }
-
+            /// <summary>
+            /// Starts or continues processing of any buffered header data. If none are buffered, will instead initiate the reception
+            /// of more header data - a process which, when complete, will call this method to process whatever got received.
+            /// </summary>
             private void processHeaderData()
             {
                 _sw.Log("Start of processHeaderData()");
+
+                // Request more header data if we have none
+                if (_bufferDataLength == 0)
+                {
+                    receiveMoreHeaderData();
+                    return;
+                }
 
                 // Stop soon if the headers become too large.
                 if (_headersSoFar.Length + _bufferDataLength > _server.Options.MaxSizeHeaders)
@@ -250,30 +245,30 @@ namespace RT.Servers
                     return;
                 }
 
+                // Keep receiving more headers until all the headers are received (and, possibly, non-header data that follows)
                 int prevHeadersLength = _headersSoFar.Length;
-                _sw.Log("Stuff before headersSoFar += Encoding.UTF8.GetString(...)");
+                _sw.Log("Stuff before _headersSoFar += Encoding.UTF8.GetString(...)");
                 _headersSoFar += Encoding.UTF8.GetString(_buffer, _bufferDataOffset, _bufferDataLength);
-                _sw.Log("headersSoFar += Encoding.UTF8.GetString(...)");
-                bool cont = _headersSoFar.Contains("\r\n\r\n");
-                _sw.Log(@"HeadersSoFar.Contains(""\r\n\r\n"")");
-                if (!cont)
+                _sw.Log("_headersSoFar += Encoding.UTF8.GetString(...)");
+                int endOfHeadersIndex = _headersSoFar.IndexOf("\r\n\r\n");
+                _sw.Log(@"_headersSoFar.Contains(""\r\n\r\n"")");
+                if (endOfHeadersIndex < 0)
                 {
                     _bufferDataLength = 0;
-                    beginReceive();
+                    receiveMoreHeaderData();
                     return;
                 }
 
-                int sepIndex = _headersSoFar.IndexOf("\r\n\r\n");
                 _sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
-                _headersSoFar = _headersSoFar.Remove(sepIndex);
+                _headersSoFar = _headersSoFar.Remove(endOfHeadersIndex);
                 _sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
 
                 if (_log != null)
                     lock (_log)
                         _log.Info(_headersSoFar);
 
-                _bufferDataOffset += sepIndex + 4 - prevHeadersLength;
-                _bufferDataLength -= sepIndex + 4 - prevHeadersLength;
+                _bufferDataOffset += endOfHeadersIndex + 4 - prevHeadersLength;
+                _bufferDataLength -= endOfHeadersIndex + 4 - prevHeadersLength;
                 _sw.Log("Stuff before HandleRequestAfterHeaders()");
                 HttpRequest originalRequest;
                 HttpResponse response = handleRequestAfterHeaders(out originalRequest);
@@ -313,14 +308,13 @@ namespace RT.Servers
                     _headersSoFar = "";
                     _sw.Log("Reusing connection");
                     KeepAliveActive = true;
-                    beginReceive();
+                    processHeaderData();
                     return;
                 }
 
                 _sw.Log("Stuff before Socket.Close()");
                 _socket.Close();
                 _sw.Log("Socket.Close()");
-                return;
             }
 
             private bool outputResponse(HttpResponse response, HttpRequest originalRequest)
@@ -911,20 +905,17 @@ namespace RT.Servers
 
         /// <summary>
         /// Handles an incoming connection. This function can be used to let the server handle a TCP connection
-        /// that was received by some other component outside the HttpServer class.
+        /// that was received by some other component outside the HttpServer class. Returns immediately and
+        /// does not currently expose any way to wait until the request is handled.
         /// </summary>
         /// <param name="incomingConnection">The incoming connection to process.</param>
-        /// <param name="blocking">If true, returns after the request has been processed and the connection closed.
-        /// If false, spawns a new thread and returns immediately.</param>
-        public void HandleRequest(Socket incomingConnection, bool blocking)
+        public void HandleRequest(Socket incomingConnection)
         {
-            Stats.AddRequestReceived();
+            Stats.AddConnectionReceived();
             if (_opt.IdleTimeout != 0)
                 incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
-            var readingRunner = new readingThreadRunner(incomingConnection, this, Log);
-            lock (_activeReadingThreads)
-                _activeReadingThreads.Add(readingRunner);
-            readingRunner.Begin(); // the runner will remove itself from active threads when it's done
+            // The reader will add itself to the active readers, process the current connection automatically, and remove from active readers when done
+            new readingThreadRunner(incomingConnection, this, Log);
         }
 
         /// <summary>Keeps track of and exposes getters for various server performance statistics.</summary>
@@ -941,12 +932,13 @@ namespace RT.Servers
             /// <summary>Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
             public int KeepAliveHandlers { get { lock (_server._activeReadingThreads) { return _server._activeReadingThreads.Where(r => r.KeepAliveActive).Count(); } } }
 
-            private long _totalRequestsReceived = 0;
-            /// <summary>Gets the total number of requests received by the server.</summary>
-            public long TotalRequestsReceived { get { return Interlocked.Read(ref _totalRequestsReceived); } }
-            /// <summary>Used internally to count a received request.</summary>
-            public void AddRequestReceived() { Interlocked.Increment(ref _totalRequestsReceived); }
+            private long _totalConnectionsReceived = 0;
+            /// <summary>Gets the total number of connections received by the server.</summary>
+            public long TotalConnectionsReceived { get { return Interlocked.Read(ref _totalConnectionsReceived); } }
+            /// <summary>Used internally to count a received connection.</summary>
+            internal void AddConnectionReceived() { Interlocked.Increment(ref _totalConnectionsReceived); }
 
+            // requests received
             // bytes sent/received
             // max open connections
             // request serve time stats
