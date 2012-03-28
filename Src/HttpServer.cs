@@ -125,6 +125,21 @@ namespace RT.Servers
             }
         }
 
+        /// <summary>
+        /// Handles an incoming connection. This function can be used to let the server handle a TCP connection
+        /// that was received by some other component outside the HttpServer class. Returns immediately and
+        /// does not currently expose any way to wait until the request is handled.
+        /// </summary>
+        /// <param name="incomingConnection">The incoming connection to process.</param>
+        public void HandleRequest(Socket incomingConnection)
+        {
+            Stats.AddConnectionReceived();
+            if (_opt.IdleTimeout != 0)
+                incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
+            // The reader will add itself to the active readers, process the current connection automatically, and remove from active readers when done
+            new readingThreadRunner(incomingConnection, this, Log);
+        }
+
         private sealed class readingThreadRunner
         {
             private Socket _socket;
@@ -901,21 +916,6 @@ namespace RT.Servers
                 // null means: no error
                 return null;
             }
-        }
-
-        /// <summary>
-        /// Handles an incoming connection. This function can be used to let the server handle a TCP connection
-        /// that was received by some other component outside the HttpServer class. Returns immediately and
-        /// does not currently expose any way to wait until the request is handled.
-        /// </summary>
-        /// <param name="incomingConnection">The incoming connection to process.</param>
-        public void HandleRequest(Socket incomingConnection)
-        {
-            Stats.AddConnectionReceived();
-            if (_opt.IdleTimeout != 0)
-                incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
-            // The reader will add itself to the active readers, process the current connection automatically, and remove from active readers when done
-            new readingThreadRunner(incomingConnection, this, Log);
         }
 
         /// <summary>Keeps track of and exposes getters for various server performance statistics.</summary>
