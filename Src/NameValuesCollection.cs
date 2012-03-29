@@ -267,8 +267,7 @@ namespace RT.Servers
     /// Represents a collection of values associated with a single key inside a <see cref="NameValuesCollection&lt;T&gt;"/>.
     /// </summary>
     /// <remarks>
-    /// Implemented as a wrapper for a List which can be read-only or read-write as desired. Creation should
-    /// be cheap compared to instantiating a <see cref="ReadOnlyCollection&lt;T&gt;"/>.
+    /// Implemented as a wrapper for a List which can be read-only or read-write as desired.
     /// </remarks>
     /// <typeparam name="TValue">The type of the values stored in this collection.</typeparam>
     public struct ValuesCollection<TValue> : IList<TValue>

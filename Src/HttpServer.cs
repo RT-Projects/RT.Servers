@@ -48,13 +48,10 @@ namespace RT.Servers
         private TcpListener _listener;
         private Thread _listeningThread;
         private HttpServerOptions _opt;
-        private HashSet<readingThreadRunner> _activeReadingThreads = new HashSet<readingThreadRunner>();
+        private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
 
         /// <summary>Specifies the HTTP request handler for this server.</summary>
         public Func<HttpRequest, HttpResponse> Handler { get; set; }
-
-        /// <summary>If set, various debug events will be logged to here.</summary>
-        public LoggerBase Log;
 
         /// <summary>
         /// If the HTTP server is listening in non-blocking mode, shuts the HTTP server down, optionally either
@@ -72,17 +69,17 @@ namespace RT.Servers
             _listener.Stop();
             _listener = null;
 
-            lock (_activeReadingThreads)
+            lock (_activeConnectionHandlers)
             {
                 if (brutal)
-                    foreach (var thr in _activeReadingThreads)
+                    foreach (var thr in _activeConnectionHandlers)
                     {
                         thr.Abort = true;
                         if (thr.CurrentThread != null)
                             thr.CurrentThread.Abort();
                     }
-                _activeReadingThreads.Clear(); // paranoia to be extra safe against leaks
-                _activeReadingThreads = new HashSet<readingThreadRunner>();
+                _activeConnectionHandlers.Clear(); // paranoia to be extra safe against leaks
+                _activeConnectionHandlers = new HashSet<connectionHandler>();
             }
         }
 
@@ -93,7 +90,7 @@ namespace RT.Servers
         /// and never return. In this mode, <see cref="StopListening(bool)"/> cannot be used. If false, a separate thread
         /// is spawned in which the server will handle incoming requests, and control is returned immediately.
         /// You can then use <see cref="StopListening(bool)"/> to abort this thread either gracefully or brutally.</param>
-        public void StartListening(bool blocking)
+        public void StartListening(bool blocking = false)
         {
             if (IsListeningThreadActive && !blocking)
                 return;
@@ -121,36 +118,35 @@ namespace RT.Servers
             while (true)
             {
                 var socket = _listener.AcceptSocket();
-                HandleRequest(socket);
+                HandleConnection(socket);
             }
         }
 
         /// <summary>
         /// Handles an incoming connection. This function can be used to let the server handle a TCP connection
-        /// that was received by some other component outside the HttpServer class. Returns immediately and
-        /// does not currently expose any way to wait until the request is handled.
+        /// that was received by some other component outside the HttpServer class. This function may or may
+        /// not return immediately; some requests may, theoretically, be handled completely synchronously if all
+        /// the data has already been received and buffered by the OS.
         /// </summary>
         /// <param name="incomingConnection">The incoming connection to process.</param>
-        public void HandleRequest(Socket incomingConnection)
+        public void HandleConnection(Socket incomingConnection)
         {
             Stats.AddConnectionReceived();
             if (_opt.IdleTimeout != 0)
                 incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
-            // The reader will add itself to the active readers, process the current connection automatically, and remove from active readers when done
-            new readingThreadRunner(incomingConnection, this, Log);
+            // The reader will add itself to the active connections, process the current connection, and remove from active connections when done
+            new connectionHandler(incomingConnection, this);
         }
 
-        private sealed class readingThreadRunner
+        private sealed class connectionHandler
         {
-            private Socket _socket;
+            public Socket Socket;
+
             private Stopwatch _sw;
-            private string _stopWatchFilename;
             private byte[] _buffer;
             private int _bufferDataOffset;
             private int _bufferDataLength;
             private string _headersSoFar;
-            private SocketError _errorCode;
-            private LoggerBase _log;
             private HttpServer _server;
             private int _begunReceives = 0;
             private int _endedReceives = 0;
@@ -160,17 +156,15 @@ namespace RT.Servers
             public bool Abort;
             public bool KeepAliveActive = false;
 
-            public readingThreadRunner(Socket socket, HttpServer server, LoggerBase log)
+            public connectionHandler(Socket socket, HttpServer server)
             {
-                _socket = socket;
+                Socket = socket;
                 _server = server;
-                _log = log;
                 _handler = _server.Handler ?? (req => HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
 
                 CurrentThread = null;
                 Abort = false;
 
-                _stopWatchFilename = _socket.RemoteEndPoint.ToString().Replace(':', '_');
                 _sw = new StopwatchDummy();
                 _sw.Log("ctor() - Start readingThreadRunner");
 
@@ -181,10 +175,10 @@ namespace RT.Servers
                 _headersSoFar = "";
                 _sw.Log("ctor() - end");
 
-                lock (server._activeReadingThreads)
-                    server._activeReadingThreads.Add(this);
+                lock (server._activeConnectionHandlers)
+                    server._activeConnectionHandlers.Add(this);
 
-                processHeaderData();
+                receiveMoreHeaderData();
             }
 
             /// <summary>
@@ -193,18 +187,42 @@ namespace RT.Servers
             /// </summary>
             private void receiveMoreHeaderData()
             {
+                _bufferDataOffset = 0;
+
+                // Try reading some data synchronously
                 try
                 {
-                    _bufferDataOffset = 0;
-                    Interlocked.Increment(ref _begunReceives);
-                    _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, out _errorCode, moreHeaderDataReceived, null);
+                    int available = Socket.Available;
+                    if (available > 0)
+                        _bufferDataLength = Socket.Receive(_buffer, Math.Min(available, _buffer.Length), SocketFlags.None);
                 }
                 catch (SocketException)
                 {
-                    _socket.Close();
+                    Socket.Close();
+                    cleanupIfDone();
                     return;
                 }
-                // If the receive completed synchronously then the reader will have been cleaned up already, by the receive callback.
+
+                if (_bufferDataLength > 0)
+                {
+                    // Got some data synchronously, so process it
+                    processHeaderData();
+                }
+                else
+                {
+                    // Couldn’t read synchronously, so begin an async read that waits for the data to arrive
+                    try
+                    {
+                        Socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, moreHeaderDataReceived, null);
+                        Interlocked.Increment(ref _begunReceives);
+                    }
+                    catch (SocketException)
+                    {
+                        Socket.Close();
+                    }
+                }
+
+                cleanupIfDone();
             }
 
             /// <summary>
@@ -217,23 +235,35 @@ namespace RT.Servers
 
                 try
                 {
-                    if (Abort)
-                        return;
-                    CurrentThread = Thread.CurrentThread;
-                    try { _bufferDataLength = _socket.EndReceive(res); }
-                    catch (SocketException) { _socket.Close(); return; }
-                    if (_bufferDataLength == 0 || _errorCode != SocketError.Success) { _socket.Close(); return; }
-                    processHeaderData();
+                    _bufferDataLength = Socket.EndReceive(res);
                 }
-                finally
+                catch (SocketException)
                 {
-                    CurrentThread = null;
-                    // if there are no outstanding endReceives...
-                    if (Interlocked.CompareExchange(ref _begunReceives, 0, 0) <= Interlocked.CompareExchange(ref _endedReceives, 0, 0))
+                    Socket.Close();
+                    cleanupIfDone();
+                    return;
+                }
+
+                CurrentThread = Thread.CurrentThread;
+                if (_bufferDataLength == 0)
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                else
+                    processHeaderData();
+                CurrentThread = null;
+                cleanupIfDone();
+            }
+
+            /// <summary>
+            /// Checks whether there are any outstanding async receives, and if not, cleans up / winds down this connection handler.
+            /// </summary>
+            private void cleanupIfDone()
+            {
+                if (Interlocked.CompareExchange(ref _begunReceives, 0, 0) <= Interlocked.CompareExchange(ref _endedReceives, 0, 0))
+                {
+                    // ... remove self from the active readers because this is the end of the callback chain
+                    lock (_server._activeConnectionHandlers)
                     {
-                        // ... remove self from the active readers because this is the end of the callback chain
-                        lock (_server._activeReadingThreads)
-                            _server._activeReadingThreads.Remove(this);
+                        _server._activeConnectionHandlers.Remove(this);
                     }
                 }
             }
@@ -256,7 +286,7 @@ namespace RT.Servers
                 // Stop soon if the headers become too large.
                 if (_headersSoFar.Length + _bufferDataLength > _server.Options.MaxSizeHeaders)
                 {
-                    _socket.Close();
+                    Socket.Close();
                     return;
                 }
 
@@ -274,31 +304,27 @@ namespace RT.Servers
                     return;
                 }
 
-                _sw.Log(@"int SepIndex = HeadersSoFar.IndexOf(""\r\n\r\n"")");
+                _sw.Log(@"int SepIndex = _headersSoFar.IndexOf(""\r\n\r\n"")");
                 _headersSoFar = _headersSoFar.Remove(endOfHeadersIndex);
-                _sw.Log(@"HeadersSoFar = HeadersSoFar.Remove(SepIndex)");
-
-                if (_log != null)
-                    lock (_log)
-                        _log.Info(_headersSoFar);
+                _sw.Log(@"HeadersSoFar = _headersSoFar.Remove(SepIndex)");
 
                 _bufferDataOffset += endOfHeadersIndex + 4 - prevHeadersLength;
                 _bufferDataLength -= endOfHeadersIndex + 4 - prevHeadersLength;
-                _sw.Log("Stuff before HandleRequestAfterHeaders()");
+                _sw.Log("Stuff before handleRequestAfterHeaders()");
                 HttpRequest originalRequest;
                 HttpResponse response = handleRequestAfterHeaders(out originalRequest);
-                _sw.Log("Returned from HandleRequestAfterHeaders()");
+                _sw.Log("Returned from handleRequestAfterHeaders()");
                 bool connectionKeepAlive = false;
                 try
                 {
-                    _sw.Log("Stuff before OutputResponse()");
+                    _sw.Log("Stuff before outputResponse()");
                     connectionKeepAlive = outputResponse(response, originalRequest);
-                    _sw.Log("Returned from OutputResponse()");
+                    _sw.Log("Returned from outputResponse()");
                 }
                 catch (SocketException e)
                 {
                     _sw.Log("Caught SocketException - closing ({0})".Fmt(e.Message));
-                    _socket.Close();
+                    Socket.Close();
                     _sw.Log("Socket.Close()");
                     return;
                 }
@@ -318,23 +344,25 @@ namespace RT.Servers
                     }
                 }
 
-                if (connectionKeepAlive && _socket.Connected)
+                // Reuse connection if allowed; close it otherwise
+                if (connectionKeepAlive && Socket.Connected)
                 {
                     _headersSoFar = "";
                     _sw.Log("Reusing connection");
                     KeepAliveActive = true;
                     processHeaderData();
-                    return;
                 }
-
-                _sw.Log("Stuff before Socket.Close()");
-                _socket.Close();
-                _sw.Log("Socket.Close()");
+                else
+                {
+                    _sw.Log("Stuff before Socket.Close()");
+                    Socket.Close();
+                    _sw.Log("Socket.Close()");
+                }
             }
 
             private bool outputResponse(HttpResponse response, HttpRequest originalRequest)
             {
-                _socket.NoDelay = false;
+                Socket.NoDelay = false;
                 _sw.Log("OutputResponse() - enter");
 
                 try
@@ -510,7 +538,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - finished sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        _socket.Send(resultBuffer);
+                        Socket.Send(resultBuffer);
                         _sw.Log("OutputResponse() - finished sending response");
                         return useKeepAlive;
                     }
@@ -529,7 +557,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        SocketWriterStream str = new SocketWriterStream(_socket);
+                        SocketWriterStream str = new SocketWriterStream(Socket);
                         output = new GZipOutputStream(str);
                         ((GZipOutputStream) output).SetLevel(1);
                     }
@@ -541,7 +569,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        SocketWriterStream str = new ChunkedSocketWriterStream(_socket);
+                        SocketWriterStream str = new ChunkedSocketWriterStream(Socket);
                         output = new GZipOutputStream(str);
                         ((GZipOutputStream) output).SetLevel(1);
                     }
@@ -553,7 +581,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        output = new ChunkedSocketWriterStream(_socket);
+                        output = new ChunkedSocketWriterStream(Socket);
                     }
                     else
                     {
@@ -568,7 +596,7 @@ namespace RT.Servers
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
 
-                        output = new SocketWriterStream(_socket);
+                        output = new SocketWriterStream(Socket);
                     }
 
                     _sw.Log("OutputResponse() - instantiating output stream");
@@ -599,7 +627,7 @@ namespace RT.Servers
                         try
                         {
                             if (response.Content.CanSeek && response.Content.Position == response.Content.Length)
-                                _socket.NoDelay = true;
+                                Socket.NoDelay = true;
                         }
                         catch { }
 
@@ -608,7 +636,7 @@ namespace RT.Servers
                         // If we are actually gzipping and chunking something of known length, we don’t want several TCP packets
                         // of just a few bytes from when the gzip and chunked stream finish. The chunked stream already sets this
                         // back to true just before outputting the real final bit.
-                        _socket.NoDelay = false;
+                        Socket.NoDelay = false;
 
                         _sw.Log("OutputResponse() - Output.Write()");
                     }
@@ -645,10 +673,7 @@ namespace RT.Servers
             {
                 string headersStr = "HTTP/1.1 " + ((int) response.Status) + " " + response.Status.ToText() + "\r\n" +
                     response.Headers.ToString() + "\r\n";
-                if (_log != null)
-                    lock (_log)
-                        _log.Info(headersStr);
-                _socket.Send(Encoding.UTF8.GetBytes(headersStr));
+                Socket.Send(Encoding.UTF8.GetBytes(headersStr));
             }
 
             private void serveSingleRange(HttpResponse response, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
@@ -667,7 +692,7 @@ namespace RT.Servers
                 int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
                 while (bytesRead > 0)
                 {
-                    _socket.Send(buffer, 0, bytesRead, SocketFlags.None);
+                    Socket.Send(buffer, 0, bytesRead, SocketFlags.None);
                     bytesMissing -= bytesRead;
                     bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                 }
@@ -707,24 +732,24 @@ namespace RT.Servers
                 byte[] buffer = new byte[65536];
                 foreach (var r in ranges)
                 {
-                    _socket.Send(new byte[] { (byte) '-', (byte) '-' });
-                    _socket.Send(boundary);
-                    _socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToUtf8());
+                    Socket.Send(new byte[] { (byte) '-', (byte) '-' });
+                    Socket.Send(boundary);
+                    Socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToUtf8());
 
                     response.Content.Seek(r.Key, SeekOrigin.Begin);
                     long bytesMissing = r.Value - r.Key + 1;
                     int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
                     while (bytesRead > 0)
                     {
-                        _socket.Send(buffer, 0, bytesRead, SocketFlags.None);
+                        Socket.Send(buffer, 0, bytesRead, SocketFlags.None);
                         bytesMissing -= bytesRead;
                         bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                     }
-                    _socket.Send(new byte[] { 13, 10 });
+                    Socket.Send(new byte[] { 13, 10 });
                 }
-                _socket.Send(new byte[] { (byte) '-', (byte) '-' });
-                _socket.Send(boundary);
-                _socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
+                Socket.Send(new byte[] { (byte) '-', (byte) '-' });
+                Socket.Send(boundary);
+                Socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
             }
 
             private HttpResponse handleRequestAfterHeaders(out HttpRequest req)
@@ -732,7 +757,7 @@ namespace RT.Servers
                 _sw.Log("HandleRequestAfterHeaders() - enter");
 
                 string[] lines = _headersSoFar.Split(new string[] { "\r\n" }, StringSplitOptions.None);
-                req = new HttpRequest() { OriginIP = _socket.RemoteEndPoint as IPEndPoint };
+                req = new HttpRequest() { OriginIP = Socket.RemoteEndPoint as IPEndPoint };
                 if (lines.Length < 2)
                     return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
 
@@ -810,7 +835,7 @@ namespace RT.Servers
                 if (req.Method == HttpMethod.Post)
                 {
                     // This returns null in case of success and an error response in case of error
-                    var result = processPostContent(_socket, req);
+                    var result = processPostContent(Socket, req);
                     if (result != null)
                         return result;
                 }
@@ -927,10 +952,10 @@ namespace RT.Servers
             public Statistics(HttpServer server) { _server = server; }
 
             /// <summary>Gets the number of connections which are currently alive, that is receiving data, waiting to receive data, or sending a response.</summary>
-            public int ActiveHandlers { get { lock (_server._activeReadingThreads) { return _server._activeReadingThreads.Count; } } }
+            public int ActiveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Count; } } }
 
             /// <summary>Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
-            public int KeepAliveHandlers { get { lock (_server._activeReadingThreads) { return _server._activeReadingThreads.Where(r => r.KeepAliveActive).Count(); } } }
+            public int KeepAliveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Where(r => r.KeepAliveActive).Count(); } } }
 
             private long _totalConnectionsReceived = 0;
             /// <summary>Gets the total number of connections received by the server.</summary>
