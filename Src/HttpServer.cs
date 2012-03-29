@@ -40,13 +40,19 @@ namespace RT.Servers
         public Statistics Stats { get; private set; }
 
         /// <summary>
-        /// Returns a boolean specifying whether the server is currently running (listening) in non-blocking mode.
-        /// If the server is running in blocking mode, this will return false even if it is listening.
+        /// Gets a value indicating whether the server is currently running (listening).
         /// </summary>
-        public bool IsListeningThreadActive { get { return _listeningThread != null && _listeningThread.IsAlive; } }
+        public bool IsListening { get; private set; }
 
-        private TcpListener _listener;
-        private Thread _listeningThread;
+        /// <summary>
+        /// Wait on this event after starting the server to be notified of when the server has fully shut down. This event is
+        /// initially un-signalled; starting the server resets it, stopping the server sets it as soon as the last active connection
+        /// is terminated. Starting the server again before the previous shutdown is complete will result in this event not
+        /// being raised at all for the previous shutdown.
+        /// </summary>
+        public readonly ManualResetEvent ShutdownComplete = new ManualResetEvent(false);
+
+        private Socket _listeningSocket;
         private HttpServerOptions _opt;
         private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
 
@@ -54,72 +60,92 @@ namespace RT.Servers
         public Func<HttpRequest, HttpResponse> Handler { get; set; }
 
         /// <summary>
-        /// If the HTTP server is listening in non-blocking mode, shuts the HTTP server down, optionally either
-        /// gracefully (allowing still-running requests to complete) or brutally (aborting requests no matter where
-        /// they are in their processing). If the HTTP server is listening in blocking mode, nothing happens.
-        /// Blocking or non-blocking mode is determined by the parameter to <see cref="StartListening(bool)"/>.
+        /// Shuts the HTTP server down.
         /// </summary>
-        /// <param name="brutal">If true, requests currently executing in separate threads are aborted brutally.</param>
-        public void StopListening(bool brutal = false)
+        /// <param name="brutal">If true, currently executing requests will have their connections brutally closed. The server will be
+        /// fully shut down when the method returns. If false, all idle keepalive connections will be closed but active connections will
+        /// be allowed to end normally. In this case, use <see cref="ShutdownComplete"/> to wait until all connections are closed.</param>
+        /// <param name="blocking">If true, will only return once all connections are closed. This might take a while unless the
+        /// <paramref name="brutal"/> option is true. Setting this to true is the same as waiting for <see cref="ShutdownComplete"/> indefinitely.</param>
+        public void StopListening(bool brutal = false, bool blocking = false)
         {
-            if (!IsListeningThreadActive)
-                return;
-            _listeningThread.Abort();
-            _listeningThread = null;
-            _listener.Stop();
-            _listener = null;
+            IsListening = false;
+
+            _listeningSocket.Close();
+            _listeningSocket = null;
 
             lock (_activeConnectionHandlers)
             {
-                if (brutal)
-                    foreach (var thr in _activeConnectionHandlers)
+                foreach (var conn in _activeConnectionHandlers.ToArray())
+                {
+                    conn.DisallowKeepAlive = true;
+                    if (brutal || conn.KeepAliveActive)
                     {
-                        thr.Abort = true;
-                        if (thr.CurrentThread != null)
-                            thr.CurrentThread.Abort();
+                        try { conn.Socket.Close(); }
+                        catch (SocketException) { } // the socket may have been closed but not yet removed from active handlers
+                        _activeConnectionHandlers.Remove(conn);
                     }
-                _activeConnectionHandlers.Clear(); // paranoia to be extra safe against leaks
-                _activeConnectionHandlers = new HashSet<connectionHandler>();
+                }
+                if (_activeConnectionHandlers.Count == 0)
+                    ShutdownComplete.Set();
             }
         }
 
         /// <summary>
         /// Runs the HTTP server.
         /// </summary>
-        /// <param name="blocking">If true, the method will continually wait for and handle incoming requests
-        /// and never return. In this mode, <see cref="StopListening(bool)"/> cannot be used. If false, a separate thread
-        /// is spawned in which the server will handle incoming requests, and control is returned immediately.
-        /// You can then use <see cref="StopListening(bool)"/> to abort this thread either gracefully or brutally.</param>
+        /// <param name="blocking">Normally the method will return as soon as the listening socket is open. If this parameter is
+        /// set to true, however, this method will block and only return once the server is fully shut down by a call to <see cref="StopListening"/>.
+        /// This is equivalent to waiting for <see cref="ShutdownComplete"/> indefinitely.</param>
         public void StartListening(bool blocking = false)
         {
-            if (IsListeningThreadActive && !blocking)
+            if (IsListening)
                 return;
-            if (IsListeningThreadActive)
-                StopListening();
+            IsListening = true;
+            ShutdownComplete.Reset();
 
             IPAddress addr;
             if (_opt.BindAddress == null || !IPAddress.TryParse(_opt.BindAddress, out addr))
                 addr = IPAddress.Any;
-            _listener = new TcpListener(addr, _opt.Port);
-            _listener.Start();
+            var ep = new IPEndPoint(addr, _opt.Port);
+
+            _listeningSocket = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            _listeningSocket.Bind(ep);
+
+            try
+            {
+                _listeningSocket.Listen(int.MaxValue);
+            }
+            catch (SocketException)
+            {
+                _listeningSocket.Close();
+                throw;
+            }
+
+            // BeginAccept might complete synchronously as per MSDN, so call it on a pool thread
+            ThreadPool.QueueUserWorkItem(delegate { _listeningSocket.BeginAccept(acceptSocket, null); });
+
             if (blocking)
-            {
-                listeningThreadFunction();
-            }
-            else
-            {
-                _listeningThread = new Thread(listeningThreadFunction);
-                _listeningThread.Start();
-            }
+                ShutdownComplete.WaitOne();
         }
 
-        private void listeningThreadFunction()
+        private void acceptSocket(IAsyncResult result)
         {
-            while (true)
-            {
-                var socket = _listener.AcceptSocket();
+            // Ensure that this callback is really due to a new connection (might be due to listening socket closure)
+            if (!IsListening)
+                return;
+
+            // Get the socket
+            Socket socket = null;
+            try { socket = _listeningSocket.EndAccept(result); }
+            catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
+
+            // Schedule the next socket accept
+            _listeningSocket.BeginAccept(acceptSocket, null);
+
+            // Handle this connection
+            if (socket != null)
                 HandleConnection(socket);
-            }
         }
 
         /// <summary>
@@ -141,6 +167,8 @@ namespace RT.Servers
         private sealed class connectionHandler
         {
             public Socket Socket;
+            public bool DisallowKeepAlive = false;
+            public bool KeepAliveActive = false;
 
             private Stopwatch _sw;
             private byte[] _buffer;
@@ -152,18 +180,11 @@ namespace RT.Servers
             private int _endedReceives = 0;
             private Func<HttpRequest, HttpResponse> _handler;
 
-            public Thread CurrentThread;
-            public bool Abort;
-            public bool KeepAliveActive = false;
-
             public connectionHandler(Socket socket, HttpServer server)
             {
                 Socket = socket;
                 _server = server;
                 _handler = _server.Handler ?? (req => HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
-
-                CurrentThread = null;
-                Abort = false;
 
                 _sw = new StopwatchDummy();
                 _sw.Log("ctor() - Start readingThreadRunner");
@@ -244,12 +265,10 @@ namespace RT.Servers
                     return;
                 }
 
-                CurrentThread = Thread.CurrentThread;
                 if (_bufferDataLength == 0)
                     Socket.Close(); // remote end closed the connection and there are no more bytes to receive
                 else
                     processHeaderData();
-                CurrentThread = null;
                 cleanupIfDone();
             }
 
@@ -264,6 +283,8 @@ namespace RT.Servers
                     lock (_server._activeConnectionHandlers)
                     {
                         _server._activeConnectionHandlers.Remove(this);
+                        if (!_server.IsListening && _server._activeConnectionHandlers.Count == 0)
+                            _server.ShutdownComplete.Set();
                     }
                 }
             }
@@ -345,7 +366,7 @@ namespace RT.Servers
                 }
 
                 // Reuse connection if allowed; close it otherwise
-                if (connectionKeepAlive && Socket.Connected)
+                if (connectionKeepAlive && Socket.Connected && !DisallowKeepAlive)
                 {
                     _headersSoFar = "";
                     _sw.Log("Reusing connection");

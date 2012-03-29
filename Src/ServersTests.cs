@@ -230,7 +230,7 @@ Content-Type: text/html
                     new UrlPathHook(handler64KFile, path: "/64kfile")
                 ).Handle
             };
-            instance.StartListening(false);
+            instance.StartListening();
 
             try
             {
@@ -344,7 +344,7 @@ Content-Type: text/html
                         new UrlPathHook(handlerDynamic, path: "/dynamic")
                     ).Handle
                 };
-                instance.StartListening(false);
+                instance.StartListening();
 
                 try
                 {
@@ -418,7 +418,7 @@ Content-Type: text/html
         public void TestKeepaliveAndChunked()
         {
             HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port }) { Handler = handlerDynamic };
-            instance.StartListening(false);
+            instance.StartListening();
 
             TcpClient cl = new TcpClient();
             cl.Connect("localhost", _port);
