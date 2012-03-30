@@ -178,8 +178,9 @@ namespace RT.Servers
         /// <summary>Returns the specified file from the local file system using the specified MIME content type to the client.</summary>
         /// <param name="filePath">Full path and filename of the file to return.</param>
         /// <param name="contentType">MIME type to use in the Content-Type header. If null, the first kilobyte will be looked at to choose between the plaintext and the octet-stream content type.</param>
+        /// <param name="maxAge">Specifies the value for the CacheControl max-age header on the file served. Set to null to prevent this header being sent.</param>
         /// <param name="ifModifiedSince">If specified, a 304 Not Modified will be served if the file's last modified timestamp is at or before this time.</param>
-        public static HttpResponse File(string filePath, string contentType, DateTime? ifModifiedSince = null)
+        public static HttpResponse File(string filePath, string contentType, int? maxAge = 3600, DateTime? ifModifiedSince = null)
         {
             try
             {
@@ -213,7 +214,7 @@ namespace RT.Servers
                     {
                         ContentType = contentType,
                         LastModified = timestamp,
-                        CacheControl = new[] { new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = 30 * 86400 } },
+                        CacheControl = maxAge == null ? null : new[] { new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = maxAge.Value } },
                     }
                 };
             }

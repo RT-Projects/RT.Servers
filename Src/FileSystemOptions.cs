@@ -65,6 +65,12 @@ namespace RT.Servers
         /// Specifies which way directory listings should be generated. Default is <see cref="RT.Servers.DirectoryListingStyle.XmlPlusXsl"/>.
         /// </summary>
         public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XmlPlusXsl;
+
+        /// <summary>
+        /// Specifies the value for the CacheControl max-age header on the files served by the file system handler, in seconds. Set to null to prevent this header being
+        /// sent, which will result in the browser revalidating the file on every request. The If-Modified-Since mechanism is always used regardless of this setting.
+        /// </summary>
+        public int? MaxAge = 3600;
     }
 
     /// <summary>Controls which style of directory listing should be used by <see cref="FileSystemHandler"/> to list the contents of directories.</summary>

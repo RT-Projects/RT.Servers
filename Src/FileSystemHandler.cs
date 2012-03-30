@@ -78,7 +78,8 @@ namespace RT.Servers
                     if (request.UrlWithoutQuery != baseUrl + soFarUrl)
                         return HttpResponse.Redirect(baseUrl + soFarUrl);
 
-                    return HttpResponse.File(curPath, (Options ?? DefaultOptions).GetMimeType(curPath), request.Headers.IfModifiedSince);
+                    var opts = Options ?? DefaultOptions;
+                    return HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince);
                 }
                 else if (Directory.Exists(curPath))
                 {
