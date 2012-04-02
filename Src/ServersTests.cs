@@ -233,17 +233,24 @@ Content-Type: text/html
                     new UrlPathHook(handlerStatic, path: "/static")
                 ).Handle
             };
-            instance.StartListening();
+            try
+            {
+                instance.StartListening();
 
-            TcpClient cl = new TcpClient();
-            cl.Connect("localhost", _port);
-            cl.ReceiveTimeout = 1000; // 1 sec
-            Socket sck = cl.Client;
-            sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
-            Thread.Sleep(500);
-            instance.StopListening(true); // server must not throw after this; that’s the point of the test
-            Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
-            sck.Close();
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 1000; // 1 sec
+                Socket sck = cl.Client;
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
+                Thread.Sleep(500);
+                instance.StopListening(true); // server must not throw after this; that’s the point of the test
+                Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
+                sck.Close();
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
         }
 
         [Test]
@@ -255,35 +262,42 @@ Content-Type: text/html
                     new UrlPathHook(handlerStatic, path: "/static")
                 ).Handle
             };
-            instance.StartListening();
-
-            TcpClient cl = new TcpClient();
-            cl.Connect("localhost", _port);
-            cl.ReceiveTimeout = 1000; // 1 sec
-            Socket sck = cl.Client;
-            sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
-            Thread.Sleep(500);
-            Assert.AreEqual(1, instance.Stats.ActiveHandlers);
-            sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
-
-            byte[] b = new byte[65536];
-            int bytesRead = sck.Receive(b);
-            Assert.IsTrue(bytesRead > 0);
-            string response = Encoding.UTF8.GetString(b, 0, bytesRead);
-            while (!response.Contains("\r\n\r\n"))
+            try
             {
-                bytesRead = sck.Receive(b);
+                instance.StartListening();
+
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 1000; // 1 sec
+                Socket sck = cl.Client;
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
+                Thread.Sleep(500);
+                Assert.AreEqual(1, instance.Stats.ActiveHandlers);
+                sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
+
+                byte[] b = new byte[65536];
+                int bytesRead = sck.Receive(b);
                 Assert.IsTrue(bytesRead > 0);
-                response += Encoding.UTF8.GetString(b, 0, bytesRead);
+                string response = Encoding.UTF8.GetString(b, 0, bytesRead);
+                while (!response.Contains("\r\n\r\n"))
+                {
+                    bytesRead = sck.Receive(b);
+                    Assert.IsTrue(bytesRead > 0);
+                    response += Encoding.UTF8.GetString(b, 0, bytesRead);
+                }
+                Thread.Sleep(500);
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
+                instance.StopListening();
+                Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
+                sck.Close();
             }
-            Thread.Sleep(500);
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
-            instance.StopListening();
-            Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
-            sck.Close();
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
         }
 
         [Test]
@@ -295,39 +309,46 @@ Content-Type: text/html
                     new UrlPathHook(handlerStatic, path: "/static")
                 ).Handle
             };
-            instance.StartListening();
-
-            TcpClient cl = new TcpClient();
-            cl.Connect("localhost", _port);
-            cl.ReceiveTimeout = 10000; // 10 sec
-            Socket sck = cl.Client;
-            sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
-            Thread.Sleep(500);
-
-            Assert.AreEqual(1, instance.Stats.ActiveHandlers);
-            instance.StopListening();
-            Assert.IsFalse(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(3))); // must still be running 3 seconds later
-            Assert.IsFalse(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(0.1)));
-            Assert.AreEqual(1, instance.Stats.ActiveHandlers);
-
-            // Complete the request
-            sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
-            byte[] b = new byte[65536];
-            int bytesRead = sck.Receive(b);
-            Assert.IsTrue(bytesRead > 0);
-            string response = Encoding.UTF8.GetString(b, 0, bytesRead);
-            while (!response.Contains("\r\n\r\n"))
+            try
             {
-                bytesRead = sck.Receive(b);
-                Assert.IsTrue(bytesRead > 0);
-                response += Encoding.UTF8.GetString(b, 0, bytesRead);
-            }
+                instance.StartListening();
 
-            // Should be shut down now
-            Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
-            sck.Close();
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 10000; // 10 sec
+                Socket sck = cl.Client;
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
+                Thread.Sleep(500);
+
+                Assert.AreEqual(1, instance.Stats.ActiveHandlers);
+                instance.StopListening();
+                Assert.IsFalse(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(3))); // must still be running 3 seconds later
+                Assert.IsFalse(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(0.1)));
+                Assert.AreEqual(1, instance.Stats.ActiveHandlers);
+
+                // Complete the request
+                sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
+                byte[] b = new byte[65536];
+                int bytesRead = sck.Receive(b);
+                Assert.IsTrue(bytesRead > 0);
+                string response = Encoding.UTF8.GetString(b, 0, bytesRead);
+                while (!response.Contains("\r\n\r\n"))
+                {
+                    bytesRead = sck.Receive(b);
+                    Assert.IsTrue(bytesRead > 0);
+                    response += Encoding.UTF8.GetString(b, 0, bytesRead);
+                }
+
+                // Should be shut down now
+                Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
+                sck.Close();
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
         }
 
         [Test]
@@ -339,21 +360,28 @@ Content-Type: text/html
                     new UrlPathHook(handlerStatic, path: "/static")
                 ).Handle
             };
-            instance.StartListening();
+            try
+            {
+                instance.StartListening();
 
-            TcpClient cl = new TcpClient();
-            cl.Connect("localhost", _port);
-            cl.ReceiveTimeout = 10000; // 10 sec
-            Socket sck = cl.Client;
-            sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
-            Thread.Sleep(500);
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 10000; // 10 sec
+                Socket sck = cl.Client;
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
+                Thread.Sleep(500);
 
-            Assert.AreEqual(1, instance.Stats.ActiveHandlers);
-            instance.StopListening(true);
-            Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
-            sck.Close();
+                Assert.AreEqual(1, instance.Stats.ActiveHandlers);
+                instance.StopListening(true);
+                Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
+                sck.Close();
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
         }
 
         [Test, Timeout(5 * 60 * 1000)]
@@ -368,10 +396,10 @@ Content-Type: text/html
                     new UrlPathHook(handler64KFile, path: "/64kfile")
                 ).Handle
             };
-            instance.StartListening();
-
             try
             {
+                instance.StartListening();
+
                 testRequest("GET test #1", store, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 404 Not Found", headers[0]);
@@ -482,10 +510,10 @@ Content-Type: text/html
                         new UrlPathHook(handlerDynamic, path: "/dynamic")
                     ).Handle
                 };
-                instance.StartListening();
-
                 try
                 {
+                    instance.StartListening();
+
                     testRequest("POST test #1", storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: 48\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=y&z=%20&zig=%3D%3d&a[]=1&a%5B%5D=2&%61%5b%5d=3", (headers, content) =>
                     {
                         Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
@@ -556,36 +584,43 @@ Content-Type: text/html
         public void TestKeepaliveAndChunked()
         {
             HttpServer instance = new HttpServer(new HttpServerOptions { Port = _port }) { Handler = handlerDynamic };
-            instance.StartListening();
+            try
+            {
+                instance.StartListening();
 
-            TcpClient cl = new TcpClient();
-            cl.Connect("localhost", _port);
-            cl.ReceiveTimeout = 1000; // 1 sec
-            Socket sck = cl.Client;
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 1000; // 1 sec
+                Socket sck = cl.Client;
 
-            // Run three consecutive requests within the same connection using Connection: Keep-alive
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
-            keepaliveAndChunkedPrivate(sck);
-            Thread.Sleep(300);
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
-            keepaliveAndChunkedPrivate(sck);
-            Thread.Sleep(300);
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
-            keepaliveAndChunkedPrivate(sck);
-            Thread.Sleep(300);
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
+                // Run three consecutive requests within the same connection using Connection: Keep-alive
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
+                keepaliveAndChunkedPrivate(sck);
+                Thread.Sleep(300);
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
+                keepaliveAndChunkedPrivate(sck);
+                Thread.Sleep(300);
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
+                keepaliveAndChunkedPrivate(sck);
+                Thread.Sleep(300);
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
 
-            instance.StopListening();
-            Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1)));
-            Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-            Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
+                instance.StopListening();
+                Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1)));
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
 
-            sck.Close();
-            cl.Close();
+                sck.Close();
+                cl.Close();
+            }
+            finally
+            {
+                instance.StopListening(true);
+            }
         }
 
         private void keepaliveAndChunkedPrivate(Socket sck)

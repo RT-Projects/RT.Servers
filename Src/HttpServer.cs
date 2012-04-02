@@ -71,8 +71,11 @@ namespace RT.Servers
         {
             IsListening = false;
 
-            _listeningSocket.Close();
-            _listeningSocket = null;
+            if (_listeningSocket != null)
+            {
+                _listeningSocket.Close();
+                _listeningSocket = null;
+            }
 
             lock (_activeConnectionHandlers)
             {
