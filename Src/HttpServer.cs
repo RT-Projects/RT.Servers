@@ -256,7 +256,7 @@ namespace RT.Servers
 
                 try
                 {
-                    _bufferDataLength = Socket.EndReceive(res);
+                    _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
                 }
                 catch (SocketException)
                 {
@@ -973,10 +973,10 @@ namespace RT.Servers
             public Statistics(HttpServer server) { _server = server; }
 
             /// <summary>Gets the number of connections which are currently alive, that is receiving data, waiting to receive data, or sending a response.</summary>
-            public int ActiveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Count; } } }
+            public int ActiveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Count(r => !r.KeepAliveActive); } } }
 
             /// <summary>Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
-            public int KeepAliveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Where(r => r.KeepAliveActive).Count(); } } }
+            public int KeepAliveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Count(r => r.KeepAliveActive); } } }
 
             private long _totalConnectionsReceived = 0;
             /// <summary>Gets the total number of connections received by the server.</summary>
