@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -253,6 +254,20 @@ Content-Type: text/html
             }
         }
 
+        private static void readResponseUntilEnd(Socket sck)
+        {
+            byte[] b = new byte[65536];
+            int bytesRead = sck.Receive(b);
+            Assert.IsTrue(bytesRead > 0);
+            string response = Encoding.UTF8.GetString(b, 0, bytesRead);
+            while (!response.Contains("\r\n\r\n"))
+            {
+                bytesRead = sck.Receive(b);
+                Assert.IsTrue(bytesRead > 0);
+                response += Encoding.UTF8.GetString(b, 0, bytesRead);
+            }
+        }
+
         [Test]
         public void TestKeepaliveShutdownGentle()
         {
@@ -275,16 +290,7 @@ Content-Type: text/html
                 Assert.AreEqual(1, instance.Stats.ActiveHandlers);
                 sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
 
-                byte[] b = new byte[65536];
-                int bytesRead = sck.Receive(b);
-                Assert.IsTrue(bytesRead > 0);
-                string response = Encoding.UTF8.GetString(b, 0, bytesRead);
-                while (!response.Contains("\r\n\r\n"))
-                {
-                    bytesRead = sck.Receive(b);
-                    Assert.IsTrue(bytesRead > 0);
-                    response += Encoding.UTF8.GetString(b, 0, bytesRead);
-                }
+                readResponseUntilEnd(sck);
                 Thread.Sleep(500);
                 Assert.AreEqual(0, instance.Stats.ActiveHandlers);
                 Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
@@ -328,16 +334,7 @@ Content-Type: text/html
 
                 // Complete the request
                 sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
-                byte[] b = new byte[65536];
-                int bytesRead = sck.Receive(b);
-                Assert.IsTrue(bytesRead > 0);
-                string response = Encoding.UTF8.GetString(b, 0, bytesRead);
-                while (!response.Contains("\r\n\r\n"))
-                {
-                    bytesRead = sck.Receive(b);
-                    Assert.IsTrue(bytesRead > 0);
-                    response += Encoding.UTF8.GetString(b, 0, bytesRead);
-                }
+                readResponseUntilEnd(sck);
 
                 // Should be shut down now
                 Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
@@ -587,6 +584,9 @@ Content-Type: text/html
             try
             {
                 instance.StartListening();
+                Thread.Sleep(100);
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
 
                 TcpClient cl = new TcpClient();
                 cl.Connect("localhost", _port);
@@ -594,8 +594,6 @@ Content-Type: text/html
                 Socket sck = cl.Client;
 
                 // Run three consecutive requests within the same connection using Connection: Keep-alive
-                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
-                Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
                 keepaliveAndChunkedPrivate(sck);
                 Thread.Sleep(300);
                 Assert.AreEqual(0, instance.Stats.ActiveHandlers);
@@ -711,6 +709,103 @@ Content-Type: text/html
             for (int i = 0; i < 65536; i++)
                 largeFile[i] = (byte) (i % 256);
             return HttpResponse.Create(new MemoryStream(largeFile), "application/octet-stream");
+        }
+
+        [Test]
+        public void TestClientIPAddress()
+        {
+            HttpRequest request = null;
+            var instance = new HttpServer(new HttpServerOptions { Port = _port })
+            {
+                Handler = new UrlPathResolver(
+                    new UrlPathHook(req => { request = req; return HttpResponse.PlainText("blah"); }, path: "/static")
+                ).Handle
+            };
+            try
+            {
+                instance.StartListening();
+
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 1000; // 1 sec
+                Socket sck = cl.Client;
+
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToUtf8());
+                readResponseUntilEnd(sck);
+                Assert.IsTrue(IPAddress.IsLoopback(request.ClientIPAddress));
+                Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
+                Assert.IsNull(request.Headers["X-Forwarded-For"]);
+
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nX-Forwarded-For: 12.34.56.78\r\n\r\n".ToUtf8());
+                readResponseUntilEnd(sck);
+                Assert.AreEqual(IPAddress.Parse("12.34.56.78"), request.ClientIPAddress);
+                Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
+                Assert.IsNotNull(request.Headers["X-Forwarded-For"]);
+
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nX-Forwarded-For: 2a00:1450:400c:c01::93, 12.34.56.78\r\n\r\n".ToUtf8());
+                readResponseUntilEnd(sck);
+                Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.ClientIPAddress);
+                Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.Headers.XForwardedFor[0]);
+                Assert.AreEqual(IPAddress.Parse("12.34.56.78"), request.Headers.XForwardedFor[1]);
+                Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
+
+                sck.Close();
+                instance.StopListening(true); // server must not throw after this; that’s the point of the test
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
+        }
+
+        private IEnumerable<string> enumInfinite()
+        {
+            while (true)
+            {
+                yield return "blah!";
+                Thread.Sleep(0);
+            }
+        }
+
+        [Test]
+        public void TestMidResponseSocketClosure()
+        {
+            var instance = new HttpServer(new HttpServerOptions { Port = _port })
+            {
+                Handler = new UrlPathResolver(
+                    new UrlPathHook(req => { return HttpResponse.Create(enumInfinite(), "text/plain"); }, path: "/infinite")
+                ).Handle
+            };
+            try
+            {
+                instance.StartListening();
+
+                ThreadStart thread = () =>
+                {
+                    for (int i = 0; i < 20; i++)
+                    {
+                        TcpClient cl = new TcpClient();
+                        cl.Connect("localhost", _port);
+                        cl.ReceiveTimeout = 1000; // 1 sec
+                        Socket sck = cl.Client;
+                        sck.Send("GET /infinite-and-slow HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToUtf8());
+                        Thread.Sleep(100);
+                        sck.Close();
+                        GC.Collect();
+                    }
+                };
+                var threads = Enumerable.Range(0, 10).Select(_ => new Thread(thread)).ToList();
+                foreach (var t in threads)
+                    t.Start();
+                foreach (var t in threads)
+                    t.Join();
+
+                instance.StopListening(true); // server must not throw after this; that’s the point of the test
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
         }
     }
 }

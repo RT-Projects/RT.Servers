@@ -14,7 +14,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
     /// </summary>
-    public sealed class HttpRequestHeaders
+    public sealed class HttpRequestHeaders : IDictionary<string, string>
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
         public ListSorted<QValue<string>> Accept;
@@ -32,16 +32,13 @@ namespace RT.Servers
         public List<WValue> IfNoneMatch;
         public List<HttpRange> Range;
         public string UserAgent;
+        public List<IPAddress> XForwardedFor;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
-        /// <summary>Stores all the headers of the request as raw strings.</summary>
-        public List<KeyValuePair<string, string>> AllHeaders = new List<KeyValuePair<string, string>>();
-        /// <summary>Stores the header values pertaining to headers not supported by <see cref="HttpRequestHeaders"/> as raw strings.</summary>
-        public List<KeyValuePair<string, string>> UnrecognisedHeaders = new List<KeyValuePair<string, string>>();
+        private Dictionary<string, string> _headers = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
         /// <summary>
-        /// Parses the specified header and stores it in this instance. If the header is not recognised in any way
-        /// it will be stored in <see cref="UnrecognisedHeaders"/>. Returns whether the header was recognised.
+        /// Parses the specified header and stores it in this instance. Returns whether the header was recognised.
         /// </summary>
         /// <param name="name">Header name</param>
         /// <param name="value">Header value</param>
@@ -184,16 +181,22 @@ namespace RT.Servers
                     UserAgent = value;
                     recognised = true;
                 }
+                else if (nameLower == "x-forwarded-for" && XForwardedFor == null)
+                {
+                    var items = value.Split(',').Select(s => IPAddress.Parse(s.Trim())).ToList();
+                    if (items.Count > 0)
+                    {
+                        XForwardedFor = items;
+                        recognised = true;
+                    }
+                }
             }
             catch
             {
                 // Ignore absolutely any error; the header will just simply be unrecognised.
             }
 
-            AllHeaders.Add(new KeyValuePair<string, string>(name, value));
-
-            if (!recognised)
-                UnrecognisedHeaders.Add(new KeyValuePair<string, string>(name, value));
+            _headers[name] = value;
 
             return recognised;
         }
@@ -324,6 +327,44 @@ namespace RT.Servers
                 parsedList.Add(new QValue<T>(q, converter(nItem)));
             }
         }
+
+        /// <summary>Gets the value of the specified header, or null if such header is not present. Setting is not supported.</summary>
+        public string this[string key]
+        {
+            get
+            {
+                string result;
+                if (_headers.TryGetValue(key, out result))
+                    return result;
+                else
+                    return null;
+            }
+            set { throw new NotSupportedException(); }
+        }
+
+        /// <summary>Returns true.</summary>
+        public bool IsReadOnly { get { return true; } }
+        /// <summary>Gets the number of headers in this collection.</summary>
+        public int Count { get { return _headers.Count; } }
+        /// <summary>Gets all the header names in this collection.</summary>
+        public ICollection<string> Keys { get { return _headers.Keys; } }
+        /// <summary>Gets all the header values in this collection.</summary>
+        public ICollection<string> Values { get { return _headers.Values; } }
+        /// <summary>Determines if the specified header is present in this collection (case-insensitive).</summary>
+        public bool ContainsKey(string key) { return _headers.ContainsKey(key); }
+        /// <summary>Attempts to get the specified header’s value from this collection.</summary>
+        public bool TryGetValue(string key, out string value) { return _headers.TryGetValue(key, out value); }
+        /// <summary>Enumerates all headers and values in this collection.</summary>
+        public IEnumerator<KeyValuePair<string, string>> GetEnumerator() { return _headers.GetEnumerator(); }
+
+        void IDictionary<string, string>.Add(string key, string value) { throw new NotSupportedException(); }
+        bool IDictionary<string, string>.Remove(string key) { throw new NotSupportedException(); }
+        void ICollection<KeyValuePair<string, string>>.Clear() { throw new NotSupportedException(); }
+        void ICollection<KeyValuePair<string, string>>.Add(KeyValuePair<string, string> item) { throw new NotSupportedException(); }
+        bool ICollection<KeyValuePair<string, string>>.Remove(KeyValuePair<string, string> item) { throw new NotSupportedException(); }
+        bool ICollection<KeyValuePair<string, string>>.Contains(KeyValuePair<string, string> item) { throw new NotImplementedException(); }
+        void ICollection<KeyValuePair<string, string>>.CopyTo(KeyValuePair<string, string>[] array, int arrayIndex) { throw new NotImplementedException(); }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
     }
 
     /// <summary>
@@ -355,7 +396,10 @@ namespace RT.Servers
         public HttpRequestHeaders Headers { get; internal set; }
 
         /// <summary>Identifies the client that sent this request.</summary>
-        public IPEndPoint OriginIP { get; internal set; }
+        public IPAddress ClientIPAddress { get; internal set; }
+
+        /// <summary>Identifies the immediate source of this request, which might be the client itself, or an HTTP proxy.</summary>
+        public IPEndPoint SourceIP { get; internal set; }
 
         /// <summary>
         /// A default constructor that initialises all fields to their defaults.
@@ -377,7 +421,8 @@ namespace RT.Servers
             HttpVersion = copyFrom.HttpVersion;
             Method = copyFrom.Method;
             Headers = copyFrom.Headers;
-            OriginIP = copyFrom.OriginIP;
+            ClientIPAddress = copyFrom.ClientIPAddress;
+            SourceIP = copyFrom.SourceIP;
         }
 
         /// <summary>

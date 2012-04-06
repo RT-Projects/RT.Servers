@@ -142,6 +142,7 @@ namespace RT.Servers
             Socket socket = null;
             try { socket = _listeningSocket.EndAccept(result); }
             catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
+            catch (ObjectDisposedException) { }
 
             // Schedule the next socket accept
             _listeningSocket.BeginAccept(acceptSocket, null);
@@ -220,12 +221,8 @@ namespace RT.Servers
                     if (available > 0)
                         _bufferDataLength = Socket.Receive(_buffer, Math.Min(available, _buffer.Length), SocketFlags.None);
                 }
-                catch (SocketException)
-                {
-                    Socket.Close();
-                    cleanupIfDone();
-                    return;
-                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
                 if (_bufferDataLength > 0)
                 {
@@ -240,10 +237,8 @@ namespace RT.Servers
                         Socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, moreHeaderDataReceived, null);
                         Interlocked.Increment(ref _begunReceives);
                     }
-                    catch (SocketException)
-                    {
-                        Socket.Close();
-                    }
+                    catch (SocketException) { Socket.Close(); }
+                    catch (ObjectDisposedException) { }
                 }
 
                 cleanupIfDone();
@@ -261,12 +256,8 @@ namespace RT.Servers
                 {
                     _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
                 }
-                catch (SocketException)
-                {
-                    Socket.Close();
-                    cleanupIfDone();
-                    return;
-                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
                 if (_bufferDataLength == 0)
                     Socket.Close(); // remote end closed the connection and there are no more bytes to receive
@@ -311,6 +302,7 @@ namespace RT.Servers
                 if (_headersSoFar.Length + _bufferDataLength > _server.Options.MaxSizeHeaders)
                 {
                     Socket.Close();
+                    cleanupIfDone();
                     return;
                 }
 
@@ -334,14 +326,14 @@ namespace RT.Servers
 
                 _bufferDataOffset += endOfHeadersIndex + 4 - prevHeadersLength;
                 _bufferDataLength -= endOfHeadersIndex + 4 - prevHeadersLength;
-                _sw.Log("Stuff before handleRequestAfterHeaders()");
                 HttpRequest originalRequest;
-                HttpResponse response = handleRequestAfterHeaders(out originalRequest);
-                _sw.Log("Returned from handleRequestAfterHeaders()");
+                HttpResponse response = null;
                 bool connectionKeepAlive = false;
                 try
                 {
-                    _sw.Log("Stuff before outputResponse()");
+                    _sw.Log("Stuff before handleRequestAfterHeaders()");
+                    response = handleRequestAfterHeaders(out originalRequest);
+                    _sw.Log("Returned from handleRequestAfterHeaders()");
                     connectionKeepAlive = outputResponse(response, originalRequest);
                     _sw.Log("Returned from outputResponse()");
                 }
@@ -352,15 +344,20 @@ namespace RT.Servers
                     _sw.Log("Socket.Close()");
                     return;
                 }
+                catch (ObjectDisposedException e)
+                {
+                    _sw.Log("Caught ObjectDisposedException - closing ({0})".Fmt(e.Message));
+                    return;
+                }
                 finally
                 {
-                    if (response.Content != null)
+                    if (response != null && response.Content != null)
                     {
                         _sw.Log("Stuff before Response.Content.Close()");
                         response.Content.Close();
                         _sw.Log("Response.Content.Close()");
                     }
-                    if (response.CleanUpCallback != null)
+                    if (response != null && response.CleanUpCallback != null)
                     {
                         _sw.Log("Stuff before Response.CleanUpCallback()");
                         response.CleanUpCallback();
@@ -369,7 +366,11 @@ namespace RT.Servers
                 }
 
                 // Reuse connection if allowed; close it otherwise
-                if (connectionKeepAlive && Socket.Connected && !DisallowKeepAlive)
+                bool connected;
+                try { connected = Socket.Connected; }
+                catch (SocketException) { Socket.Close(); return; }
+                catch (ObjectDisposedException) { return; }
+                if (connectionKeepAlive && connected && !DisallowKeepAlive)
                 {
                     _headersSoFar = "";
                     _sw.Log("Reusing connection");
@@ -781,7 +782,8 @@ namespace RT.Servers
                 _sw.Log("HandleRequestAfterHeaders() - enter");
 
                 string[] lines = _headersSoFar.Split(new string[] { "\r\n" }, StringSplitOptions.None);
-                req = new HttpRequest() { OriginIP = Socket.RemoteEndPoint as IPEndPoint };
+                req = new HttpRequest() { SourceIP = Socket.RemoteEndPoint as IPEndPoint };
+                req.ClientIPAddress = req.SourceIP.Address;
                 if (lines.Length < 2)
                     return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
 
@@ -908,7 +910,7 @@ namespace RT.Servers
                     return;
 
                 if (!req.Headers.parseAndAddHeader(headerName, headerValue))
-                    return; // the header was not recognised so just do nothing. It has been added to UnrecognisedHeaders etc.
+                    return; // the header was not recognised so just do nothing.
 
                 string nameLower = headerName.ToLowerInvariant();
 
@@ -918,6 +920,10 @@ namespace RT.Servers
                     foreach (var kvp in req.Headers.Expect)
                         if (kvp.Key != "100-continue")
                             throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._417_ExpectationFailed, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
+                }
+                else if (nameLower == "x-forwarded-for")
+                {
+                    req.ClientIPAddress = req.Headers.XForwardedFor[0];
                 }
             }
 
