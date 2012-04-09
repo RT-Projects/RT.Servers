@@ -37,7 +37,7 @@
 
 using System;
 
-namespace ICSharpCode.SharpZipLib.Checksums 
+namespace RT.Servers.SharpZipLib.Checksums 
 {
 	
 	/// <summary>

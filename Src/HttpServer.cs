@@ -7,7 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using ICSharpCode.SharpZipLib.GZip;
+using RT.Servers.SharpZipLib.GZip;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;

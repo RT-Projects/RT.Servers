@@ -39,7 +39,7 @@ using System;
 using System.Runtime.Serialization;
 #endif
 
-namespace ICSharpCode.SharpZipLib.GZip
+namespace RT.Servers.SharpZipLib.GZip
 {
 	/// <summary>
 	/// GZipException represents a Gzip specific exception	

@@ -38,7 +38,7 @@
 
 using System;
 
-namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams 
+namespace RT.Servers.SharpZipLib.Zip.Compression.Streams 
 {
 	
 	/// <summary>

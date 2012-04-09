@@ -42,7 +42,7 @@ using System;
 using System.Runtime.Serialization;
 #endif
 
-namespace ICSharpCode.SharpZipLib.Zip 
+namespace RT.Servers.SharpZipLib.Zip 
 {
 	
 	/// <summary>

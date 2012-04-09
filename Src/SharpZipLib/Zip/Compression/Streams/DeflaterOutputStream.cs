@@ -42,7 +42,7 @@
 using System;
 using System.IO;
 
-namespace ICSharpCode.SharpZipLib.Zip.Compression.Streams 
+namespace RT.Servers.SharpZipLib.Zip.Compression.Streams 
 {
 	/// <summary>
 	/// A special stream deflating or compressing the bytes that are

@@ -39,7 +39,7 @@
 
 using System;
 
-namespace ICSharpCode.SharpZipLib.Zip.Compression 
+namespace RT.Servers.SharpZipLib.Zip.Compression 
 {
 	
 	/// <summary>

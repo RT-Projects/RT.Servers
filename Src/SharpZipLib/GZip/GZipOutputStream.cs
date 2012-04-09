@@ -39,11 +39,11 @@
 using System;
 using System.IO;
 
-using ICSharpCode.SharpZipLib.Checksums;
-using ICSharpCode.SharpZipLib.Zip.Compression;
-using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
+using RT.Servers.SharpZipLib.Checksums;
+using RT.Servers.SharpZipLib.Zip.Compression;
+using RT.Servers.SharpZipLib.Zip.Compression.Streams;
 
-namespace ICSharpCode.SharpZipLib.GZip 
+namespace RT.Servers.SharpZipLib.GZip 
 {
 	
 	/// <summary>
@@ -57,8 +57,8 @@ namespace ICSharpCode.SharpZipLib.GZip
 	/// using System;
 	/// using System.IO;
 	/// 
-	/// using ICSharpCode.SharpZipLib.GZip;
-	/// using ICSharpCode.SharpZipLib.Core;
+	/// using RT.Servers.SharpZipLib.GZip;
+	/// using RT.Servers.SharpZipLib.Core;
 	/// 
 	/// class MainClass
 	/// {

@@ -39,7 +39,7 @@ using System;
 using System.Runtime.Serialization;
 #endif
 
-namespace ICSharpCode.SharpZipLib
+namespace RT.Servers.SharpZipLib
 {
 	/// <summary>
 	/// SharpZipBaseException is the base exception class for the SharpZipLibrary.
