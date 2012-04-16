@@ -124,12 +124,12 @@ namespace RT.Servers
                 {
                     b.Append("Set-Cookie: " + c.Name + "=" + c.Value.UrlEscape());
                     if (c.Domain != null)
-                        b.Append("; domain=" + c.Domain);
+                        b.Append("; Domain=" + c.Domain);
                     if (c.Path != null)
-                        b.Append("; path=" + c.Path);
+                        b.Append("; Path=" + c.Path);
                     if (c.Expires != null)
-                        b.Append("; expires=" + c.Expires.Value.ToUniversalTime().ToString("r" /* = RFC1123 */));
-                    b.Append(c.HttpOnly ? "; httponly\r\n" : "\r\n");
+                        b.Append("; Expires=" + c.Expires.Value.ToUniversalTime().ToString("r" /* = RFC1123 */));
+                    b.Append(c.HttpOnly ? "; HttpOnly\r\n" : "\r\n");
                 }
             }
             switch (TransferEncoding)

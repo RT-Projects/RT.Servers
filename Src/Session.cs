@@ -51,12 +51,20 @@ namespace RT.Servers
         [XmlIgnore]
         private bool _isNew;
 
-        /// <summary>When overridden in a derived class, gets the name of the cookie that contains the user's session ID.</summary>
+        /// <summary>When overridden in a derived class, gets the name of the cookie that contains the user’s session ID.</summary>
         /// <remarks>The default implementation returns <c>this.GetType().Name</c>.</remarks>
-        protected virtual string ExpectedCookieName { get { return this.GetType().Name; } }
+        protected virtual string CookieName { get { return this.GetType().Name; } }
+
+        /// <summary>When overridden in a derived class, gets the applicable cookie Path for the cookie that contains the user’s session ID.</summary>
+        /// <remarks>The default implementation returns <c>"/"</c>.</remarks>
+        protected virtual string CookiePath { get { return "/"; } }
+
+        /// <summary>When overridden in a derived class, gets the expiry date/time of the cookie that contains the user’s session ID.</summary>
+        /// <remarks>The default implementation returns <c>DateTime.MaxValue</c>.</remarks>
+        protected virtual DateTime CookieExpires { get { return DateTime.MaxValue; } }
 
         /// <summary>Returns a string representation of this session object.</summary>
-        public override string ToString() { return "{0} [{1}] ({2})".Fmt(SessionID, ExpectedCookieName, CloseAction); }
+        public override string ToString() { return "{0} [{1}] ({2})".Fmt(SessionID, CookieName, CloseAction); }
 
         /// <summary>Initialises this instance so that it represents a new, unique session.</summary>
         protected virtual void createSession()
@@ -74,15 +82,16 @@ namespace RT.Servers
         /// <summary>When overridden in a derived class, deletes this session (identified by <see cref="SessionID"/>) from the session store.</summary>
         protected abstract void deleteSession();
 
-        /// <summary>Generates a <see cref="Cookie"/> object that identifies this session. When overriding, set the cookie's Name property to <see cref="ExpectedCookieName"/> and the Value property to <see cref="SessionID"/>.</summary>
-        protected virtual Cookie createCookie()
+        /// <summary>Generates a <see cref="Cookie"/> object that identifies this session.</summary>
+        private Cookie createCookie()
         {
             return new Cookie
             {
-                Name = ExpectedCookieName,
+                Name = CookieName,
                 Value = SessionID,
-                Path = "/",
-                Expires = DateTime.MaxValue
+                Path = CookiePath,
+                Expires = CookieExpires,
+                HttpOnly = true,
             };
         }
 
@@ -96,9 +105,9 @@ namespace RT.Servers
             bool done = false;
             try
             {
-                if (req.Headers != null && req.Headers.Cookie != null && req.Headers.Cookie.ContainsKey(ExpectedCookieName))
+                if (req.Headers != null && req.Headers.Cookie != null && req.Headers.Cookie.ContainsKey(CookieName))
                 {
-                    SessionID = req.Headers.Cookie[ExpectedCookieName].Value;
+                    SessionID = req.Headers.Cookie[CookieName].Value;
                     done = readSession();
                 }
             }
