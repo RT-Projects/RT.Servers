@@ -66,16 +66,8 @@ namespace RT.Servers
         /// <summary>Returns a string representation of this session object.</summary>
         public override string ToString() { return "{0} [{1}] ({2})".Fmt(SessionID, CookieName, CloseAction); }
 
-        /// <summary>Initialises this instance so that it represents a new, unique session.</summary>
-        protected virtual void createSession()
-        {
-            var characters = "abcdefghijklmnopqrstuvwxyz0123456789-_";
-            SessionID = new string(Enumerable.Range(1, 32).Select(i => characters[Rnd.Next(characters.Length)]).ToArray());
-        }
-
         /// <summary>When overridden in a derived class, attempts to retrieve an existing session (identified by <see cref="SessionID"/>) from the session store and initialises this instance with the relevant data.
         /// If no such session as identified by <see cref="SessionID"/> is found in the session store, returns false.</summary>
-        /// <remarks>Do not call <see cref="createSession"/> in your override. Simply return false, and <see cref="createSession"/> will be called automatically.</remarks>
         protected abstract bool readSession();
         /// <summary>When overridden in a derived class, saves this instance to the session store.</summary>
         protected abstract void saveSession();
@@ -116,7 +108,7 @@ namespace RT.Servers
             // No existing session found or reading failed, so create a new session
             if (!done)
             {
-                createSession();
+                SessionID = RndCrypto.NextBytes(21).Base64UrlEncode();
                 _isNew = true;
             }
         }
@@ -179,9 +171,6 @@ namespace RT.Servers
         /// <summary>Gets the folder in which session data should be stored.</summary>
         /// <remarks>The default implementation returns <c>Path.Combine(Path.GetTempPath(), "sessions")</c>.</remarks>
         protected virtual string SessionPath { get { return Path.Combine(Path.GetTempPath(), "sessions"); } }
-
-        /// <summary>Initialises this instance so that it represents a new, unique session.</summary>
-        protected override sealed void createSession() { base.createSession(); }
 
         /// <summary>Retrieves an existing session from the file system and initialises this instance with the relevant data.</summary>
         protected override sealed bool readSession()

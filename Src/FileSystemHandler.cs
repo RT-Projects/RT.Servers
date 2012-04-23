@@ -27,7 +27,19 @@ namespace RT.Servers
         /// <summary>Specifies the options associated with this instance, or null to use the <see cref="DefaultOptions"/>.</summary>
         public FileSystemOptions Options { get; set; }
         /// <summary>Specifies the directory in the local file system from which files are served and directory contents are listed.</summary>
-        public string BaseDirectory { get; set; }
+        public string BaseDirectory
+        {
+            get { return _baseDirectory; }
+            set
+            {
+                if (!value.StartsWith(@"\\") &&
+                    !(value.StartsWith(@"/") && Environment.OSVersion.Platform != PlatformID.Win32NT) &&
+                    !(value.Length >= 3 && value[1] == ':' && (value[2] == '\\' || value[2] == '/')))
+                    throw new Exception("BaseDirectory must be absolute.");
+                _baseDirectory = value;
+            }
+        }
+        private string _baseDirectory;
 
         /// <summary>Initializes a new instance of <see cref="FileSystemHandler"/>.</summary>
         /// <param name="baseDir">Specifies the directory in the local file system from which files are served and directory contents are listed.</param>
@@ -63,6 +75,8 @@ namespace RT.Servers
             for (int i = 0; i < urlPieces.Length; i++)
             {
                 string piece = urlPieces[i].UrlUnescape();
+                if (piece == "..")
+                    return HttpResponse.Error(HttpStatusCode._403_Forbidden);
                 string nextSoFar = soFar + Path.DirectorySeparatorChar + piece;
                 string curPath = p + nextSoFar;
 
@@ -107,6 +121,8 @@ namespace RT.Servers
                 case DirectoryListingStyle.Forbidden:
                     return HttpResponse.Error(HttpStatusCode._401_Unauthorized);
                 case DirectoryListingStyle.XmlPlusXsl:
+                    if (!Directory.Exists(localPath))
+                        throw new FileNotFoundException("Directory does not exist.", localPath);
                     return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
                 default:
                     return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
@@ -115,9 +131,6 @@ namespace RT.Servers
 
         private static IEnumerable<string> generateDirectoryXml(string localPath, string url, string baseUrl)
         {
-            if (!Directory.Exists(localPath))
-                throw new FileNotFoundException("Directory does not exist.", localPath);
-
             List<DirectoryInfo> dirs = new List<DirectoryInfo>();
             List<FileInfo> files = new List<FileInfo>();
             DirectoryInfo dirInfo = new DirectoryInfo(localPath);
