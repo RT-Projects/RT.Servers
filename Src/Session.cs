@@ -74,19 +74,6 @@ namespace RT.Servers
         /// <summary>When overridden in a derived class, deletes this session (identified by <see cref="SessionID"/>) from the session store.</summary>
         protected abstract void deleteSession();
 
-        /// <summary>Generates a <see cref="Cookie"/> object that identifies this session.</summary>
-        private Cookie createCookie()
-        {
-            return new Cookie
-            {
-                Name = CookieName,
-                Value = SessionID,
-                Path = CookiePath,
-                Expires = CookieExpires,
-                HttpOnly = true,
-            };
-        }
-
         /// <summary>Initialises this session instance from the specified request. Only use this if you are not using <see cref="Enable{TSession}"/>, as that already calls it.</summary>
         /// <param name="req">Request containing the cookie information from which to initialise the session.</param>
         public void InitialiseFromRequest(HttpRequest req)
@@ -119,10 +106,14 @@ namespace RT.Servers
             {
                 if (headers.SetCookie == null)
                     headers.SetCookie = new List<Cookie>();
-                var cookie = createCookie();
-                if (CloseAction == SessionCloseAction.Delete)
-                    cookie.Expires = DateTime.Today - TimeSpan.FromDays(300);
-                headers.SetCookie.Add(cookie);
+                headers.SetCookie.Add(new Cookie
+                {
+                    Name = CookieName,
+                    Value = CloseAction == SessionCloseAction.Delete ? "-" : SessionID,
+                    Path = CookiePath,
+                    Expires = CloseAction == SessionCloseAction.Delete ? DateTime.Today - TimeSpan.FromDays(300) : CookieExpires,
+                    HttpOnly = true,
+                });
             }
         }
 
