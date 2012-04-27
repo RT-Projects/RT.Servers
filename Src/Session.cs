@@ -75,6 +75,9 @@ namespace RT.Servers
         /// session store and initialises this instance with the relevant data. If no such session as identified by <see cref="SessionID"/> is found in the
         /// session store, returns false.</summary>
         protected abstract bool ReadSession();
+        /// <summary>Initialises a new session whenever an existing one couldn't be read. Must not save the session; only initialise any session variables.
+        /// The default implementation does nothing, so derived classes don't need to call it.</summary>
+        protected virtual void NewSession() { }
         /// <summary>When overridden in a derived class, saves this instance to the session store.</summary>
         protected abstract void SaveSession();
         /// <summary>When overridden in a derived class, deletes this session (identified by <see cref="SessionID"/>) from the session store.
@@ -97,6 +100,7 @@ namespace RT.Servers
             if (!_hadSession)
             {
                 SessionID = RndCrypto.NextBytes(21).Base64UrlEncode();
+                NewSession();
                 SessionModified = CookieModified = true;
             }
             else
