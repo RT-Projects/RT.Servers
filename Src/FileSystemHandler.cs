@@ -64,7 +64,7 @@ namespace RT.Servers
                 return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.RestUrlWithoutQuery.Substring(27))), "image/png");
 
             if (request.RestUrlWithoutQuery.StartsWith("/$/"))
-                return HttpResponse.Error(HttpStatusCode._404_NotFound);
+                throw new HttpException(HttpStatusCode._404_NotFound);
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string baseUrl = request.Url.Substring(0, request.Url.Length - request.RestUrl.Length);
@@ -76,7 +76,7 @@ namespace RT.Servers
             {
                 string piece = urlPieces[i].UrlUnescape();
                 if (piece == "..")
-                    return HttpResponse.Error(HttpStatusCode._403_Forbidden);
+                    throw new HttpException(HttpStatusCode._403_Forbidden);
                 string nextSoFar = soFar + Path.DirectorySeparatorChar + piece;
                 string curPath = p + nextSoFar;
 
@@ -106,7 +106,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    return HttpResponse.Error(HttpStatusCode._404_NotFound, "“" + baseUrl + soFarUrl + "/" + piece + "” doesn’t exist.");
+                    throw new HttpException(HttpStatusCode._404_NotFound, "“" + baseUrl + soFarUrl + "/" + piece + "” doesn’t exist.");
                 }
                 soFar = nextSoFar;
             }
@@ -119,13 +119,13 @@ namespace RT.Servers
             switch ((Options ?? DefaultOptions).DirectoryListingStyle)
             {
                 case DirectoryListingStyle.Forbidden:
-                    return HttpResponse.Error(HttpStatusCode._401_Unauthorized);
+                    throw new HttpException(HttpStatusCode._401_Unauthorized);
                 case DirectoryListingStyle.XmlPlusXsl:
                     if (!Directory.Exists(p + soFar))
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
                     return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
                 default:
-                    return HttpResponse.Error(HttpStatusCode._500_InternalServerError);
+                    throw new HttpException(HttpStatusCode._500_InternalServerError);
             }
         }
 

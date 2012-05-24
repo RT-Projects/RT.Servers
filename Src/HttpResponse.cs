@@ -220,11 +220,11 @@ namespace RT.Servers
             }
             catch (FileNotFoundException)
             {
-                return Error(HttpStatusCode._404_NotFound, "The requested file does not exist.");
+                throw new HttpException(HttpStatusCode._404_NotFound, "The requested file does not exist.");
             }
             catch (IOException e)
             {
-                return Error(HttpStatusCode._500_InternalServerError, "File could not be opened in the file system: " + e.Message);
+                throw new HttpException(HttpStatusCode._404_NotFound, "File could not be opened in the file system: " + e.Message);
             }
         }
 
@@ -241,35 +241,6 @@ namespace RT.Servers
                 },
                 Status = HttpStatusCode._302_Found,
             };
-        }
-
-        /// <summary>Generates a simple response with the specified HTTP status code, headers and message.
-        /// Generally used for error conditions.</summary>
-        /// <param name="statusCode">HTTP status code to use in the response.</param>
-        /// <param name="errorMessage">Message to display along with the HTTP status code.</param>
-        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
-        /// <returns>A minimalist <see cref="HttpResponse"/> with the specified HTTP status code, headers and message.</returns>
-        public static HttpResponse Error(HttpStatusCode statusCode = HttpStatusCode._500_InternalServerError, string errorMessage = null, HttpResponseHeaders headers = null)
-        {
-            string statusCodeNameHtml = string.Concat(((int) statusCode).ToString(), " ", statusCode.ToText()).HtmlEscape();
-
-            string contentStr =
-                "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">" +
-                "<html><head><title>HTTP " + statusCodeNameHtml + "</title></head><body><h1>" + statusCodeNameHtml + "</h1>" +
-                (errorMessage != null ? "<p>" + errorMessage.HtmlEscape() + "</p>" : "") + "</body></html>";
-            return new HttpResponse
-            {
-                Status = statusCode,
-                Headers = headers ?? new HttpResponseHeaders(),
-                Content = new MemoryStream(contentStr.ToUtf8())
-            };
-        }
-
-        /// <summary>Generates a 500 Internal Server Error response which formats the specified exception as HTML.</summary>
-        /// <param name="exception">Exception to format.</param>
-        public static HttpResponse Exception(Exception exception)
-        {
-            return Html(ExceptionAsString(exception, html: true), HttpStatusCode._500_InternalServerError);
         }
 
         /// <summary>Generates a 304 Not Modified response.</summary>
@@ -492,45 +463,6 @@ namespace RT.Servers
             headers = headers ?? new HttpResponseHeaders();
             headers.ContentType = contentType;
             return new HttpResponse { Content = content, Status = status, Headers = headers };
-        }
-
-
-        /// <summary>Generates a string describing the <paramref name="exception"/>, including the type, message
-        /// and stack trace, and iterating over the InnerException chain.</summary>
-        /// <param name="exception">The exception to be described.</param>
-        /// <param name="html">If true, an HTML "DIV" tag will be returned with formatted info. Otherwise, a plaintext message is generated.</param>
-        public static string ExceptionAsString(Exception exception, bool html)
-        {
-            bool first = true;
-            if (html)
-            {
-                string exceptionHtml = "";
-                while (exception != null)
-                {
-                    var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
-                    exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
-                    exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
-                    exc += first ? "" : "<hr />";
-                    exceptionHtml = exc + exceptionHtml;
-                    exception = exception.InnerException;
-                    first = false;
-                }
-                return "<div class='exception'>" + exceptionHtml + "</div>";
-            }
-
-            // Plain text
-            string exceptionText = "";
-            while (exception != null)
-            {
-                var exc = exception.GetType().FullName + "\n\n";
-                exc += exception.Message + "\n\n";
-                exc += exception.StackTrace + "\n\n";
-                exc += first ? "\n\n\n" : "\n----------------------------------------------------------------------\n";
-                exceptionText = exc + exceptionText;
-                exception = exception.InnerException;
-                first = false;
-            }
-            return exceptionText;
         }
 
         /// <summary>Modifies the <see cref="UseGzip"/> option in this response object and returns the same object.</summary>

@@ -65,7 +65,7 @@ namespace RT.Servers
                 if (response != null)
                     return response;
             }
-            return HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+            throw new HttpException(HttpStatusCode._404_NotFound);
         }
 
         private List<UrlPathHook> _hooks = new List<UrlPathHook>();

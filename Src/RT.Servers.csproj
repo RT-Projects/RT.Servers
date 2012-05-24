@@ -37,6 +37,7 @@
     <Compile Include="FileSystemHandler.cs" />
     <Compile Include="FileSystemOptions.cs" />
     <Compile Include="HttpEnums.cs" />
+    <Compile Include="HttpException.cs" />
     <Compile Include="HttpInternalObjects.cs" />
     <Compile Include="HttpRequest.cs" />
     <Compile Include="HttpResponse.cs" />

@@ -385,7 +385,7 @@ Content-Type: text/html
         public void TestSomeRequests()
         {
             var store = 1024 * 1024;
-            var instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = store })
+            var instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = store, CatchExceptions = true })
             {
                 Handler = new UrlPathResolver(
                     new UrlPathHook(handlerStatic, path: "/static"),
@@ -400,7 +400,6 @@ Content-Type: text/html
                 testRequest("GET test #1", store, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 404 Not Found", headers[0]);
-                    Assert.IsTrue(headers.Contains("Connection: close"));
                     Assert.IsTrue(headers.Contains("Content-Type: text/html; charset=utf-8"));
                     Assert.IsTrue(headers.Any(x => x.StartsWith("Content-Length: ")));
                     Assert.IsTrue(content.FromUtf8().Contains("404"));
@@ -773,7 +772,7 @@ Content-Type: text/html
             var instance = new HttpServer(new HttpServerOptions { Port = _port })
             {
                 Handler = new UrlPathResolver(
-                    new UrlPathHook(req => { return HttpResponse.Create(enumInfinite(), "text/plain"); }, path: "/infinite")
+                    new UrlPathHook(req => { return HttpResponse.Create(enumInfinite(), "text/plain"); }, path: "/infinite-and-slow")
                 ).Handle
             };
             try

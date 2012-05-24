@@ -893,16 +893,11 @@ namespace RT.Servers
     /// </summary>
     public sealed class InvalidRequestException : Exception
     {
-        /// <summary>
-        /// Response to return when the exception is caught. For example, use <see cref="HttpResponse.Error"/> to generate an HTTP 500 Internal Server Error.
-        /// </summary>
+        /// <summary>Response to return when the exception is caught.</summary>
         public HttpResponse Response;
 
-        /// <summary>
-        /// Constructor.
-        /// </summary>
-        /// <param name="response">Response to return when the exception is caught.
-        /// For example, use <see cref="HttpResponse.Error"/> to generate an HTTP 500 Internal Server Error.</param>
+        /// <summary>Constructor.</summary>
+        /// <param name="response">Response to return when the exception is caught.</param>
         public InvalidRequestException(HttpResponse response) { Response = response; }
     }
 }

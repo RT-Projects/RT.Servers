@@ -59,6 +59,10 @@ namespace RT.Servers
         /// <summary>Specifies the HTTP request handler for this server.</summary>
         public Func<HttpRequest, HttpResponse> Handler { get; set; }
 
+        /// <summary>Specifies a request handler that is invoked whenever <see cref="Handler"/> throws an exception.
+        /// Can be null to use some default functionality.</summary>
+        public Func<HttpRequest, Exception, HttpResponse> ErrorHandler { get; set; }
+
         /// <summary>
         /// Shuts the HTTP server down.
         /// </summary>
@@ -168,6 +172,38 @@ namespace RT.Servers
             new connectionHandler(incomingConnection, this);
         }
 
+        private HttpResponse defaultErrorHandler(HttpRequest req, Exception exception)
+        {
+            var statusCode = HttpStatusCode._500_InternalServerError;
+            if (exception is HttpException)
+                statusCode = ((HttpException) exception).StatusCode;
+
+            if (Options.OutputExceptionInformation)
+            {
+                bool first = true;
+                string exceptionHtml = "";
+                while (exception != null)
+                {
+                    var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
+                    exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
+                    exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
+                    exc += first ? "" : "<hr />";
+                    exceptionHtml = exc + exceptionHtml;
+                    exception = exception.InnerException;
+                    first = false;
+                }
+                return HttpResponse.Html("<div class='exception'>" + exceptionHtml + "</div>", statusCode);
+            }
+
+            var statusCodeNameHtml = (((int) statusCode) + " " + statusCode.ToText()).HtmlEscape();
+            var errorMessage = (exception as HttpException).NullOr(ex => ex.Message);
+            var contentStr =
+                "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">" +
+                "<html><head><title>HTTP " + statusCodeNameHtml + "</title></head><body><h1>" + statusCodeNameHtml + "</h1>" +
+                (errorMessage != null ? "<p>" + errorMessage.HtmlEscape() + "</p>" : "") + "</body></html>";
+            return HttpResponse.Html(contentStr, statusCode);
+        }
+
         private sealed class connectionHandler
         {
             public Socket Socket;
@@ -188,7 +224,7 @@ namespace RT.Servers
             {
                 Socket = socket;
                 _server = server;
-                _handler = _server.Handler ?? (req => HttpResponse.Error(HttpStatusCode._404_NotFound, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
+                _handler = _server.Handler ?? (req => { throw new HttpException(HttpStatusCode._404_NotFound); });
 
                 _sw = new StopwatchDummy();
                 _sw.Log("ctor() - Start readingThreadRunner");
@@ -633,7 +669,7 @@ namespace RT.Servers
                     int bytesRead;
                     while (true)
                     {
-                        if (_server.Options.ReturnExceptionsToClient)
+                        if (_server.Options.CatchExceptions)
                         {
                             try { bytesRead = response.Content.Read(buffer, 0, bufferSize); }
                             catch (Exception e)
@@ -643,7 +679,9 @@ namespace RT.Servers
                             }
                         }
                         else
+                        {
                             bytesRead = response.Content.Read(buffer, 0, bufferSize);
+                        }
                         _sw.Log("OutputResponse() - Response.Content.Read()");
                         if (bytesRead == 0) break;
 
@@ -688,10 +726,44 @@ namespace RT.Servers
                 if (exception is SocketException)
                     throw exception;
 
-                byte[] outp = HttpResponse.ExceptionAsString(exception,
+                byte[] outp = exceptionAsString(exception,
                     contentType.StartsWith("text/html") || contentType.StartsWith("application/xhtml")).ToUtf8();
                 output.Write(outp, 0, outp.Length);
                 output.Close();
+            }
+
+            private static string exceptionAsString(Exception exception, bool html)
+            {
+                bool first = true;
+                if (html)
+                {
+                    string exceptionHtml = "";
+                    while (exception != null)
+                    {
+                        var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
+                        exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
+                        exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
+                        exc += first ? "" : "<hr />";
+                        exceptionHtml = exc + exceptionHtml;
+                        exception = exception.InnerException;
+                        first = false;
+                    }
+                    return "<div class='exception'>" + exceptionHtml + "</div>";
+                }
+
+                // Plain text
+                string exceptionText = "";
+                while (exception != null)
+                {
+                    var exc = exception.GetType().FullName + "\n\n";
+                    exc += exception.Message + "\n\n";
+                    exc += exception.StackTrace + "\n\n";
+                    exc += first ? "\n\n\n" : "\n----------------------------------------------------------------------\n";
+                    exceptionText = exc + exceptionText;
+                    exception = exception.InnerException;
+                    first = false;
+                }
+                return exceptionText;
             }
 
             private void sendHeaders(HttpResponse response)
@@ -777,6 +849,16 @@ namespace RT.Servers
                 Socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
             }
 
+            private HttpResponse error(HttpStatusCode status, string message = null)
+            {
+                return HttpResponse.Create(
+                    "<h1>" + (((int) status) + " " + status.ToText()).HtmlEscape() + "</h1>" + (message == null ? null : "<p>" + message.HtmlEscape() + "</p>"),
+                    "text/html; charset=utf-8",
+                    status,
+                    new HttpResponseHeaders { Connection = HttpConnection.Close }
+                );
+            }
+
             private HttpResponse handleRequestAfterHeaders(out HttpRequest req)
             {
                 _sw.Log("HandleRequestAfterHeaders() - enter");
@@ -785,7 +867,7 @@ namespace RT.Servers
                 req = new HttpRequest() { SourceIP = Socket.RemoteEndPoint as IPEndPoint };
                 req.ClientIPAddress = req.SourceIP.Address;
                 if (lines.Length < 2)
-                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    return error(HttpStatusCode._400_BadRequest);
 
                 // Parse the method line
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
@@ -797,19 +879,19 @@ namespace RT.Servers
                 else if (line.StartsWith("POST "))
                     req.Method = HttpMethod.Post;
                 else
-                    return HttpResponse.Error(HttpStatusCode._501_NotImplemented, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    return error(HttpStatusCode._501_NotImplemented);
 
                 if (line.EndsWith(" HTTP/1.0"))
                     req.HttpVersion = HttpProtocolVersion.Http10;
                 else if (line.EndsWith(" HTTP/1.1"))
                     req.HttpVersion = HttpProtocolVersion.Http11;
                 else
-                    return HttpResponse.Error(HttpStatusCode._505_HttpVersionNotSupported, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    return error(HttpStatusCode._505_HttpVersionNotSupported);
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
                 req.Url = line.Substring(start, line.Length - start - 9);
                 if (req.Url.Contains(' '))
-                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    return error(HttpStatusCode._400_BadRequest);
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
 
@@ -826,7 +908,7 @@ namespace RT.Servers
                         {
                             var match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
                             if (!match.Success)
-                                return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                                return error(HttpStatusCode._400_BadRequest);
                             parseHeader(lastHeader, valueSoFar, req);
                             lastHeader = match.Groups[1].Value;
                             valueSoFar = match.Groups[2].Value.Trim();
@@ -840,14 +922,14 @@ namespace RT.Servers
                 }
 
                 if (req.Headers.Host == null)
-                    return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    return error(HttpStatusCode._400_BadRequest);
                 var colonPos = req.Headers.Host.IndexOf(':');
                 if (colonPos != -1)
                 {
                     req.Domain = req.Headers.Host.Substring(0, colonPos);
                     int port;
                     if (!int.TryParse(req.Headers.Host.Substring(colonPos + 1), out port))
-                        return HttpResponse.Error(HttpStatusCode._400_BadRequest, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                        return error(HttpStatusCode._400_BadRequest);
                     req.Port = port;
                 }
                 else
@@ -868,11 +950,11 @@ namespace RT.Servers
 
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
 
-                if (_server.Options.ReturnExceptionsToClient)
+                if (_server.Options.CatchExceptions)
                 {
                     try
                     {
-                        HttpResponse resp = _handler(req);
+                        var resp = _handler(req);
                         _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                         return resp;
                     }
@@ -883,7 +965,7 @@ namespace RT.Servers
                     }
                     catch (Exception e)
                     {
-                        HttpResponse resp = HttpResponse.Exception(e);
+                        var resp = (_server.ErrorHandler ?? _server.defaultErrorHandler)(req, e);
                         _sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
                         return resp;
                     }
@@ -892,7 +974,7 @@ namespace RT.Servers
                 {
                     try
                     {
-                        HttpResponse resp = _handler(req);
+                        var resp = _handler(req);
                         _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                         return resp;
                     }
@@ -919,7 +1001,7 @@ namespace RT.Servers
                 {
                     foreach (var kvp in req.Headers.Expect)
                         if (kvp.Key != "100-continue")
-                            throw new InvalidRequestException(HttpResponse.Error(HttpStatusCode._417_ExpectationFailed, headers: new HttpResponseHeaders { Connection = HttpConnection.Close }));
+                            throw new InvalidRequestException(error(HttpStatusCode._417_ExpectationFailed));
                 }
                 else if (nameLower == "x-forwarded-for")
                 {
@@ -931,13 +1013,13 @@ namespace RT.Servers
             {
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
-                    return HttpResponse.Error(HttpStatusCode._411_LengthRequired, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    return error(HttpStatusCode._411_LengthRequired);
                 if (req.Headers.ContentLength.Value > _server.Options.MaxSizePostContent)
-                    return HttpResponse.Error(HttpStatusCode._413_RequestEntityTooLarge, headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                    return error(HttpStatusCode._413_RequestEntityTooLarge);
                 if (req.Headers.ContentType == null)
                 {
                     if (req.Headers.ContentLength != 0)
-                        return HttpResponse.Error(HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.", headers: new HttpResponseHeaders { Connection = HttpConnection.Close });
+                        return error(HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.");
                     // Tolerate empty bodies without Content-Type (seems that jQuery generates those)
                     req.Headers.ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                 }
