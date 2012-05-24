@@ -201,7 +201,7 @@ namespace RT.Servers
             var contentHtml = "<!DOCTYPE html>"
                 + "<head><title>HTTP " + statusCodeNameHtml + "</title>"
                 + "<body><h1>" + statusCodeNameHtml + "</h1>"
-                + (errorMessage != null ? "<p>" + errorMessage.HtmlEscape() + "</p>" : "");
+                + (string.IsNullOrWhiteSpace(errorMessage) ? "" : "<p>" + errorMessage.HtmlEscape() + "</p>");
 
             if (Options.OutputExceptionInformation)
                 contentHtml += "<hr>" + (exInErrorHandler == null
@@ -248,7 +248,7 @@ namespace RT.Servers
             {
                 Socket = socket;
                 _server = server;
-                _handler = _server.Handler ?? (req => { throw new HttpException(HttpStatusCode._404_NotFound); });
+                _handler = _server.Handler ?? (req => { throw new HttpNotFoundException(); });
 
                 _sw = new StopwatchDummy();
                 _sw.Log("ctor() - Start readingThreadRunner");
@@ -1014,7 +1014,7 @@ namespace RT.Servers
                     response = e.Response;
                 }
                 if (response == null)
-                    throw new HttpException(HttpStatusCode._500_InternalServerError, "The response is null.");
+                    throw new HttpException("The response is null.");
                 return response;
             }
 

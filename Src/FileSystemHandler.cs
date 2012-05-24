@@ -64,7 +64,7 @@ namespace RT.Servers
                 return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.RestUrlWithoutQuery.Substring(27))), "image/png");
 
             if (request.RestUrlWithoutQuery.StartsWith("/$/"))
-                throw new HttpException(HttpStatusCode._404_NotFound);
+                throw new HttpNotFoundException();
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string baseUrl = request.Url.Substring(0, request.Url.Length - request.RestUrl.Length);
@@ -106,7 +106,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    throw new HttpException(HttpStatusCode._404_NotFound, "“" + baseUrl + soFarUrl + "/" + piece + "” doesn’t exist.");
+                    throw new HttpNotFoundException(baseUrl + soFarUrl + "/" + piece);
                 }
                 soFar = nextSoFar;
             }
@@ -125,7 +125,7 @@ namespace RT.Servers
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
                     return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
                 default:
-                    throw new HttpException(HttpStatusCode._500_InternalServerError);
+                    throw new HttpException();
             }
         }
 

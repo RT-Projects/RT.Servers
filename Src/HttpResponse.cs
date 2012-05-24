@@ -220,11 +220,11 @@ namespace RT.Servers
             }
             catch (FileNotFoundException)
             {
-                throw new HttpException(HttpStatusCode._404_NotFound, "The requested file does not exist.");
+                throw new HttpNotFoundException();
             }
             catch (IOException e)
             {
-                throw new HttpException(HttpStatusCode._404_NotFound, "File could not be opened in the file system: " + e.Message);
+                throw new HttpException(HttpStatusCode._500_InternalServerError, "File could not be opened in the file system: " + e.Message);
             }
         }
 

@@ -65,7 +65,7 @@ namespace RT.Servers
                 if (response != null)
                     return response;
             }
-            throw new HttpException(HttpStatusCode._404_NotFound);
+            throw new HttpNotFoundException();
         }
 
         private List<UrlPathHook> _hooks = new List<UrlPathHook>();
