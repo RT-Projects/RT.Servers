@@ -254,7 +254,7 @@ Content-Type: text/html
             }
         }
 
-        private static void readResponseUntilEnd(Socket sck)
+        private static void readResponseUntilContent(Socket sck)
         {
             byte[] b = new byte[65536];
             int bytesRead = sck.Receive(b);
@@ -290,7 +290,7 @@ Content-Type: text/html
                 Assert.AreEqual(1, instance.Stats.ActiveHandlers);
                 sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
 
-                readResponseUntilEnd(sck);
+                readResponseUntilContent(sck);
                 Thread.Sleep(500);
                 Assert.AreEqual(0, instance.Stats.ActiveHandlers);
                 Assert.AreEqual(1, instance.Stats.KeepAliveHandlers);
@@ -334,7 +334,7 @@ Content-Type: text/html
 
                 // Complete the request
                 sck.Send("Connection: keep-alive\r\n\r\n".ToUtf8());
-                readResponseUntilEnd(sck);
+                readResponseUntilContent(sck);
 
                 // Should be shut down now
                 Assert.IsTrue(instance.ShutdownComplete.WaitOne(TimeSpan.FromSeconds(1))); // must shut down within at most 1 second
@@ -385,7 +385,7 @@ Content-Type: text/html
         public void TestSomeRequests()
         {
             var store = 1024 * 1024;
-            var instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = store, CatchExceptions = true })
+            var instance = new HttpServer(new HttpServerOptions { Port = _port, StoreFileUploadInFileAtSize = store })
             {
                 Handler = new UrlPathResolver(
                     new UrlPathHook(handlerStatic, path: "/static"),
@@ -730,19 +730,19 @@ Content-Type: text/html
                 Socket sck = cl.Client;
 
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToUtf8());
-                readResponseUntilEnd(sck);
+                readResponseUntilContent(sck);
                 Assert.IsTrue(IPAddress.IsLoopback(request.ClientIPAddress));
                 Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
                 Assert.IsNull(request.Headers["X-Forwarded-For"]);
 
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nX-Forwarded-For: 12.34.56.78\r\n\r\n".ToUtf8());
-                readResponseUntilEnd(sck);
+                readResponseUntilContent(sck);
                 Assert.AreEqual(IPAddress.Parse("12.34.56.78"), request.ClientIPAddress);
                 Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
                 Assert.IsNotNull(request.Headers["X-Forwarded-For"]);
 
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nX-Forwarded-For: 2a00:1450:400c:c01::93, 12.34.56.78\r\n\r\n".ToUtf8());
-                readResponseUntilEnd(sck);
+                readResponseUntilContent(sck);
                 Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.ClientIPAddress);
                 Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.Headers.XForwardedFor[0]);
                 Assert.AreEqual(IPAddress.Parse("12.34.56.78"), request.Headers.XForwardedFor[1]);
@@ -800,6 +800,89 @@ Content-Type: text/html
                     t.Join();
 
                 instance.StopListening(true); // server must not throw after this; that’s the point of the test
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
+        }
+
+        [Test]
+        public void TestErrorHandlerExceptions()
+        {
+            var instance = new HttpServer(new HttpServerOptions { Port = _port, OutputExceptionInformation = true });
+            try
+            {
+                instance.StartListening();
+
+                var getResponse = Ut.Lambda(() =>
+                {
+                    TcpClient cl = new TcpClient();
+                    cl.Connect("localhost", _port);
+                    cl.ReceiveTimeout = 1000; // 1 sec
+                    cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".ToUtf8());
+                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    cl.Close();
+                    var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
+                    var parts = response.Split("\r\n\r\n");
+                    return Tuple.Create(code, parts[1]);
+                });
+
+                // Test that we get a 404 response with no handlers
+                var resp = getResponse();
+                Assert.AreEqual(HttpStatusCode._404_NotFound, resp.Item1);
+
+                // Test that having only an error handler works as expected
+                instance.ErrorHandler = (req, err) => { return HttpResponse.Create("blah", "text/plain", HttpStatusCode._407_ProxyAuthenticationRequired); };
+                resp = getResponse();
+                Assert.AreEqual(HttpStatusCode._407_ProxyAuthenticationRequired, resp.Item1);
+                Assert.AreEqual("blah", resp.Item2);
+
+                // Test that having no error handler uses the default one
+                instance.ErrorHandler = null;
+                instance.Handler = req => { throw new HttpException(HttpStatusCode._305_UseProxy); };
+                resp = getResponse();
+                Assert.AreEqual(HttpStatusCode._305_UseProxy, resp.Item1);
+
+                // Test that the exception and request are passed on to the error handler
+                HttpRequest storedReq = null;
+                Exception storedEx = null;
+                bool ok = false;
+                instance.Handler = req => { storedEx = new HttpException(HttpStatusCode._402_PaymentRequired); storedReq = req; throw storedEx; };
+                instance.ErrorHandler = (req, ex) => { ok = object.ReferenceEquals(req, storedReq) && object.ReferenceEquals(ex, storedEx); return HttpResponse.Create("blah", "text/plain"); };
+                resp = getResponse();
+                Assert.IsTrue(ok);
+
+                // Test that exception in error handler invokes the default one, and uses the *original* status code
+                instance.Handler = req => { throw new HttpException(HttpStatusCode._201_Created); };
+                instance.ErrorHandler = (req, ex) => { throw new HttpException(HttpStatusCode._403_Forbidden); };
+                resp = getResponse();
+                Assert.AreEqual(HttpStatusCode._201_Created, resp.Item1);
+
+                // Test that a non-HttpException is properly handled
+                ok = false;
+                instance.Handler = req => { throw storedEx = new Exception("Blah!"); };
+                instance.ErrorHandler = (req, ex) => { ok = object.ReferenceEquals(ex, storedEx); return HttpResponse.Create("blah", "text/plain"); };
+                resp = getResponse();
+                Assert.IsTrue(ok);
+                Assert.AreEqual(HttpStatusCode._200_OK, resp.Item1);
+                Assert.AreEqual("blah", resp.Item2);
+                instance.ErrorHandler = null;
+                resp = getResponse();
+                Assert.AreEqual(HttpStatusCode._500_InternalServerError, resp.Item1);
+
+                // Test that the main handler returning null results in a 500 error
+                instance.Handler = req => { return null; };
+                instance.ErrorHandler = (req, ex) => { storedEx = ex; throw new HttpException(HttpStatusCode._203_NonAuthoritativeInformation); };
+                resp = getResponse();
+                Assert.IsTrue(storedEx is HttpException && (storedEx as HttpException).StatusCode == HttpStatusCode._500_InternalServerError);
+                Assert.AreEqual(HttpStatusCode._500_InternalServerError, resp.Item1);
+
+                // Test that the error handler returning null invokes the default error handler
+                instance.Handler = req => { throw new HttpException(HttpStatusCode._201_Created); };
+                instance.ErrorHandler = (req, ex) => { return null; };
+                resp = getResponse();
+                Assert.AreEqual(HttpStatusCode._201_Created, resp.Item1);
             }
             finally
             {

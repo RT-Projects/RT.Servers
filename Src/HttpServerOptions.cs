@@ -61,16 +61,10 @@ namespace RT.Servers
         public string TempDir = Path.GetTempPath();
 
         /// <summary>
-        /// Determines whether exceptions thrown by content handlers are caught. If false (which is recommended
-        /// only for debugging), exceptions are unhandled so that they trigger the debugger. In a production system,
-        /// this would bring down the server. If true (recommended for production systems), all exceptions are
-        /// caught and passed to <see cref="HttpServer.ErrorHandler"/>.
+        /// Determines whether the default error handler outputs exception information (including a stack trace) to the
+        /// client (browser) as HTML. The default error handler always outputs the HTTP status code description. It is
+        /// invoked when <see cref="HttpServer.ErrorHandler"/> is null or throws an exception.
         /// </summary>
-        public bool CatchExceptions = false;
-
-        /// <summary>Affects only the behaviour of the default error handler (when <see cref="HttpServer.ErrorHandler"/> is null).
-        /// If true, it will output exception information (including a stack trace) to the client (browser). If false, it outputs only the
-        /// HTTP status code description. Has no effect if <see cref="CatchExceptions"/> is false.</summary>
         public bool OutputExceptionInformation = false;
 
         /// <summary>

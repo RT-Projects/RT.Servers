@@ -27,6 +27,7 @@ namespace RT.Servers
         {
             _opt = options ?? new HttpServerOptions();
             Stats = new Statistics(this);
+            CatchExceptions = true;
         }
 
         /// <summary>
@@ -57,11 +58,28 @@ namespace RT.Servers
         private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
 
         /// <summary>Specifies the HTTP request handler for this server.</summary>
+        /// <remarks>
+        /// Returning null from this handler is a bug, and will cause a generic "error 500". All exceptions leaving this handler will be
+        /// handled by the server, unless <see cref="HttpServerOptions.OutputExceptionInformation"/> is configured to do otherwise.
+        /// All exceptions are passed to the <see cref="ErrorHandler"/>, which may return an arbitrary response as a result. See Remarks
+        /// on <see cref="ErrorHandler"/> for further information.
+        /// </remarks>
         public Func<HttpRequest, HttpResponse> Handler { get; set; }
 
-        /// <summary>Specifies a request handler that is invoked whenever <see cref="Handler"/> throws an exception.
-        /// Can be null to use some default functionality.</summary>
+        /// <summary>Specifies a request handler that is invoked whenever <see cref="Handler"/> throws an exception.</summary>
+        /// <remarks>
+        /// If null, a default handler will be used. This default handler is also used if the error handler returns null or throws an exception.
+        /// The default error handler will use HTTP status 500 except if the <see cref="Handler"/> threw an <see cref="HttpException"/>,
+        /// in which case the exception's HTTP status is used instead.
+        /// </remarks>
         public Func<HttpRequest, Exception, HttpResponse> ErrorHandler { get; set; }
+
+        /// <summary>
+        /// Determines whether to allow all exceptions in <see cref="Handler"/>, <see cref="ErrorHandler"/> and the
+        /// response stream to go unhandled, so that the debugger stops at the exception origin. Defaults to <c>false</c>.
+        /// Must not be used in production, since any exception will then bring the server down.
+        /// </summary>
+        public bool CatchExceptions { get; set; }
 
         /// <summary>
         /// Shuts the HTTP server down.
@@ -172,36 +190,42 @@ namespace RT.Servers
             new connectionHandler(incomingConnection, this);
         }
 
-        private HttpResponse defaultErrorHandler(HttpRequest req, Exception exception)
+        private HttpResponse defaultErrorHandler(HttpRequest req, Exception exception, Exception exInErrorHandler = null)
         {
             var statusCode = HttpStatusCode._500_InternalServerError;
             if (exception is HttpException)
                 statusCode = ((HttpException) exception).StatusCode;
 
-            if (Options.OutputExceptionInformation)
-            {
-                bool first = true;
-                string exceptionHtml = "";
-                while (exception != null)
-                {
-                    var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
-                    exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
-                    exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
-                    exc += first ? "" : "<hr />";
-                    exceptionHtml = exc + exceptionHtml;
-                    exception = exception.InnerException;
-                    first = false;
-                }
-                return HttpResponse.Html("<div class='exception'>" + exceptionHtml + "</div>", statusCode);
-            }
-
             var statusCodeNameHtml = (((int) statusCode) + " " + statusCode.ToText()).HtmlEscape();
             var errorMessage = (exception as HttpException).NullOr(ex => ex.Message);
-            var contentStr =
-                "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\">" +
-                "<html><head><title>HTTP " + statusCodeNameHtml + "</title></head><body><h1>" + statusCodeNameHtml + "</h1>" +
-                (errorMessage != null ? "<p>" + errorMessage.HtmlEscape() + "</p>" : "") + "</body></html>";
-            return HttpResponse.Html(contentStr, statusCode);
+            var contentHtml = "<!DOCTYPE html>"
+                + "<head><title>HTTP " + statusCodeNameHtml + "</title>"
+                + "<body><h1>" + statusCodeNameHtml + "</h1>"
+                + (errorMessage != null ? "<p>" + errorMessage.HtmlEscape() + "</p>" : "");
+
+            if (Options.OutputExceptionInformation)
+                contentHtml += "<hr>" + (exInErrorHandler == null
+                    ? "<h1>Exception in request handler</h1>" + exceptionToHtml(exception)
+                    : "<h1>Exception in error handler</h1>" + exceptionToHtml(exInErrorHandler) + "<h1>while handling exception in request handler</h1>" + exceptionToHtml(exception));
+
+            return HttpResponse.Html(contentHtml, statusCode);
+        }
+
+        private static string exceptionToHtml(Exception exception)
+        {
+            bool first = true;
+            string exceptionHtml = "";
+            while (exception != null)
+            {
+                var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
+                exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
+                exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
+                exc += first ? "" : "<hr>";
+                exceptionHtml = exc + exceptionHtml;
+                exception = exception.InnerException;
+                first = false;
+            }
+            return "<div class='exception'>" + exceptionHtml + "</div>";
         }
 
         private sealed class connectionHandler
@@ -669,7 +693,7 @@ namespace RT.Servers
                     int bytesRead;
                     while (true)
                     {
-                        if (_server.Options.CatchExceptions)
+                        if (_server.CatchExceptions)
                         {
                             try { bytesRead = response.Content.Read(buffer, 0, bufferSize); }
                             catch (Exception e)
@@ -950,40 +974,48 @@ namespace RT.Servers
 
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
 
-                if (_server.Options.CatchExceptions)
-                {
-                    try
-                    {
-                        var resp = _handler(req);
-                        _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                        return resp;
-                    }
-                    catch (InvalidRequestException e)
-                    {
-                        _sw.Log("HandleRequestAfterHeaders() - InvalidRequestException()");
-                        return e.Response;
-                    }
-                    catch (Exception e)
-                    {
-                        var resp = (_server.ErrorHandler ?? _server.defaultErrorHandler)(req, e);
-                        _sw.Log("HandleRequestAfterHeaders() - ExceptionResponse()");
-                        return resp;
-                    }
-                }
+                if (!_server.CatchExceptions)
+                    return requestToResponse(req);
                 else
+                    try { return requestToResponse(req); }
+                    catch (Exception exInHandler)
+                    {
+                        Exception exInErrorHandler = null;
+                        var errorHandler = _server.ErrorHandler;
+                        if (errorHandler != null)
+                        {
+                            try
+                            {
+                                var resp = errorHandler(req, exInHandler);
+                                _sw.Log("HandleRequestAfterHeaders() - ErrorHandler()");
+                                if (resp != null)
+                                    return resp;
+                            }
+                            catch (Exception ex)
+                            {
+                                exInErrorHandler = ex;
+                            }
+                        }
+                        return _server.defaultErrorHandler(req, exInHandler, exInErrorHandler);
+                    }
+            }
+
+            private HttpResponse requestToResponse(HttpRequest req)
+            {
+                HttpResponse response;
+                try
                 {
-                    try
-                    {
-                        var resp = _handler(req);
-                        _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                        return resp;
-                    }
-                    catch (InvalidRequestException e)
-                    {
-                        _sw.Log("HandleRequestAfterHeaders() - InvalidRequestException()");
-                        return e.Response;
-                    }
+                    response = _handler(req);
+                    _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                 }
+                catch (InvalidRequestException e)
+                {
+                    _sw.Log("HandleRequestAfterHeaders() - InvalidRequestException()");
+                    response = e.Response;
+                }
+                if (response == null)
+                    throw new HttpException(HttpStatusCode._500_InternalServerError, "The response is null.");
+                return response;
             }
 
             private void parseHeader(string headerName, string headerValue, HttpRequest req)
