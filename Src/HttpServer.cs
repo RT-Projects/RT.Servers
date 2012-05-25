@@ -976,28 +976,28 @@ namespace RT.Servers
 
                 if (!_server.CatchExceptions)
                     return requestToResponse(req);
-                else
-                    try { return requestToResponse(req); }
-                    catch (Exception exInHandler)
+
+                try { return requestToResponse(req); }
+                catch (Exception exInHandler)
+                {
+                    Exception exInErrorHandler = null;
+                    var errorHandler = _server.ErrorHandler;
+                    if (errorHandler != null)
                     {
-                        Exception exInErrorHandler = null;
-                        var errorHandler = _server.ErrorHandler;
-                        if (errorHandler != null)
+                        try
                         {
-                            try
-                            {
-                                var resp = errorHandler(req, exInHandler);
-                                _sw.Log("HandleRequestAfterHeaders() - ErrorHandler()");
-                                if (resp != null)
-                                    return resp;
-                            }
-                            catch (Exception ex)
-                            {
-                                exInErrorHandler = ex;
-                            }
+                            var resp = errorHandler(req, exInHandler);
+                            _sw.Log("HandleRequestAfterHeaders() - ErrorHandler()");
+                            if (resp != null)
+                                return resp;
                         }
-                        return _server.defaultErrorHandler(req, exInHandler, exInErrorHandler);
+                        catch (Exception ex)
+                        {
+                            exInErrorHandler = ex;
+                        }
                     }
+                    return _server.defaultErrorHandler(req, exInHandler, exInErrorHandler);
+                }
             }
 
             private HttpResponse requestToResponse(HttpRequest req)
