@@ -157,15 +157,4 @@ namespace RT.Servers
         /// </summary>
         AlwaysUseGzip
     }
-
-    /// <summary>Contains possible values for the <see cref="HttpServer.PropagateExceptions"/> setting.</summary>
-    public enum PropagateExceptions
-    {
-        /// <summary>Does not propagate any exceptions. All exceptions are handled by the server and produce an error page without crashing the server.</summary>
-        None,
-        /// <summary>Propagates only exceptions which result in status 500 (such as all non-<see cref="HttpException"/> exceptions).</summary>
-        Error500,
-        /// <summary>Propagates all exceptions, even harmless ones like 404 errors.</summary>
-        All,
-    }
 }

@@ -27,7 +27,6 @@ namespace RT.Servers
         {
             _opt = options ?? new HttpServerOptions();
             Stats = new Statistics(this);
-            PropagateExceptions = PropagateExceptions.None;
         }
 
         /// <summary>
@@ -74,12 +73,15 @@ namespace RT.Servers
         /// </remarks>
         public Func<HttpRequest, Exception, HttpResponse> ErrorHandler { get; set; }
 
-        /// <summary>
-        /// Determines which exceptions in <see cref="Handler"/>, <see cref="ErrorHandler"/> and the response stream
-        /// get propagated to the debugger. Defaults to <see cref="RT.Servers.PropagateExceptions.None"/>, which is the only option
-        /// safe for a production server. All other options will bring down the server that has no debugger attached.
-        /// </summary>
-        public PropagateExceptions PropagateExceptions { get; set; }
+        /// <summary>Determines whether exceptions in <see cref="Handler"/>, <see cref="ErrorHandler"/> and the response stream
+        /// get propagated to the debugger. Setting this to <c>true</c> will cause exceptions to bring down the server.</summary>
+        /// <remarks>
+        /// <para>If <c>false</c>, all exceptions are handled. <see cref="HttpException"/> determines its own HTTP response status code,
+        /// all other exception types lead to 500 Internal Server Error. Use this setting in RELEASE mode.</para>
+        /// <para>If <c>true</c>, only <see cref="HttpException"/> is handled. All other exceptions are left unhandled so that the
+        /// Visual Studio debugger is triggered when they occur, enabling debugging. Use this setting in DEBUG mode only.</para>
+        /// </remarks>
+        public bool PropagateExceptions { get; set; }
 
         /// <summary>
         /// Shuts the HTTP server down.
@@ -696,7 +698,7 @@ namespace RT.Servers
                     {
                         // There are no “valid” exceptions that may originate from the content stream, so the “Error500” setting
                         // actually propagates everything.
-                        if (_server.PropagateExceptions != PropagateExceptions.None)
+                        if (_server.PropagateExceptions)
                             bytesRead = response.Content.Read(buffer, 0, bufferSize);
                         else
                             try { bytesRead = response.Content.Read(buffer, 0, bufferSize); }
@@ -965,22 +967,16 @@ namespace RT.Servers
 
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before Req.Handler()");
 
-                if (_server.PropagateExceptions == PropagateExceptions.All)
-                    return requestToResponse(req);
-                else if (_server.PropagateExceptions == PropagateExceptions.Error500)
+                if (_server.PropagateExceptions)
+                {
                     try { return requestToResponse(req); }
-                    catch (HttpException exInHandler)
-                    {
-                        if (exInHandler.StatusCode == HttpStatusCode._500_InternalServerError)
-                            throw;
-                        return exceptionToResponse(req, exInHandler);
-                    }
+                    catch (HttpException exInHandler) { return exceptionToResponse(req, exInHandler); }
+                }
                 else
+                {
                     try { return requestToResponse(req); }
-                    catch (Exception exInHandler)
-                    {
-                        return exceptionToResponse(req, exInHandler);
-                    }
+                    catch (Exception exInHandler) { return exceptionToResponse(req, exInHandler); }
+                }
             }
 
             private HttpResponse requestToResponse(HttpRequest req)
@@ -997,7 +993,7 @@ namespace RT.Servers
                     response = e.Response;
                 }
                 if (response == null)
-                    throw new HttpException("The response is null.");
+                    throw new InvalidOperationException("The response is null.");
                 return response;
             }
 
