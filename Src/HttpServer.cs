@@ -643,9 +643,9 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        SocketWriterStream str = new SocketWriterStream(Socket);
-                        output = new GZipOutputStream(str);
-                        ((GZipOutputStream) output).SetLevel(1);
+                        var str = new GZipOutputStream(new SocketWriterStream(Socket));
+                        str.SetLevel(1);
+                        output = str;
                     }
                     else if (useGzip)
                     {
@@ -655,9 +655,9 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        SocketWriterStream str = new ChunkedSocketWriterStream(Socket);
-                        output = new GZipOutputStream(str);
-                        ((GZipOutputStream) output).SetLevel(1);
+                        var str = new GZipOutputStream(new ChunkedSocketWriterStream(Socket));
+                        str.SetLevel(1);
+                        output = str;
                     }
                     else if (useKeepAlive && !contentLengthKnown)
                     {
@@ -694,7 +694,7 @@ namespace RT.Servers
                     int bytesRead;
                     while (true)
                     {
-                        // There are no "valid" exceptions that may originate from the content stream, so the "Error500" setting
+                        // There are no “valid” exceptions that may originate from the content stream, so the “Error500” setting
                         // actually propagates everything.
                         if (_server.PropagateExceptions != PropagateExceptions.None)
                             bytesRead = response.Content.Read(buffer, 0, bufferSize);
@@ -702,7 +702,9 @@ namespace RT.Servers
                             try { bytesRead = response.Content.Read(buffer, 0, bufferSize); }
                             catch (Exception e)
                             {
-                                sendExceptionToClient(output, response.Headers.ContentType, e);
+                                if (!(e is SocketException) && _server.Options.OutputExceptionInformation)
+                                    output.Write(exceptionAsString(e, response.Headers.ContentType.StartsWith("text/html")).ToUtf8());
+                                output.Close();
                                 return false;
                             }
 
@@ -745,17 +747,6 @@ namespace RT.Servers
                 }
             }
 
-            private void sendExceptionToClient(Stream output, string contentType, Exception exception)
-            {
-                if (exception is SocketException)
-                    throw exception;
-
-                byte[] outp = exceptionAsString(exception,
-                    contentType.StartsWith("text/html") || contentType.StartsWith("application/xhtml")).ToUtf8();
-                output.Write(outp, 0, outp.Length);
-                output.Close();
-            }
-
             private static string exceptionAsString(Exception exception, bool html)
             {
                 bool first = true;
@@ -767,7 +758,7 @@ namespace RT.Servers
                         var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
                         exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
                         exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
-                        exc += first ? "" : "<hr />";
+                        exc += first ? "" : "<hr>";
                         exceptionHtml = exc + exceptionHtml;
                         exception = exception.InnerException;
                         first = false;
