@@ -116,7 +116,8 @@ namespace RT.Servers
             if (request.Url != trueDirUrl)
                 return HttpResponse.Redirect(trueDirUrl);
 
-            switch ((Options ?? DefaultOptions).DirectoryListingStyle)
+            var style = (Options ?? DefaultOptions).DirectoryListingStyle;
+            switch (style)
             {
                 case DirectoryListingStyle.Forbidden:
                     throw new HttpException(HttpStatusCode._401_Unauthorized);
@@ -125,7 +126,7 @@ namespace RT.Servers
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
                     return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
                 default:
-                    throw new HttpException();
+                    throw new InvalidOperationException("Invalid directory listing style: " + (int) style);
             }
         }
 
