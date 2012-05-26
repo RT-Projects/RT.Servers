@@ -871,11 +871,11 @@ Content-Type: text/html
                 resp = getResponse();
                 Assert.AreEqual(HttpStatusCode._500_InternalServerError, resp.Item1);
 
-                // Test that the main handler returning null results in a 500 error
+                // Test that the main handler returning null results in a 500 error (via InvalidOperationException)
                 instance.Handler = req => { return null; };
                 instance.ErrorHandler = (req, ex) => { storedEx = ex; throw new HttpException(HttpStatusCode._203_NonAuthoritativeInformation); };
                 resp = getResponse();
-                Assert.IsTrue(storedEx is HttpException && (storedEx as HttpException).StatusCode == HttpStatusCode._500_InternalServerError);
+                Assert.IsTrue(storedEx is InvalidOperationException);
                 Assert.AreEqual(HttpStatusCode._500_InternalServerError, resp.Item1);
 
                 // Test that the error handler returning null invokes the default error handler
