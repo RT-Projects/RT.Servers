@@ -887,17 +887,4 @@ namespace RT.Servers
             return UrlWithoutQuery + (qs == "" ? "" : "?" + qs);
         }
     }
-
-    /// <summary>
-    /// Exception thrown to indicate error during processing of the request. Throw this exception to generate, for example, an HTTP 500 Internal Server Error.
-    /// </summary>
-    public sealed class InvalidRequestException : Exception
-    {
-        /// <summary>Response to return when the exception is caught.</summary>
-        public HttpResponse Response;
-
-        /// <summary>Constructor.</summary>
-        /// <param name="response">Response to return when the exception is caught.</param>
-        public InvalidRequestException(HttpResponse response) { Response = response; }
-    }
 }

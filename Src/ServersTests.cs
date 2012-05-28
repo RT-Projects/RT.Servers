@@ -883,11 +883,52 @@ Content-Type: text/html
                 instance.ErrorHandler = (req, ex) => { return null; };
                 resp = getResponse();
                 Assert.AreEqual(HttpStatusCode._201_Created, resp.Item1);
+
+                // Test that a malformed request passes through the error handler
+                instance.ErrorHandler = (req, ex) => { storedEx = ex; throw new HttpException(HttpStatusCode._204_NoContent); };
+                {
+                    TcpClient cl = new TcpClient();
+                    cl.Connect("localhost", _port);
+                    cl.ReceiveTimeout = 1000; // 1 sec
+                    cl.Client.Send("xz\r\n\r\n".ToUtf8());
+                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    cl.Close();
+                    var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
+                    var body = response.Split("\r\n\r\n")[1];
+                    Assert.AreEqual(HttpStatusCode._400_BadRequest, code);
+                    Assert.IsTrue(storedEx is HttpRequestParseException);
+                    Assert.AreEqual(HttpStatusCode._400_BadRequest, (storedEx as HttpRequestParseException).StatusCode);
+                }
+
+                // Test that an exception in the response stream is sent to the response exception handler
+                var excp = new Exception("Blam!");
+                HttpResponse storedRsp1 = null, storedRsp2 = null;
+                instance.Handler = req => { return storedRsp1 = HttpResponse.Create(new DynamicContentStream(enumerableWithException(excp)), "text/plain"); };
+                bool ok1 = true, ok2 = false;
+                instance.ErrorHandler = (req, ex) => { ok1 = false; return null; };
+                instance.ResponseExceptionHandler = (req, ex, rsp) => { ok2 = true; storedEx = ex; storedRsp2 = rsp; };
+                resp = getResponse();
+                Assert.IsTrue(ok1 && ok2);
+                Assert.IsTrue(object.ReferenceEquals(excp, storedEx));
+                Assert.IsTrue(object.ReferenceEquals(storedRsp1, storedRsp2));
+
+                // Test that an exception in the response stream didn't bring down the server
+                ok = false;
+                instance.Handler = req => { ok = true; throw new HttpException(HttpStatusCode._201_Created); };
+                resp = getResponse();
+                Assert.IsTrue(ok);
+                Assert.AreEqual(HttpStatusCode._201_Created, resp.Item1);
             }
             finally
             {
                 instance.StopListening(brutal: true);
             }
+        }
+
+        private IEnumerable<string> enumerableWithException(Exception exception)
+        {
+            yield return "blah";
+            throw exception;
         }
     }
 }

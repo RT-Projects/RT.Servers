@@ -73,6 +73,10 @@ namespace RT.Servers
         /// </remarks>
         public Func<HttpRequest, Exception, HttpResponse> ErrorHandler { get; set; }
 
+        /// <summary>Specifies a method to be invoked whenever an exception occurs while reading from the response stream.</summary>
+        /// <remarks>Regardless of what this method does, the server will close the socket, cutting off the incomplete response.</remarks>
+        public Action<HttpRequest, Exception, HttpResponse> ResponseExceptionHandler { get; set; }
+
         /// <summary>Determines whether exceptions in <see cref="Handler"/>, <see cref="ErrorHandler"/> and the response stream
         /// get propagated to the debugger. Setting this to <c>true</c> will cause exceptions to bring down the server.</summary>
         /// <remarks>
@@ -203,9 +207,15 @@ namespace RT.Servers
                 + "<head><title>HTTP " + statusCodeNameHtml + "</title>"
                 + "<body><h1>" + statusCodeNameHtml + "</h1>";
 
+            if (exception is HttpException)
+            {
+                var userMessage = (exception as HttpException).UserMessage;
+                if (!string.IsNullOrWhiteSpace(userMessage))
+                    contentHtml += "<p>" + userMessage.HtmlEscape() + "</p>";
+            }
+
             if (Options.OutputExceptionInformation)
                 contentHtml = contentHtml
-                    + (string.IsNullOrWhiteSpace(exception.Message) ? "" : ("<p>" + exception.Message.HtmlEscape() + "</p>"))
                     + "<hr>"
                     + (exInErrorHandler == null
                         ? "<h1>Exception in request handler</h1>" + exceptionToHtml(exception)
@@ -221,7 +231,8 @@ namespace RT.Servers
             while (exception != null)
             {
                 var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
-                exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
+                if (!string.IsNullOrWhiteSpace(exception.Message))
+                    exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
                 exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
                 exc += first ? "" : "<hr>";
                 exceptionHtml = exc + exceptionHtml;
@@ -229,6 +240,24 @@ namespace RT.Servers
                 first = false;
             }
             return "<div class='exception'>" + exceptionHtml + "</div>";
+        }
+
+        private static string exceptionToPlaintext(Exception exception)
+        {
+            bool first = true;
+            string exceptionText = "";
+            while (exception != null)
+            {
+                var exc = exception.GetType().FullName + "\n\n";
+                if (!string.IsNullOrWhiteSpace(exception.Message))
+                    exc += exception.Message + "\n\n";
+                exc += exception.StackTrace + "\n\n";
+                exc += first ? "\n\n\n" : "\n----------------------------------------------------------------------\n";
+                exceptionText = exc + exceptionText;
+                exception = exception.InnerException;
+                first = false;
+            }
+            return exceptionText;
         }
 
         private sealed class connectionHandler
@@ -705,7 +734,10 @@ namespace RT.Servers
                             catch (Exception e)
                             {
                                 if (!(e is SocketException) && _server.Options.OutputExceptionInformation)
-                                    output.Write(exceptionAsString(e, response.Headers.ContentType.StartsWith("text/html")).ToUtf8());
+                                    output.Write((response.Headers.ContentType.StartsWith("text/html") ? exceptionToHtml(e) : exceptionToPlaintext(e)).ToUtf8());
+                                var handler = _server.ResponseExceptionHandler;
+                                if (handler != null)
+                                    handler(originalRequest, e, response);
                                 output.Close();
                                 return false;
                             }
@@ -747,40 +779,6 @@ namespace RT.Servers
                     catch (Exception) { }
                     _sw.Log("OutputResponse() - finally clause");
                 }
-            }
-
-            private static string exceptionAsString(Exception exception, bool html)
-            {
-                bool first = true;
-                if (html)
-                {
-                    string exceptionHtml = "";
-                    while (exception != null)
-                    {
-                        var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
-                        exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
-                        exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
-                        exc += first ? "" : "<hr>";
-                        exceptionHtml = exc + exceptionHtml;
-                        exception = exception.InnerException;
-                        first = false;
-                    }
-                    return "<div class='exception'>" + exceptionHtml + "</div>";
-                }
-
-                // Plain text
-                string exceptionText = "";
-                while (exception != null)
-                {
-                    var exc = exception.GetType().FullName + "\n\n";
-                    exc += exception.Message + "\n\n";
-                    exc += exception.StackTrace + "\n\n";
-                    exc += first ? "\n\n\n" : "\n----------------------------------------------------------------------\n";
-                    exceptionText = exc + exceptionText;
-                    exception = exception.InnerException;
-                    first = false;
-                }
-                return exceptionText;
             }
 
             private void sendHeaders(HttpResponse response)
@@ -866,14 +864,15 @@ namespace RT.Servers
                 Socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
             }
 
-            private HttpResponse error(HttpStatusCode status, string message = null)
+            private HttpResponse errorParsingRequest(HttpRequest req, HttpStatusCode status, string userMessage = null)
             {
-                return HttpResponse.Create(
-                    "<h1>" + (((int) status) + " " + status.ToText()).HtmlEscape() + "</h1>" + (message == null ? null : "<p>" + message.HtmlEscape() + "</p>"),
-                    "text/html; charset=utf-8",
-                    status,
-                    new HttpResponseHeaders { Connection = HttpConnection.Close }
-                );
+                try { throw new HttpRequestParseException(status, userMessage); }
+                catch (HttpRequestParseException e) // thrown and caught so that StackTrace is non-null
+                {
+                    var response = exceptionToResponse(req, e);
+                    response.Headers.Connection = HttpConnection.Close;
+                    return response;
+                }
             }
 
             private HttpResponse handleRequestAfterHeaders(out HttpRequest req)
@@ -884,7 +883,7 @@ namespace RT.Servers
                 req = new HttpRequest() { SourceIP = Socket.RemoteEndPoint as IPEndPoint };
                 req.ClientIPAddress = req.SourceIP.Address;
                 if (lines.Length < 2)
-                    return error(HttpStatusCode._400_BadRequest);
+                    return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
 
                 // Parse the method line
                 _sw.Log("HandleRequestAfterHeaders() - Stuff before setting HttpRequest members");
@@ -896,57 +895,54 @@ namespace RT.Servers
                 else if (line.StartsWith("POST "))
                     req.Method = HttpMethod.Post;
                 else
-                    return error(HttpStatusCode._501_NotImplemented);
+                    return errorParsingRequest(req, HttpStatusCode._501_NotImplemented);
 
                 if (line.EndsWith(" HTTP/1.0"))
                     req.HttpVersion = HttpProtocolVersion.Http10;
                 else if (line.EndsWith(" HTTP/1.1"))
                     req.HttpVersion = HttpProtocolVersion.Http11;
                 else
-                    return error(HttpStatusCode._505_HttpVersionNotSupported);
+                    return errorParsingRequest(req, HttpStatusCode._505_HttpVersionNotSupported);
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
                 req.Url = line.Substring(start, line.Length - start - 9);
                 if (req.Url.Contains(' '))
-                    return error(HttpStatusCode._400_BadRequest);
+                    return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
 
                 // Parse the request headers
-                try
+                string lastHeader = null;
+                string valueSoFar = null;
+                for (int i = 1; i < lines.Length; i++)
                 {
-                    string lastHeader = null;
-                    string valueSoFar = null;
-                    for (int i = 1; i < lines.Length; i++)
+                    if (lines[i][0] == '\t' || lines[i][0] == ' ')
+                        valueSoFar += " " + lines[i].Trim();
+                    else
                     {
-                        if (lines[i][0] == '\t' || lines[i][0] == ' ')
-                            valueSoFar += " " + lines[i].Trim();
-                        else
-                        {
-                            var match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
-                            if (!match.Success)
-                                return error(HttpStatusCode._400_BadRequest);
-                            parseHeader(lastHeader, valueSoFar, req);
-                            lastHeader = match.Groups[1].Value;
-                            valueSoFar = match.Groups[2].Value.Trim();
-                        }
+                        var match = Regex.Match(lines[i], @"^([-A-Za-z0-9_]+)\s*:\s*(.*)$");
+                        if (!match.Success)
+                            return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
+                        var error = parseHeader(lastHeader, valueSoFar, req);
+                        if (error != null)
+                            return error;
+                        lastHeader = match.Groups[1].Value;
+                        valueSoFar = match.Groups[2].Value.Trim();
                     }
-                    parseHeader(lastHeader, valueSoFar, req);
                 }
-                catch (InvalidRequestException e)
-                {
-                    return e.Response;
-                }
+                var error2 = parseHeader(lastHeader, valueSoFar, req);
+                if (error2 != null)
+                    return error2;
 
                 if (req.Headers.Host == null)
-                    return error(HttpStatusCode._400_BadRequest);
+                    return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
                 var colonPos = req.Headers.Host.IndexOf(':');
                 if (colonPos != -1)
                 {
                     req.Domain = req.Headers.Host.Substring(0, colonPos);
                     int port;
                     if (!int.TryParse(req.Headers.Host.Substring(colonPos + 1), out port))
-                        return error(HttpStatusCode._400_BadRequest);
+                        return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
                     req.Port = port;
                 }
                 else
@@ -981,17 +977,8 @@ namespace RT.Servers
 
             private HttpResponse requestToResponse(HttpRequest req)
             {
-                HttpResponse response;
-                try
-                {
-                    response = _handler(req);
-                    _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
-                }
-                catch (InvalidRequestException e)
-                {
-                    _sw.Log("HandleRequestAfterHeaders() - InvalidRequestException()");
-                    response = e.Response;
-                }
+                var response = _handler(req);
+                _sw.Log("HandleRequestAfterHeaders() - Req.Handler()");
                 if (response == null)
                     throw new InvalidOperationException("The response is null.");
                 return response;
@@ -1006,7 +993,6 @@ namespace RT.Servers
                     try
                     {
                         var resp = errorHandler(req, exInHandler);
-                        _sw.Log("HandleRequestAfterHeaders() - ErrorHandler()");
                         if (resp != null)
                             return resp;
                     }
@@ -1018,13 +1004,13 @@ namespace RT.Servers
                 return _server.defaultErrorHandler(req, exInHandler, exInErrorHandler);
             }
 
-            private void parseHeader(string headerName, string headerValue, HttpRequest req)
+            private HttpResponse parseHeader(string headerName, string headerValue, HttpRequest req)
             {
                 if (headerName == null)
-                    return;
+                    return null;
 
                 if (!req.Headers.parseAndAddHeader(headerName, headerValue))
-                    return; // the header was not recognised so just do nothing.
+                    return null; // the header was not recognised so just do nothing.
 
                 string nameLower = headerName.ToLowerInvariant();
 
@@ -1033,25 +1019,27 @@ namespace RT.Servers
                 {
                     foreach (var kvp in req.Headers.Expect)
                         if (kvp.Key != "100-continue")
-                            throw new InvalidRequestException(error(HttpStatusCode._417_ExpectationFailed));
+                            return errorParsingRequest(req, HttpStatusCode._417_ExpectationFailed);
                 }
                 else if (nameLower == "x-forwarded-for")
                 {
                     req.ClientIPAddress = req.Headers.XForwardedFor[0];
                 }
+
+                return null;
             }
 
             private HttpResponse processPostContent(Socket socket, HttpRequest req)
             {
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
-                    return error(HttpStatusCode._411_LengthRequired);
+                    return errorParsingRequest(req, HttpStatusCode._411_LengthRequired);
                 if (req.Headers.ContentLength.Value > _server.Options.MaxSizePostContent)
-                    return error(HttpStatusCode._413_RequestEntityTooLarge);
+                    return errorParsingRequest(req, HttpStatusCode._413_RequestEntityTooLarge);
                 if (req.Headers.ContentType == null)
                 {
                     if (req.Headers.ContentLength != 0)
-                        return error(HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.");
+                        return errorParsingRequest(req, HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.");
                     // Tolerate empty bodies without Content-Type (seems that jQuery generates those)
                     req.Headers.ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                 }
