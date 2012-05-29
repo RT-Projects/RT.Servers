@@ -373,7 +373,11 @@ namespace RT.Servers
     /// </summary>
     public class HttpRequest
     {
-        private string _url;
+        /// <summary>Contains the original URL of the request (without domain, but with query parameters).</summary>
+        protected string _url;
+        /// <summary>Contains the original domain of the request (not including the port number).</summary>
+        protected string _domain;
+
         private NameValuesCollection<string> _getFields = null;     // will be initialised by Get getter
         private NameValuesCollection<string> _postFields = new NameValuesCollection<string>();
         private Dictionary<string, FileUpload> _fileUploads = new Dictionary<string, FileUpload>();
@@ -381,7 +385,12 @@ namespace RT.Servers
         /// <summary>
         /// Stores the domain name from the Host header, without the port number.
         /// </summary>
-        public string Domain { get; internal set; }
+        public virtual string OriginalDomain { get { return _domain; } }
+
+        internal void SetDomain(string domain)
+        {
+            _domain = domain;
+        }
 
         /// <summary>Contains the port number at which the server was contacted for this request.</summary>
         public int Port { get; internal set; }
@@ -416,7 +425,7 @@ namespace RT.Servers
             _getFields = copyFrom._getFields;
             _postFields = copyFrom._postFields;
             _fileUploads = copyFrom._fileUploads;
-            Domain = copyFrom.Domain;
+            SetDomain(copyFrom.OriginalDomain);
             Port = copyFrom.Port;
             HttpVersion = copyFrom.HttpVersion;
             Method = copyFrom.Method;
@@ -428,22 +437,31 @@ namespace RT.Servers
         /// <summary>
         /// The URL of the request, not including the domain, but including GET query parameters if any.
         /// </summary>
-        public string Url
+        public string OriginalUrl
         {
             get { return _url; }
-            internal set { _url = value; _getFields = null; }
+        }
+
+        internal void SetUrl(string newUrl)
+        {
+            _url = newUrl;
+            _getFields = null;
         }
 
         /// <summary>
         /// The URL of the request, not including the domain or any GET query parameters.
         /// </summary>
-        public string UrlWithoutQuery
+        public string OriginalUrlWithoutQuery
         {
-            get { return _url.Contains('?') ? _url.Remove(_url.IndexOf('?')) : _url; }
+            get
+            {
+                var url = OriginalUrl;
+                return url.Contains('?') ? url.Remove(url.IndexOf('?')) : url;
+            }
         }
 
         /// <summary>
-        /// Returns the raw GET query parameters, if any. <see cref="UrlWithoutQuery"/> + <see cref="Query"/> is always equal to <see cref="Url"/>.
+        /// Returns the raw GET query parameters, if any. <see cref="OriginalUrlWithoutQuery"/> + <see cref="Query"/> is always equal to <see cref="OriginalUrl"/>.
         /// </summary>
         public string Query
         {
@@ -845,7 +863,16 @@ namespace RT.Servers
         {
             get
             {
-                return "http://" + Domain + (Port != 80 ? ":" + Port : "") + Url;
+                return "http://" + OriginalDomain + (Port != 80 ? ":" + Port : "") + OriginalUrl;
+            }
+        }
+
+        /// <summary>Gets the full URL of the request, including the protocol, domain, port number (if different from 80) and path, but wihout any query parameters.</summary>
+        public string FullUrlWithoutQuery
+        {
+            get
+            {
+                return "http://" + OriginalDomain + (Port != 80 ? ":" + Port : "") + OriginalUrlWithoutQuery;
             }
         }
 
@@ -861,8 +888,8 @@ namespace RT.Servers
             if (qsAddOrReplace != null)
                 newQs = newQs.Concat(qsAddOrReplace);
             return newQs.Any()
-                ? UrlWithoutQuery + '?' + newQs.Select(q => q.Key.UrlEscape() + '=' + q.Value.UrlEscape()).JoinString("&")
-                : UrlWithoutQuery;
+                ? OriginalUrlWithoutQuery + '?' + newQs.Select(q => q.Key.UrlEscape() + '=' + q.Value.UrlEscape()).JoinString("&")
+                : OriginalUrlWithoutQuery;
         }
 
         /// <summary>Adds or replaces given query-string parameters in this request's URL and returns the result.</summary>
@@ -884,7 +911,7 @@ namespace RT.Servers
         public string SameUrlWhere(Func<string, bool> predicate)
         {
             var qs = Get.Keys.Where(predicate).SelectMany(key => Get[key].Select(val => key.UrlEscape() + "=" + val.UrlEscape())).JoinString("&");
-            return UrlWithoutQuery + (qs == "" ? "" : "?" + qs);
+            return OriginalUrlWithoutQuery + (qs == "" ? "" : "?" + qs);
         }
     }
 }

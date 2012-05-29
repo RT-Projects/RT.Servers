@@ -905,8 +905,8 @@ namespace RT.Servers
                     return errorParsingRequest(req, HttpStatusCode._505_HttpVersionNotSupported);
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
-                req.Url = line.Substring(start, line.Length - start - 9);
-                if (req.Url.Contains(' '))
+                req.SetUrl(line.Substring(start, line.Length - start - 9));
+                if (req.OriginalUrl.Contains(' '))
                     return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
@@ -939,7 +939,7 @@ namespace RT.Servers
                 var colonPos = req.Headers.Host.IndexOf(':');
                 if (colonPos != -1)
                 {
-                    req.Domain = req.Headers.Host.Substring(0, colonPos);
+                    req.SetDomain(req.Headers.Host.Substring(0, colonPos));
                     int port;
                     if (!int.TryParse(req.Headers.Host.Substring(colonPos + 1), out port))
                         return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
@@ -947,7 +947,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    req.Domain = req.Headers.Host;
+                    req.SetDomain(req.Headers.Host);
                     req.Port = 80;
                 }
 

@@ -67,7 +67,7 @@ namespace RT.Servers
                 throw new HttpNotFoundException();
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
-            string baseUrl = request.Url.Substring(0, request.Url.Length - request.RestUrl.Length);
+            string baseUrl = request.OriginalUrl.Substring(0, request.OriginalUrl.Length - request.RestUrl.Length);
             string url = request.RestUrlWithoutQuery;
             string[] urlPieces = url.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
@@ -89,7 +89,7 @@ namespace RT.Servers
                         break;
                     }
 
-                    if (request.UrlWithoutQuery != baseUrl + soFarUrl)
+                    if (request.OriginalUrlWithoutQuery != baseUrl + soFarUrl)
                         return HttpResponse.Redirect(baseUrl + soFarUrl);
 
                     var opts = Options ?? DefaultOptions;
@@ -113,7 +113,7 @@ namespace RT.Servers
 
             // If this point is reached, it’s a directory
             string trueDirUrl = baseUrl + soFarUrl + "/";
-            if (request.Url != trueDirUrl)
+            if (request.OriginalUrl != trueDirUrl)
                 return HttpResponse.Redirect(trueDirUrl);
 
             var style = (Options ?? DefaultOptions).DirectoryListingStyle;

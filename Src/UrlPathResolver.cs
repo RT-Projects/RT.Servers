@@ -36,20 +36,20 @@ namespace RT.Servers
             }
             host = host.TrimEnd('.');
 
-            string url = req.UrlWithoutQuery;
+            string url = req.OriginalUrlWithoutQuery;
 
             Func<HttpResponse>[] applicableHandlers;
             lock (_hooks)
             {
                 applicableHandlers = _hooks.Where(hk => (hk.Port == null || hk.Port.Value == port) &&
                         (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
-                        (hk.Path == null || hk.Path == req.UrlWithoutQuery || (!hk.SpecificPath && req.Url.StartsWith(hk.Path + "/"))))
+                        (hk.Path == null || hk.Path == req.OriginalUrlWithoutQuery || (!hk.SpecificPath && req.OriginalUrl.StartsWith(hk.Path + "/"))))
                     .Select(hook => Ut.Lambda(() =>
                     {
                         var response = hook.Handler(new UrlPathRequest(
                             copyFrom: req,
                             baseUrl: hook.Path == null ? "" : hook.Path,
-                            restUrl: hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length),
+                            restUrl: hook.Path == null ? req.OriginalUrl : req.OriginalUrl.Substring(hook.Path.Length),
                             baseDomain: hook.Domain == null ? "" : hook.Domain,
                             restDomain: hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length)
                         ));

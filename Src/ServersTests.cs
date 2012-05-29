@@ -138,9 +138,9 @@ Content-Type: text/html
                         ContentMultipartBoundary = "---------------------------265001916915724",
                         ContentType = HttpPostContentType.MultipartFormData
                     },
-                    Method = HttpMethod.Post,
-                    Url = "/"
+                    Method = HttpMethod.Post
                 };
+                r.SetUrl("/");
 
                 using (Stream f = new SlowStream(new MemoryStream(testCase), cs))
                 {
