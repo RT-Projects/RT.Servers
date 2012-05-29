@@ -81,7 +81,7 @@ namespace RT.Servers
             input[type=submit] { font-size: 125%; }
         ";
 
-        private static HttpResponse loginForm(string returnto, bool failed, string username, string password, string url, string appName)
+        private static HttpResponse loginForm(string returnto, bool failed, string username, string password, string formSubmitUrl, string appName)
         {
             return HttpResponse.Html(
                 new HTML(
@@ -90,7 +90,7 @@ namespace RT.Servers
                         new STYLELiteral(_formCss)
                     ),
                     new BODY(
-                        new FORM { method = method.post, action = url }._(
+                        new FORM { method = method.post, action = formSubmitUrl }._(
                             new DIV(
                                 returnto == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnto },
                                 new P("Please log in to access ", appName, "."),
