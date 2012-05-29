@@ -461,7 +461,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Returns the raw GET query parameters, if any. <see cref="OriginalUrlWithoutQuery"/> + <see cref="Query"/> is always equal to <see cref="OriginalUrl"/>.
+        /// Returns the raw GET query parameters, if any. <see cref="UrlWithoutQuery"/> + <see cref="Query"/> is always equal to <see cref="Url"/>.
         /// </summary>
         public string Query
         {

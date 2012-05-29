@@ -47,14 +47,14 @@ namespace RT.Servers
         public string BaseUrl { get; internal set; }
 
         /// <summary>Gets the part of the full URL after the domain name (including query parameters).</summary>
-        public new string OriginalUrl { get { return BaseUrl + OriginalUrl; } }
+        public string OriginalUrl { get { return BaseUrl + OriginalUrl; } }
 
         /// <summary>Gets the part of the full URL after the domain name, but without the query parameters.</summary>
-        public new string OriginalUrlWithoutQuery { get { return BaseUrl + OriginalUrlWithoutQuery; } }
+        public string OriginalUrlWithoutQuery { get { return BaseUrl + OriginalUrlWithoutQuery; } }
 
         /// <summary>
         /// Contains the part of the domain that precedes the domain where the request handler is hooked.
-        /// Domain + <see cref="BaseDomain"/> is equal to <see cref="FullDomain"/>.
+        /// Domain + <see cref="BaseDomain"/> is equal to <see cref="OriginalDomain"/>.
         /// </summary>
         /// <example>
         ///     <para>Consider the following example code:</para>
@@ -66,22 +66,22 @@ namespace RT.Servers
         ///     would have the Domain set to the value <c>peter.schmidt.</c> (note the trailing dot) and the
         ///     <see cref="BaseDomain"/> to <c>homepages.mydomain.com</c>.</para>
         /// </example>
-        public string Domain { get { return _restDomain; } }
+        public override string Domain { get { return _restDomain; } }
 
         /// <summary>
         /// Contains the part of the domain to which the request handler is hooked.
-        /// <see cref="Domain"/> + BaseDomain is equal to <see cref="FullDomain"/>.
+        /// <see cref="Domain"/> + BaseDomain is equal to <see cref="OriginalDomain"/>.
         /// For an example see <see cref="Domain"/>.
         /// </summary>
         public string BaseDomain { get; private set; }
 
         /// <summary>Gets the full domain name.</summary>
-        public new string OriginalDomain { get { return BaseDomain + _restDomain; } }
+        public string OriginalDomain { get { return BaseDomain + _restDomain; } }
 
         /// <summary>Applies the specified modifications to this request's URL and returns the result.</summary>
         /// <param name="qsAddOrReplace">Replaces existing query-string parameters, or adds them if they are not already in the URL.</param>
         /// <param name="qsRemove">Removes the specified query-string parameters.</param>
-        /// <param name="restUrl">Replaces the <see cref="UrlWithoutQuery"/> with the specified new value.</param>
+        /// <param name="restUrl">Replaces the <see cref="HttpRequest.UrlWithoutQuery"/> with the specified new value.</param>
         /// <param name="baseUrl">Replaces the <see cref="BaseUrl"/> with the specified new value.</param>
         /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
         public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace = null, string[] qsRemove = null, string restUrl = null, string baseUrl = null)
