@@ -37,15 +37,7 @@ namespace RT.Servers
         ///     In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
         ///     would have <see cref="BaseUrl"/> set to <c>/homepages</c> and Url set to <c>/a/adam</c>. Note the leading slashes.
         /// </example>
-        public string RestUrl { get { return _restUrl; } }
-
-        /// <summary>
-        /// The part of the URL following the hook path (see <see cref="Url"/> for details), not including any GET query parameters.
-        /// </summary>
-        public string RestUrlWithoutQuery
-        {
-            get { return _restUrl.Contains('?') ? _restUrl.Remove(_restUrl.IndexOf('?')) : _restUrl; }
-        }
+        public override string Url { get { return _restUrl; } }
 
         /// <summary>
         /// Contains the part of the URL to which the request handler is hooked.
@@ -74,7 +66,7 @@ namespace RT.Servers
         ///     would have the Domain set to the value <c>peter.schmidt.</c> (note the trailing dot) and the
         ///     <see cref="BaseDomain"/> to <c>homepages.mydomain.com</c>.</para>
         /// </example>
-        public string RestDomain { get { return _restDomain; } }
+        public string Domain { get { return _restDomain; } }
 
         /// <summary>
         /// Contains the part of the domain to which the request handler is hooked.

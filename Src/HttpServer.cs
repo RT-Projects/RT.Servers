@@ -906,7 +906,7 @@ namespace RT.Servers
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
                 req.SetUrl(line.Substring(start, line.Length - start - 9));
-                if (req.OriginalUrl.Contains(' '))
+                if (req.Url.Contains(' '))
                     return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");

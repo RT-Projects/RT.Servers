@@ -52,23 +52,23 @@ namespace RT.Servers
 
         /// <summary>Returns an <see cref="HttpResponse"/> that handles the specified request, either by delivering a file from the local file system,
         /// or by listing the contents of a directory in the local file system. The file or directory served is determined from the configured
-        /// <see cref="BaseDirectory"/> and the <see cref="UrlPathRequest.RestUrl"/> of the specified <paramref name="request"/>.</summary>
+        /// <see cref="BaseDirectory"/> and the <see cref="UrlPathRequest.Url"/> of the specified <paramref name="request"/>.</summary>
         /// <param name="request">HTTP request from the client.</param>
         /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer or directory listing.</returns>
         public HttpResponse Handle(UrlPathRequest request)
         {
-            if (request.RestUrlWithoutQuery == "/$/directory-listing/xsl")
+            if (request.UrlWithoutQuery == "/$/directory-listing/xsl")
                 return HttpResponse.Create(new MemoryStream(DirectoryListingXsl), "application/xml; charset=utf-8");
 
-            if (request.RestUrlWithoutQuery.StartsWith("/$/directory-listing/icons/"))
-                return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.RestUrlWithoutQuery.Substring(27))), "image/png");
+            if (request.UrlWithoutQuery.StartsWith("/$/directory-listing/icons/"))
+                return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.UrlWithoutQuery.Substring(27))), "image/png");
 
-            if (request.RestUrlWithoutQuery.StartsWith("/$/"))
+            if (request.UrlWithoutQuery.StartsWith("/$/"))
                 throw new HttpNotFoundException();
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
-            string baseUrl = request.OriginalUrl.Substring(0, request.OriginalUrl.Length - request.RestUrl.Length);
-            string url = request.RestUrlWithoutQuery;
+            string baseUrl = request.OriginalUrl.Substring(0, request.OriginalUrl.Length - request.Url.Length);
+            string url = request.UrlWithoutQuery;
             string[] urlPieces = url.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
             string soFarUrl = "";
