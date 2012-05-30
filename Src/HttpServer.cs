@@ -166,18 +166,29 @@ namespace RT.Servers
             if (!IsListening)
                 return;
 
-            // Get the socket
-            Socket socket = null;
-            try { socket = _listeningSocket.EndAccept(result); }
-            catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
-            catch (ObjectDisposedException) { }
+#if DEBUG
+            // Workaround for bug in .NET 4.0:
+            // https://connect.microsoft.com/VisualStudio/feedback/details/535917
+            new Thread(() =>
+            {
+#endif
 
-            // Schedule the next socket accept
-            _listeningSocket.BeginAccept(acceptSocket, null);
+                // Get the socket
+                Socket socket = null;
+                try { socket = _listeningSocket.EndAccept(result); }
+                catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
+                catch (ObjectDisposedException) { }
 
-            // Handle this connection
-            if (socket != null)
-                HandleConnection(socket);
+                // Schedule the next socket accept
+                _listeningSocket.BeginAccept(acceptSocket, null);
+
+                // Handle this connection
+                if (socket != null)
+                    HandleConnection(socket);
+
+#if DEBUG
+            }).Start();
+#endif
         }
 
         /// <summary>
@@ -341,21 +352,32 @@ namespace RT.Servers
             /// </summary>
             private void moreHeaderDataReceived(IAsyncResult res)
             {
-                KeepAliveActive = false;
-                Interlocked.Increment(ref _endedReceives);
-
-                try
+#if DEBUG
+                // Workaround for bug in .NET 4.0:
+                // https://connect.microsoft.com/VisualStudio/feedback/details/535917
+                new Thread(() =>
                 {
-                    _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
-                }
-                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+#endif
 
-                if (_bufferDataLength == 0)
-                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                else
-                    processHeaderData();
-                cleanupIfDone();
+                    KeepAliveActive = false;
+                    Interlocked.Increment(ref _endedReceives);
+
+                    try
+                    {
+                        _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
+                    }
+                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+
+                    if (_bufferDataLength == 0)
+                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    else
+                        processHeaderData();
+                    cleanupIfDone();
+
+#if DEBUG
+                }).Start();
+#endif
             }
 
             /// <summary>
