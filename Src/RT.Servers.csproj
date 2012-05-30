@@ -40,7 +40,9 @@
     <Compile Include="HttpException.cs" />
     <Compile Include="HttpInternalObjects.cs" />
     <Compile Include="HttpRequest.cs" />
+    <Compile Include="HttpRequestHeaders.cs" />
     <Compile Include="HttpResponse.cs" />
+    <Compile Include="HttpResponseHeaders.cs" />
     <Compile Include="HttpServer.cs" />
     <Compile Include="HttpServerOptions.cs" />
     <Compile Include="HttpStatusCode.cs" />
