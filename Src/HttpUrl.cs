@@ -6,55 +6,111 @@ using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
+    /// <summary>Supports base functionality of an HTTP URL.</summary>
     public interface IHttpUrl
     {
+        /// <summary>Specifies whether the protocol used is HTTPS (secure) or not.</summary>
         bool Https { get; }
-        string Domain { get; }
-        string DomainBase { get; }
+        /// <summary>Specifies the part of the domain that precedes the <see cref="BaseDomain"/>.
+        /// Use <c><see cref="Subdomain"/> + <see cref="BaseDomain"/></c> to obtain the entire domain.</summary>
+        /// <example>
+        ///     <para>Consider the following example code:</para>
+        ///     <code>
+        ///         var myResolver = new UrlPathResolver();
+        ///         myResolver.Add(new UrlPathHook(myHandler, domain: "homepages.mydomain.com"));
+        ///     </code>
+        ///     <para>In the above example, an HTTP request for the URL <c>http://peter.schmidt.homepages.mydomain.com/</c>
+        ///     would have <see cref="Subdomain"/> set to the value <c>peter.schmidt.</c> (note the trailing dot) and
+        ///     <see cref="BaseDomain"/> to <c>homepages.mydomain.com</c>.</para>
+        /// </example>
+        string Subdomain { get; }
+        /// <summary>Specifies the part of the domain to which the handler is hooked by a <see cref="UrlPathHook"/>,
+        /// or empty if no <see cref="UrlPathResolver"/> is used. See <see cref="Subdomain"/> for details.</summary>
+        string BaseDomain { get; }
+        /// <summary>Specifies the port.</summary>
+        /// <remarks>The default for HTTP is 80. The default for HTTPS is 443.</remarks>
         int Port { get; }
-        string LocationBase { get; }
-        string Location { get; }
+        /// <summary>Specifies the part of the path to which the handler is hooked by a <see cref="UrlPathHook"/>,
+        /// or empty if no <see cref="UrlPathResolver"/> is used. See <see cref="Subpath"/> for details.</summary>
+        string BasePath { get; }
+        /// <summary>Specifies the part of the URL that follows the path where the request handler is hooked.
+        /// Use <c><see cref="BasePath"/> + <see cref="Subpath"/></c> to obtain the full path.</summary>
+        /// <example>
+        ///     <para>Consider the following example code:</para>
+        ///     <code>
+        ///         var myResolver = new UrlPathResolver();
+        ///         myResolver.Add(new UrlPathHook(myHandler, path: "/homepages"));
+        ///     </code>
+        ///     <para>In the above example, an HTTP request for the URL <c>http://www.mydomain.com/homepages/a/adam</c>
+        ///     would have <see cref="BasePath"/> set to <c>/homepages</c> and <see cref="Subpath"/> set to <c>/a/adam</c>.
+        ///     Note the leading slashes.</para>
+        /// </example>
+        string Subpath { get; }
+        /// <summary>Specifies whether the path is followed by a query string (the part that begins with a <c>?</c> character).</summary>
         bool HasQuery { get; }
+        /// <summary>Enumerates the query parameters as name/value pairs. Implementors must return an
+        /// empty sequence if no query string is present, not null.</summary>
         IEnumerable<KeyValuePair<string, string>> Query { get; }
+        /// <summary>Gets the query string including the question mark character (<c>?</c>).
+        /// Implementors must return an empty string if no query string is present, not null.</summary>
         string QueryString { get; }
+        /// <summary>Gets the first query-string value with the specified name, or null if no query parameter uses the specified name.</summary>
+        /// <param name="name">The name (key) by which a query parameter is identified.</param>
+        /// <returns>The value of the first matching query parameter or null.</returns>
         string this[string name] { get; }
+        /// <summary>Enumerates the values of the query-string parameters with the specified name (key).
+        /// Implementors must return an empty sequence (rather than null) if no parameter has the specified name.</summary>
+        /// <param name="name">The name (key) by which query parameters are identified.</param>
+        /// <returns>A collection containing the values of the matching query-string parameters.</returns>
         IEnumerable<string> QueryValues(string name);
 
+        /// <summary>Adds the query string to the specified <c>StringBuilder</c> instance.</summary>
+        /// <param name="sb">An instance of <c>StringBuilder</c> to which the query string is added.</param>
+        /// <param name="first">True to begin with a question mark (<c>?</c>), false to begin with an ampersand (<c>&amp;</c>).</param>
         void AppendQueryString(StringBuilder sb, bool first);
     }
 
+    /// <summary>Encapsulates information about a URL that identifies a resource on an HTTP server.</summary>
     public sealed class HttpUrl : IHttpUrl
     {
+        /// <summary>Implements <see cref="IHttpUrl.Https"/>.</summary>
         public bool Https { get; set; }
-        public string Domain { get; set; }
-        public string DomainBase { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.Subdomain"/>.</summary>
+        public string Subdomain { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.BaseDomain"/>.</summary>
+        public string BaseDomain { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.Port"/>.</summary>
         public int Port { get; set; }
-        public string LocationBase { get; set; }
-        public string Location { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.BasePath"/>.</summary>
+        public string BasePath { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.Subpath"/>.</summary>
+        public string Subpath { get; set; }
 
         private bool _hasQuery;
         private IEnumerable<KeyValuePair<string, string>> _query;
         private string _queryString;
 
-        public HttpUrl()
-        {
-        }
+        /// <summary>Constructor.</summary>
+        internal HttpUrl() { }
 
+        /// <summary>Creates a new instance based on the specified other URL.</summary>
+        /// <param name="source">URL to copy information from.</param>
         public HttpUrl(IHttpUrl source)
         {
             if (source == null)
                 throw new ArgumentNullException();
             Https = source.Https;
-            Domain = source.Domain;
-            DomainBase = source.DomainBase;
+            Subdomain = source.Subdomain;
+            BaseDomain = source.BaseDomain;
             Port = source.Port;
-            LocationBase = source.LocationBase;
-            Location = source.Location;
+            BasePath = source.BasePath;
+            Subpath = source.Subpath;
             _hasQuery = source.HasQuery;
             _query = source.Query;
             _queryString = null;
         }
 
+        /// <summary>Implements <see cref="IHttpUrl.this[string]"/>.</summary>
         public string this[string name]
         {
             get
@@ -67,6 +123,7 @@ namespace RT.Servers
             }
         }
 
+        /// <summary>Implements <see cref="IHttpUrl.QueryValues"/>.</summary>
         public IEnumerable<string> QueryValues(string name)
         {
             if (_hasQuery) // would work without the condition too, but slower
@@ -75,6 +132,7 @@ namespace RT.Servers
                         yield return kvp.Value;
         }
 
+        /// <summary>Implements <see cref="IHttpUrl.HasQuery"/>.</summary>
         public bool HasQuery
         {
             get { return _hasQuery; }
@@ -94,6 +152,7 @@ namespace RT.Servers
             }
         }
 
+        /// <summary>Implements <see cref="IHttpUrl.Query"/>.</summary>
         public IEnumerable<KeyValuePair<string, string>> Query
         {
             get
@@ -112,6 +171,7 @@ namespace RT.Servers
             }
         }
 
+        /// <summary>Implements <see cref="IHttpUrl.QueryString"/>.</summary>
         public string QueryString
         {
             get
@@ -130,6 +190,7 @@ namespace RT.Servers
             }
         }
 
+        /// <summary>Implements <see cref="IHttpUrl.AppendQueryString"/>.</summary>
         public void AppendQueryString(StringBuilder sb, bool first)
         {
             if (_queryString != null)
@@ -138,103 +199,128 @@ namespace RT.Servers
                 HttpUrlUtils.AppendQueryString(sb, _hasQuery, _query, first);
         }
 
-        public void SetUrlPath(string urlPath)
+        internal void SetUrlPath(string urlPath)
         {
             if (urlPath == null || urlPath.Contains(' ') || urlPath.Length == 0 || urlPath[0] != '/')
                 throw new ArgumentException();
             int start = urlPath.IndexOf('?');
             if (start < 0)
             {
-                Location = urlPath;
+                Subpath = urlPath;
                 _hasQuery = false;
                 _query = Enumerable.Empty<KeyValuePair<string, string>>();
                 _queryString = "";
             }
             else
             {
-                Location = urlPath.Substring(0, start);
+                Subpath = urlPath.Substring(0, start);
                 _hasQuery = true;
                 _query = null;
                 _queryString = urlPath.Substring(start);
             }
-            LocationBase = "";
+            BasePath = "";
         }
 
-        public void SetHost(string host)
+        internal void SetHost(string host)
         {
             if (host == null)
                 throw new ArgumentException();
             var colonPos = host.IndexOf(':');
             if (colonPos < 0)
             {
-                Domain = host;
+                Subdomain = host;
                 Port = Https ? 443 : 80;
             }
             else
             {
-                Domain = host.Substring(0, colonPos);
+                Subdomain = host.Substring(0, colonPos);
                 int port;
                 if (!int.TryParse(host.Substring(colonPos + 1), out port))
                     throw new ArgumentException();
                 Port = port;
             }
-            DomainBase = "";
+            BaseDomain = "";
         }
 
-        public void AssertComplete()
+        internal void AssertComplete()
         {
-            if (Domain == null || DomainBase == null || LocationBase == null || Location == null)
+            if (Subdomain == null || BaseDomain == null || BasePath == null || Subpath == null)
                 throw new InvalidOperationException("HttpUrl is incomplete.");
             if (_query == null && _queryString == null)
                 throw new InvalidOperationException("HttpUrl is incomplete.");
         }
     }
 
+    /// <summary>Provides extension functionality on the <see cref="IHttpUrl"/> type.</summary>
     public static class IHttpUrlExtensions
     {
+        /// <summary>Creates an <see cref="HttpUrl"/> instance containing a copy of the specified URL.</summary>
         public static HttpUrl ToUrl(this IHttpUrl url)
         {
             return new HttpUrl(url);
         }
 
+        /// <summary>Returns the full path and query string of the specified URL (the part that follows the domain).</summary>
+        /// <remarks>This is intended to be used as <c>href</c> attribute values in <c>&lt;a&gt;</c> tags
+        /// as it works well for an absolute path within the same domain.</remarks>
         public static string ToHref(this IHttpUrl url)
         {
             var sb = new StringBuilder(128);
-            sb.Append(url.LocationBase);
-            sb.Append(url.Location);
+            sb.Append(url.BasePath);
+            sb.Append(url.Subpath);
             url.AppendQueryString(sb, first: true);
             return sb.ToString();
         }
 
+        /// <summary>Returns the full and complete URL as a single string.</summary>
         public static string ToFull(this IHttpUrl url)
         {
             var sb = new StringBuilder(256);
             sb.Append(url.Https ? "https://" : "http://");
-            sb.Append(url.Domain);
-            sb.Append(url.DomainBase);
+            sb.Append(url.Subdomain);
+            sb.Append(url.BaseDomain);
             if ((!url.Https && url.Port != 80) || (url.Https && url.Port != 443))
             {
                 sb.Append(':');
                 sb.Append(url.Port);
             }
-            sb.Append(url.LocationBase);
-            sb.Append(url.Location);
+            sb.Append(url.BasePath);
+            sb.Append(url.Subpath);
             url.AppendQueryString(sb, first: true);
             return sb.ToString();
         }
 
+        /// <summary>Returns a new URL consisting of the specified URL but with the protocol changed.</summary>
+        /// <param name="url">Source URL.</param>
+        /// <param name="https">True to change the protocol to https; otherwise http.</param>
         public static IHttpUrl WithHttps(this IHttpUrl url, bool https) { return new UrlWithHttps(url, https); }
-        public static IHttpUrl WithLocationDomain(this IHttpUrl url, string locationDomain) { return new UrlWithLocationDomain(url, locationDomain); }
-        public static IHttpUrl WithLocationUrl(this IHttpUrl url, string locationUrl) { return new UrlWithLocationUrl(url, locationUrl); }
+        /// <summary>Returns a new URL consisting of the specified URL but with the <see cref="IHttpUrl.Subdomain"/> changed.</summary>
+        /// <param name="url">Source URL.</param>
+        /// <param name="subdomain">New value for the <see cref="IHttpUrl.Subdomain"/> property.</param>
+        public static IHttpUrl WithSubdomain(this IHttpUrl url, string subdomain) { return new UrlWithSubdomain(url, subdomain); }
+        /// <summary>Returns a new URL consisting of the specified URL but with the <see cref="IHttpUrl.Subpath"/> changed.</summary>
+        /// <param name="url">Source URL.</param>
+        /// <param name="subpath">New value for the <see cref="IHttpUrl.Subpath"/> property.</param>
+        public static IHttpUrl WithSubpath(this IHttpUrl url, string subpath) { return new UrlWithSubpath(url, subpath); }
+        /// <summary>Returns a new URL consisting of the specified URL without the query string.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url) { return new UrlWithoutQueryAll(url); }
+        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter removed.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url, string name) { return new UrlWithQuerySingle(url, name, null); }
+        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameters removed.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url, params string[] names) { return new UrlWithoutQueryMultiple(url, names); }
+        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameters removed.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url, IEnumerable<string> names) { return new UrlWithoutQueryMultiple(url, names); }
+        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameters removed.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url, HashSet<string> names) { return new UrlWithoutQueryMultiple(url, names); }
+        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter replaced with the specified value.</summary>
         public static IHttpUrl WithQuery(this IHttpUrl url, string name, string value) { return new UrlWithQuerySingle(url, name, value); }
+        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter replaced with the specified set of values.</summary>
         public static IHttpUrl WithQuery(this IHttpUrl url, string name, IEnumerable<string> values) { return new UrlWithQueryMultiple(url, name, values); }
+        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter replaced with the specified set of values.</summary>
         public static IHttpUrl WithQuery(this IHttpUrl url, string name, params string[] values) { return new UrlWithQueryMultiple(url, name, values); }
+        /// <summary>Returns a new URL consisting of the specified URL but containing only those query parameters whose name matches the specified predicate.</summary>
         public static IHttpUrl Where(this IHttpUrl url, Func<string, bool> predicate) { return new UrlWithQueryWhere(url, predicate); }
+        /// <summary>Returns a new URL consisting of the specified URL but containing only those query parameters whose name/value pair matches the specified predicate.</summary>
         public static IHttpUrl Where(this IHttpUrl url, Func<string, string, bool> nameValuePredicate) { return new UrlWithQueryWhereValues(url, nameValuePredicate); }
     }
 
@@ -246,11 +332,11 @@ namespace RT.Servers
         public UrlWithNoChanges(IHttpUrl source) { _source = source; }
 
         public virtual bool Https { get { return _source.Https; } }
-        public virtual string Domain { get { return _source.Domain; } }
-        public virtual string DomainBase { get { return _source.DomainBase; } }
+        public virtual string Subdomain { get { return _source.Subdomain; } }
+        public virtual string BaseDomain { get { return _source.BaseDomain; } }
         public virtual int Port { get { return _source.Port; } }
-        public virtual string LocationBase { get { return _source.LocationBase; } }
-        public virtual string Location { get { return _source.Location; } }
+        public virtual string BasePath { get { return _source.BasePath; } }
+        public virtual string Subpath { get { return _source.Subpath; } }
         public virtual bool HasQuery { get { return _source.HasQuery; } }
         public virtual IEnumerable<KeyValuePair<string, string>> Query { get { return _source.Query; } }
         public virtual string QueryString { get { return _source.QueryString; } }
@@ -270,30 +356,30 @@ namespace RT.Servers
         public override bool Https { get { return _https; } }
     }
 
-    internal class UrlWithLocationDomain : UrlWithNoChanges
+    internal class UrlWithSubdomain : UrlWithNoChanges
     {
-        private string _locationDomain;
-        public UrlWithLocationDomain(IHttpUrl source, string locationDomain)
+        private string _subdomain;
+        public UrlWithSubdomain(IHttpUrl source, string subdomain)
             : base(source)
         {
-            if (locationDomain == null)
+            if (subdomain == null)
                 throw new ArgumentNullException();
-            _locationDomain = locationDomain;
+            _subdomain = subdomain;
         }
-        public override string Domain { get { return _locationDomain; } }
+        public override string Subdomain { get { return _subdomain; } }
     }
 
-    internal class UrlWithLocationUrl : UrlWithNoChanges
+    internal class UrlWithSubpath : UrlWithNoChanges
     {
-        private string _locationUrl;
-        public UrlWithLocationUrl(IHttpUrl source, string locationUrl)
+        private string _subpath;
+        public UrlWithSubpath(IHttpUrl source, string subpath)
             : base(source)
         {
-            if (locationUrl == null)
+            if (subpath == null)
                 throw new ArgumentNullException();
-            _locationUrl = locationUrl;
+            _subpath = subpath;
         }
-        public override string Location { get { return _locationUrl; } }
+        public override string Subpath { get { return _subpath; } }
     }
 
     internal class UrlWithoutQueryAll : UrlWithNoChanges
@@ -485,7 +571,6 @@ namespace RT.Servers
     {
         private string _name;
         private IEnumerable<string> _values;
-        private string _queryString = null;
         public UrlWithQueryMultiple(IHttpUrl source, string name, IEnumerable<string> values)
             : base(source)
         {
