@@ -158,7 +158,7 @@ namespace RT.Servers
             get
             {
                 if (_query == null)
-                    _query = HttpUrlUtils.ParseQueryString(_queryString);
+                    _query = HttpHelper.ParseQueryString(_queryString);
                 return _query;
             }
             set
@@ -177,7 +177,7 @@ namespace RT.Servers
             get
             {
                 if (_queryString == null)
-                    _queryString = HttpUrlUtils.MakeQueryString(_hasQuery, _query);
+                    _queryString = HttpHelper.MakeQueryString(_hasQuery, _query);
                 return _queryString;
             }
             set
@@ -194,9 +194,9 @@ namespace RT.Servers
         public void AppendQueryString(StringBuilder sb, bool first)
         {
             if (_queryString != null)
-                HttpUrlUtils.AppendQueryString(sb, _queryString, first);
+                HttpHelper.AppendQueryString(sb, _queryString, first);
             else
-                HttpUrlUtils.AppendQueryString(sb, _hasQuery, _query, first);
+                HttpHelper.AppendQueryString(sb, _hasQuery, _query, first);
         }
 
         internal void SetUrlPath(string urlPath)
@@ -228,12 +228,18 @@ namespace RT.Servers
             var colonPos = host.IndexOf(':');
             if (colonPos < 0)
             {
-                Subdomain = host;
+                if (host.Length > 0 && host[host.Length - 1] == '.')
+                    Subdomain = host.Substring(0, host.Length - 1);
+                else
+                    Subdomain = host;
                 Port = Https ? 443 : 80;
             }
             else
             {
-                Subdomain = host.Substring(0, colonPos);
+                if (colonPos > 0 && host[colonPos - 1] == '.')
+                    Subdomain = host.Substring(0, colonPos - 1);
+                else
+                    Subdomain = host.Substring(0, colonPos);
                 int port;
                 if (!int.TryParse(host.Substring(colonPos + 1), out port))
                     throw new ArgumentException();
@@ -408,7 +414,7 @@ namespace RT.Servers
                 if (!_source.HasQuery)
                     return "";
                 if (_queryString == null)
-                    _queryString = HttpUrlUtils.MakeQueryString(null, Query);
+                    _queryString = HttpHelper.MakeQueryString(null, Query);
                 return _queryString;
             }
         }
@@ -418,9 +424,9 @@ namespace RT.Servers
             if (!_source.HasQuery)
                 return;
             if (_queryString != null)
-                HttpUrlUtils.AppendQueryString(sb, _queryString, first);
+                HttpHelper.AppendQueryString(sb, _queryString, first);
             else
-                HttpUrlUtils.AppendQueryString(sb, null, Query, first);
+                HttpHelper.AppendQueryString(sb, null, Query, first);
         }
     }
 
@@ -523,23 +529,23 @@ namespace RT.Servers
         {
             get
             {
-                return _queryString ?? (_queryString = HttpUrlUtils.MakeQueryString(null, Query));
+                return _queryString ?? (_queryString = HttpHelper.MakeQueryString(null, Query));
             }
         }
         public override void AppendQueryString(StringBuilder sb, bool first)
         {
             if (HasQuery)
-                HttpUrlUtils.AppendQueryString(sb, QueryString, first);
+                HttpHelper.AppendQueryString(sb, QueryString, first);
         }
     }
 
-    internal class UrlWithQuerySingle : UrlWithNoChanges
+    internal class UrlWithQuerySingle : UrlWithQueryChanges
     {
         private string _name, _value;
         public UrlWithQuerySingle(IHttpUrl source, string name, string value)
             : base(source)
         {
-            if (name == null || value == null)
+            if (name == null)
                 throw new ArgumentException();
             _name = name;
             _value = value;
@@ -567,7 +573,7 @@ namespace RT.Servers
         }
     }
 
-    internal class UrlWithQueryMultiple : UrlWithNoChanges
+    internal class UrlWithQueryMultiple : UrlWithQueryChanges
     {
         private string _name;
         private IEnumerable<string> _values;
@@ -600,65 +606,5 @@ namespace RT.Servers
     }
 
     #endregion
-
-    internal static class HttpUrlUtils
-    {
-        public static string MakeQueryString(bool? hasQuery, IEnumerable<KeyValuePair<string, string>> query)
-        {
-            var sb = new StringBuilder(128);
-            AppendQueryString(sb, hasQuery, query, true);
-            return sb.ToString();
-        }
-
-        public static void AppendQueryString(StringBuilder sb, bool? hasQuery, IEnumerable<KeyValuePair<string, string>> query, bool first)
-        {
-            if (first && hasQuery == true)
-            {
-                // Always append the question mark, even if there are no query parameters to be appended
-                sb.Append('?');
-                foreach (var kvp in query)
-                {
-                    if (first)
-                        first = false;
-                    else
-                        sb.Append('&');
-                    sb.Append(kvp.Key.UrlEscape());
-                    sb.Append('=');
-                    sb.Append(kvp.Value.UrlEscape());
-                }
-            }
-            else if (hasQuery != false)
-            {
-                char separator = first ? '?' : '&';
-                foreach (var kvp in query)
-                {
-                    sb.Append(separator);
-                    separator = '&';
-                    sb.Append(kvp.Key.UrlEscape());
-                    sb.Append('=');
-                    sb.Append(kvp.Value.UrlEscape());
-                }
-            }
-        }
-
-        public static void AppendQueryString(StringBuilder sb, string queryStringFirst, bool first)
-        {
-            if (first)
-                sb.Append(queryStringFirst);
-            else if (queryStringFirst.Length > 0)
-            {
-                sb.Append('&');
-                sb.Append(queryStringFirst, 1, queryStringFirst.Length - 1);
-            }
-        }
-
-        public static IEnumerable<KeyValuePair<string, string>> ParseQueryString(string queryString)
-        {
-            //using (var reader = new StreamReader(body, Encoding.UTF8))
-            //    _postFields = ParseQueryValueParameters(reader);
-
-            throw new NotImplementedException();
-        }
-    }
 }
 

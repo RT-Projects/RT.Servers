@@ -467,4 +467,17 @@ namespace RT.Servers
                 return "[" + _values.Select(val => "\"" + val.ToString() + "\"").JoinString(", ") + "]";
         }
     }
+
+    /// <summary>Extension methods for <see cref="NameValuesCollection&lt;TValue&gt;"/>.</summary>
+    public static class NameValuesCollectionExtensions
+    {
+        /// <summary>Creates a <see cref="NameValuesCollection&lt;TValue&gt;"/> from a collection of key-value pairs.</summary>
+        public static NameValuesCollection<TValue> ToNameValuesCollection<TValue>(this IEnumerable<KeyValuePair<string, TValue>> pairs)
+        {
+            var result = new NameValuesCollection<TValue>();
+            foreach (var pair in pairs)
+                result[pair.Key].Add(pair.Value);
+            return result;
+        }
+    }
 }

@@ -52,23 +52,22 @@ namespace RT.Servers
 
         /// <summary>Returns an <see cref="HttpResponse"/> that handles the specified request, either by delivering a file from the local file system,
         /// or by listing the contents of a directory in the local file system. The file or directory served is determined from the configured
-        /// <see cref="BaseDirectory"/> and the <see cref="UrlPathRequest.Url"/> of the specified <paramref name="request"/>.</summary>
+        /// <see cref="BaseDirectory"/> and the <see cref="HttpRequest.Url"/> of the specified <paramref name="request"/>.</summary>
         /// <param name="request">HTTP request from the client.</param>
         /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer or directory listing.</returns>
-        public HttpResponse Handle(UrlPathRequest request)
+        public HttpResponse Handle(HttpRequest request)
         {
-            if (request.UrlWithoutQuery == "/$/directory-listing/xsl")
+            if (request.Url.Subpath == "/$/directory-listing/xsl")
                 return HttpResponse.Create(new MemoryStream(DirectoryListingXsl), "application/xml; charset=utf-8");
 
-            if (request.UrlWithoutQuery.StartsWith("/$/directory-listing/icons/"))
-                return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.UrlWithoutQuery.Substring(27))), "image/png");
+            if (request.Url.Subpath.StartsWith("/$/directory-listing/icons/"))
+                return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.Url.Subpath.Substring(27))), "image/png");
 
-            if (request.UrlWithoutQuery.StartsWith("/$/"))
+            if (request.Url.Subpath.StartsWith("/$/"))
                 throw new HttpNotFoundException();
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
-            string baseUrl = request.OriginalUrl.Substring(0, request.OriginalUrl.Length - request.Url.Length);
-            string url = request.UrlWithoutQuery;
+            string url = request.Url.Subpath;
             string[] urlPieces = url.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
             string soFarUrl = "";
@@ -89,8 +88,8 @@ namespace RT.Servers
                         break;
                     }
 
-                    if (request.OriginalUrlWithoutQuery != baseUrl + soFarUrl)
-                        return HttpResponse.Redirect(baseUrl + soFarUrl);
+                    if (request.Url.Subpath != soFarUrl)
+                        return HttpResponse.Redirect(request.Url.BasePath + soFarUrl);
 
                     var opts = Options ?? DefaultOptions;
                     return HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince);
@@ -106,15 +105,14 @@ namespace RT.Servers
                 }
                 else
                 {
-                    throw new HttpNotFoundException(baseUrl + soFarUrl + "/" + piece);
+                    throw new HttpNotFoundException(request.Url.BasePath + soFarUrl + "/" + piece);
                 }
                 soFar = nextSoFar;
             }
 
             // If this point is reached, it’s a directory
-            string trueDirUrl = baseUrl + soFarUrl + "/";
-            if (request.OriginalUrl != trueDirUrl)
-                return HttpResponse.Redirect(trueDirUrl);
+            if (request.Url.Subpath != soFarUrl + "/")
+                return HttpResponse.Redirect(request.Url.WithSubpath(soFarUrl + "/").ToHref());
 
             var style = (Options ?? DefaultOptions).DirectoryListingStyle;
             switch (style)
@@ -124,7 +122,7 @@ namespace RT.Servers
                 case DirectoryListingStyle.XmlPlusXsl:
                     if (!Directory.Exists(p + soFar))
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
-                    return HttpResponse.Create(generateDirectoryXml(p + soFar, trueDirUrl, request.BaseUrl), "application/xml; charset=utf-8");
+                    return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url.Subpath + soFarUrl + "/", request.Url.BasePath), "application/xml; charset=utf-8");
                 default:
                     throw new InvalidOperationException("Invalid directory listing style: " + (int) style);
             }

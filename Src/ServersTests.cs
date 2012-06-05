@@ -52,7 +52,9 @@ namespace RT.Servers
 
             for (int chunksize = 1; chunksize < Math.Max(Math.Max(testQueryString1.Length, testQueryString2.Length), testQueryString3.Length); chunksize++)
             {
-                var dic = HttpRequest.ParseQueryValueParameters(new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString1)), chunksize)));
+                NameValuesCollection<string> dic;
+                using (var reader = new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString1)), chunksize)))
+                    dic = HttpHelper.ParseQueryValueParameters(reader).ToNameValuesCollection();
                 Assert.AreEqual(4, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple"));
                 Assert.IsTrue(dic.ContainsKey("cooking"));
@@ -63,7 +65,8 @@ namespace RT.Servers
                 Assert.AreEqual("foxtrot", dic["elephant"].Value);
                 Assert.AreEqual("hangman", dic["ghost"].Value);
 
-                dic = HttpRequest.ParseQueryValueParameters(new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString2)), chunksize)));
+                using (var reader = new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString2)), chunksize)))
+                    dic = HttpHelper.ParseQueryValueParameters(reader).ToNameValuesCollection();
                 Assert.AreEqual(4, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple"));
                 Assert.IsTrue(dic.ContainsKey("cooking"));
@@ -74,7 +77,8 @@ namespace RT.Servers
                 Assert.AreEqual("()=+", dic["elephant"].Value);
                 Assert.AreEqual("абвгд", dic["ghost"].Value);
 
-                dic = HttpRequest.ParseQueryValueParameters(new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString3)), chunksize)));
+                using (var reader = new StreamReader(new SlowStream(new MemoryStream(Encoding.UTF8.GetBytes(testQueryString3)), chunksize)))
+                    dic = HttpHelper.ParseQueryValueParameters(reader).ToNameValuesCollection();
                 Assert.AreEqual(2, dic.Count);
                 Assert.IsTrue(dic.ContainsKey("apple[]"));
                 Assert.IsTrue(dic.ContainsKey("ghost[]"));
@@ -140,12 +144,13 @@ Content-Type: text/html
                     },
                     Method = HttpMethod.Post
                 };
-                r.SetUrl("/");
+                r.Url.SetUrlPath("/");
+                r.Url.SetHost("example.com");
 
                 using (Stream f = new SlowStream(new MemoryStream(testCase), cs))
                 {
                     r.ParsePostBody(f, directoryNotToBeCreated);
-                    var gets = r.Get;
+                    var gets = r.Url.Query.ToList();
                     var posts = r.Post;
                     var files = r.FileUploads;
 
@@ -668,10 +673,10 @@ Content-Type: text/html
 
         private IEnumerable<string> generateGetPostFilesOutput(HttpRequest req)
         {
-            if (req.Get.Count > 0)
+            if (req.Url.Query.Count() > 0)
                 yield return "GET:\n";
-            foreach (var kvp in req.Get)
-                yield return kvp.Key + " => " + kvp.Value + "\n";
+            foreach (var key in req.Url.Query.Select(kvp => kvp.Key).Distinct())
+                yield return key + " => [" + req.Url.QueryValues(key).JoinString(", ", "\"", "\"") + "]\n";
             if (req.Post.Count > 0)
                 yield return "\nPOST:\n";
             foreach (var kvp in req.Post)

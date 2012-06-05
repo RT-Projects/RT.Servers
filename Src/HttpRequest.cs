@@ -15,27 +15,11 @@ namespace RT.Servers
     /// </summary>
     public class HttpRequest
     {
-        /// <summary>Contains the original URL of the request (without domain, but with query parameters).</summary>
-        protected string _url;
-        /// <summary>Contains the original domain of the request (not including the port number).</summary>
-        protected string _domain;
-
-        private NameValuesCollection<string> _getFields = null;     // will be initialised by Get getter
         private NameValuesCollection<string> _postFields = new NameValuesCollection<string>();
         private Dictionary<string, FileUpload> _fileUploads = new Dictionary<string, FileUpload>();
 
-        /// <summary>
-        /// Stores the domain name from the Host header, without the port number.
-        /// </summary>
-        public virtual string Domain { get { return _domain; } }
-
-        internal void SetDomain(string domain)
-        {
-            _domain = domain;
-        }
-
-        /// <summary>Contains the port number at which the server was contacted for this request.</summary>
-        public int Port { get; internal set; }
+        /// <summary>Specifies the URL requested, including information about how this location is resolved by the handlers (if any).</summary>
+        public HttpUrl Url { get; internal set; }
 
         /// <summary>Specifies the HTTP protocol version that was used for this request.</summary>
         public HttpProtocolVersion HttpVersion { get; internal set; }
@@ -58,73 +42,20 @@ namespace RT.Servers
         internal HttpRequest()
         {
             Headers = new HttpRequestHeaders();
+            Url = new HttpUrl();
         }
 
         /// <summary>Initialises this HTTP request from the specified HTTP request.</summary>
         protected HttpRequest(HttpRequest copyFrom)
         {
-            _url = copyFrom._url;
-            _domain = copyFrom._domain;
-            _getFields = copyFrom._getFields;
+            Url = copyFrom.Url;
             _postFields = copyFrom._postFields;
             _fileUploads = copyFrom._fileUploads;
-            Port = copyFrom.Port;
             HttpVersion = copyFrom.HttpVersion;
             Method = copyFrom.Method;
             Headers = copyFrom.Headers;
             ClientIPAddress = copyFrom.ClientIPAddress;
             SourceIP = copyFrom.SourceIP;
-        }
-
-        /// <summary>
-        /// The URL of the request, not including the domain, but including GET query parameters if any.
-        /// </summary>
-        public virtual string Url
-        {
-            get { return _url; }
-        }
-
-        internal void SetUrl(string newUrl)
-        {
-            _url = newUrl;
-            _getFields = null;
-        }
-
-        /// <summary>
-        /// The URL of the request, not including the domain or any GET query parameters.
-        /// </summary>
-        public string UrlWithoutQuery
-        {
-            get
-            {
-                var url = Url;
-                return url.Contains('?') ? url.Remove(url.IndexOf('?')) : url;
-            }
-        }
-
-        /// <summary>
-        /// Returns the raw GET query parameters, if any. <see cref="UrlWithoutQuery"/> + <see cref="Query"/> is always equal to <see cref="Url"/>.
-        /// </summary>
-        public string Query
-        {
-            get { return _url.Contains('?') ? _url.Substring(_url.IndexOf('?')) : ""; }
-        }
-
-        /// <summary>
-        /// Provides access to GET query parameters.
-        /// </summary>
-        public NameValuesCollection<string> Get
-        {
-            get
-            {
-                if (_getFields == null)
-                {
-                    _getFields = (_url.Contains('?')
-                        ? ParseQueryValueParameters(new StringReader(_url.Substring(_url.IndexOf('?') + 1)))
-                        : new NameValuesCollection<string>()).AsReadOnly();
-                }
-                return _getFields;
-            }
         }
 
         /// <summary>
@@ -153,7 +84,8 @@ namespace RT.Servers
 
             if (Headers.ContentType == HttpPostContentType.ApplicationXWwwFormUrlEncoded)
             {
-                _postFields = ParseQueryValueParameters(new StreamReader(body, Encoding.UTF8));
+                using (var reader = new StreamReader(body, Encoding.UTF8))
+                    _postFields = HttpHelper.ParseQueryValueParameters(reader).ToNameValuesCollection();
                 return;
             }
 
@@ -421,139 +353,6 @@ namespace RT.Servers
                 while (writeIndex < lastBoundary.Length);
                 bytesRead = writeIndex;
             }
-        }
-
-        /// <summary>
-        /// Decodes a URL-encoded stream of UTF-8 characters into key-value pairs.
-        /// </summary>
-        /// <param name="s">Stream to read from.</param>
-        internal static NameValuesCollection<string> ParseQueryValueParameters(TextReader s)
-        {
-            var ret = new NameValuesCollection<string>();
-            if (s == null)
-                return ret;
-
-            char[] buffer = new char[65536];
-            int charsRead = s.Read(buffer, 0, buffer.Length);
-            int bufferIndex = 0;
-            string curKey = "";
-            string curValue = null;
-
-            var fnAdd = new Action<string, string>((key, val) =>
-            {
-                key = key.UrlUnescape();
-                val = val.UrlUnescape();
-                ret[key].Add(val);
-            });
-
-            bool inKey = true;
-            while (charsRead > 0)
-            {
-                while (bufferIndex < charsRead)
-                {
-                    int i = bufferIndex;
-                    while (i < charsRead && buffer[i] != '&' && buffer[i] != '=')
-                        i++;
-                    if (i == charsRead)
-                    {
-                        if (inKey)
-                            curKey += new string(buffer, bufferIndex, i - bufferIndex);
-                        else
-                            curValue += new string(buffer, bufferIndex, i - bufferIndex);
-                        bufferIndex = i;
-                    }
-                    else if (buffer[i] == (byte) '=')
-                    {
-                        if (inKey)
-                        {
-                            curKey += new string(buffer, bufferIndex, i - bufferIndex);
-                            curValue = "";
-                            inKey = false;
-                        }
-                        else
-                            curValue += new string(buffer, bufferIndex, i - bufferIndex) + "=";
-                        bufferIndex = i + 1;
-                    }
-                    else if (buffer[i] == (byte) '&')
-                    {
-                        if (inKey)
-                            curKey += new string(buffer, bufferIndex, i - bufferIndex) + "&";
-                        else
-                        {
-                            curValue += new string(buffer, bufferIndex, i - bufferIndex);
-                            fnAdd(curKey, curValue);
-                            curKey = "";
-                            curValue = null;
-                            inKey = true;
-                        }
-                        bufferIndex = i + 1;
-                    }
-                }
-                charsRead = s.Read(buffer, 0, buffer.Length);
-                bufferIndex = 0;
-            }
-
-            if (curValue != null)
-                fnAdd(curKey, curValue);
-
-            s.Close();
-            return ret;
-        }
-
-        /// <summary>Gets the full URL of the request, including the protocol, domain, port number (if different from 80), path and query parameters.</summary>
-        public string FullUrl
-        {
-            get
-            {
-                return "http://" + _domain + (Port != 80 ? ":" + Port : "") + _url;
-            }
-        }
-
-        /// <summary>Gets the full URL of the request, including the protocol, domain, port number (if different from 80) and path, but wihout any query parameters.</summary>
-        public string FullUrlWithoutQuery
-        {
-            get
-            {
-                return "http://" + _domain + (Port != 80 ? ":" + Port : "") + (_url.Contains('?') ? _url.Remove(_url.IndexOf('?')) : _url);
-            }
-        }
-
-        /// <summary>Applies the specified modifications to this request's URL and returns the result.</summary>
-        /// <param name="qsAddOrReplace">Replaces existing query-string parameters, or adds them if they are not already in the URL.</param>
-        /// <param name="qsRemove">Removes the specified query-string parameters.</param>
-        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExcept(Dictionary<string, string> qsAddOrReplace = null, string[] qsRemove = null)
-        {
-            var newQs = Get
-                .Where(g => (qsRemove == null || !qsRemove.Contains(g.Key)) && (qsAddOrReplace == null || !qsAddOrReplace.ContainsKey(g.Key)))
-                .SelectMany(qs => qs.Value.Select(q => new KeyValuePair<string, string>(qs.Key, q)));
-            if (qsAddOrReplace != null)
-                newQs = newQs.Concat(qsAddOrReplace);
-            return newQs.Any()
-                ? FullUrlWithoutQuery + '?' + newQs.Select(q => q.Key.UrlEscape() + '=' + q.Value.UrlEscape()).JoinString("&")
-                : FullUrlWithoutQuery;
-        }
-
-        /// <summary>Adds or replaces given query-string parameters in this request's URL and returns the result.</summary>
-        /// <param name="qsAddOrReplace">An even-numbered array of strings where each element at even indexes is a key and each element at odd indexes is a value.</param>
-        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlExceptSet(params string[] qsAddOrReplace)
-        {
-            var dict = new Dictionary<string, string>();
-            if ((qsAddOrReplace.Length & 1) == 1)
-                throw new ArgumentException("Expected an even number of strings — one pair per query string argument.", "qsAddOrReplace");
-            for (int i = 0; i < qsAddOrReplace.Length; i += 2)
-                dict.Add(qsAddOrReplace[i], qsAddOrReplace[i + 1]);
-            return SameUrlExcept(dict);
-        }
-
-        /// <summary>Returns this request's URL, but with certain query-string parameters removed.</summary>
-        /// <param name="predicate">Determines which query-string parameter keys are to be retained. All keys for which this predicate does not hold are removed from the URL.</param>
-        /// <returns>The resulting URL after the transformation, without domain but with a leading slash.</returns>
-        public string SameUrlWhere(Func<string, bool> predicate)
-        {
-            var qs = Get.Keys.Where(predicate).SelectMany(key => Get[key].Select(val => key.UrlEscape() + "=" + val.UrlEscape())).JoinString("&");
-            return FullUrlWithoutQuery + (qs == "" ? "" : "?" + qs);
         }
     }
 }

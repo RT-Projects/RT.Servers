@@ -48,6 +48,7 @@
     <Compile Include="HttpStatusCode.cs" />
     <Compile Include="HttpStructs.cs" />
     <Compile Include="HttpUrl.cs" />
+    <Compile Include="HttpHelper.cs" />
     <Compile Include="NameValuesCollection.cs" />
     <Compile Include="SharpZipLib\Checksums\Adler32.cs" />
     <Compile Include="SharpZipLib\Checksums\CRC32.cs" />
@@ -71,7 +72,6 @@
     <Compile Include="SharpZipLib\Zip\Compression\Streams\OutputWindow.cs" />
     <Compile Include="SharpZipLib\Zip\Compression\Streams\StreamManipulator.cs" />
     <Compile Include="SharpZipLib\Zip\ZipException.cs" />
-    <Compile Include="UrlPathRequest.cs" />
     <Compile Include="ValueTypes.cs" />
     <Compile Include="Resources.Designer.cs">
       <AutoGen>True</AutoGen>

@@ -21,14 +21,14 @@ namespace RT.Servers
         public static HttpResponse LoginHandler(HttpRequest req, string usersPath, Action<string> setUsername, string defaultReturnTo, string appName)
         {
             if (req.Method != HttpMethod.Post)
-                return loginForm(req.Get["returnto"].Value, false, null, null, req.UrlWithoutQuery, appName);
+                return loginForm(req.Url["returnto"], false, null, null, req.Url.WithoutQuery("returnto"), appName);
 
             var username = req.Post["username"].Value;
             var password = req.Post["password"].Value;
             var returnTo = req.Post["returnto"].Value;
 
             if (username == null || password == null)
-                return HttpResponse.Redirect(returnTo == null ? req.UrlWithoutQuery : req.UrlWithoutQuery + "?returnto=" + returnTo.UrlEscape());
+                return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo).ToHref());
 
             if (usersPath != null)
             {
@@ -50,7 +50,7 @@ namespace RT.Servers
                         XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
             }
             // Login failed.
-            return loginForm(returnTo, true, username, password, req.UrlWithoutQuery, appName);
+            return loginForm(returnTo, true, username, password, req.Url, appName);
         }
 
         private static string createHash(string password)
@@ -81,7 +81,7 @@ namespace RT.Servers
             input[type=submit] { font-size: 125%; }
         ";
 
-        private static HttpResponse loginForm(string returnto, bool failed, string username, string password, string formSubmitUrl, string appName)
+        private static HttpResponse loginForm(string returnto, bool failed, string username, string password, IHttpUrl formSubmitUrl, string appName)
         {
             return HttpResponse.Html(
                 new HTML(
@@ -90,7 +90,7 @@ namespace RT.Servers
                         new STYLELiteral(_formCss)
                     ),
                     new BODY(
-                        new FORM { method = method.post, action = formSubmitUrl }._(
+                        new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
                             new DIV(
                                 returnto == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnto },
                                 new P("Please log in to access ", appName, "."),
@@ -115,7 +115,7 @@ namespace RT.Servers
         public static HttpResponse ChangePasswordHandler(HttpRequest req, string usersPath, string defaultReturnTo, bool allowCreateNew)
         {
             if (req.Method != HttpMethod.Post)
-                return changePasswordForm(req.Get["returnto"].Value, false, false, null, null, null, null, req.FullUrlWithoutQuery);
+                return changePasswordForm(req.Url["returnto"], false, false, null, null, null, null, req.Url.WithoutQuery("returnto"));
 
             var username = req.Post["username"].Value;
             var oldpassword = req.Post["password"].Value;
@@ -124,7 +124,7 @@ namespace RT.Servers
             var returnTo = req.Post["returnto"].Value;
 
             if (username == null || oldpassword == null || newpassword == null || newpassword2 == null)
-                return HttpResponse.Redirect(returnTo == null ? req.UrlWithoutQuery : req.UrlWithoutQuery + "?returnto=" + returnTo.UrlEscape());
+                return HttpResponse.Redirect((returnTo == null ? req.Url : req.Url.WithQuery("returnto", returnTo)).ToHref());
 
             if (usersPath != null)
             {
@@ -139,7 +139,7 @@ namespace RT.Servers
                         if ((user == null && allowCreateNew && username != "") || verifyHash(oldpassword, user.PasswordHash))
                         {
                             if (newpassword2 != newpassword)
-                                return changePasswordForm(returnTo, false, true, username, oldpassword, newpassword, newpassword2, req.FullUrlWithoutQuery);
+                                return changePasswordForm(returnTo, false, true, username, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
 
                             if (user == null)
                             {
@@ -156,10 +156,10 @@ namespace RT.Servers
                 }
             }
             // Username or old password was wrong
-            return changePasswordForm(returnTo, true, false, username, oldpassword, newpassword, newpassword2, req.FullUrlWithoutQuery);
+            return changePasswordForm(returnTo, true, false, username, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
         }
 
-        private static HttpResponse changePasswordForm(string returnto, bool loginFailed, bool passwordsDiffer, string username, string oldpassword, string newpassword1, string newpassword2, string formSubmitUrl)
+        private static HttpResponse changePasswordForm(string returnto, bool loginFailed, bool passwordsDiffer, string username, string oldpassword, string newpassword1, string newpassword2, IHttpUrl formSubmitUrl)
         {
             return HttpResponse.Html(
                 new HTML(
@@ -168,7 +168,7 @@ namespace RT.Servers
                         new STYLELiteral(_formCss)
                     ),
                     new BODY(
-                        new FORM { method = method.post, action = formSubmitUrl }._(
+                        new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
                             new DIV(
                                 returnto == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnto },
                                 new P("To change your password, type your username, the old password, and then the new password twice."),

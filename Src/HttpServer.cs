@@ -926,10 +926,11 @@ namespace RT.Servers
                 else
                     return errorParsingRequest(req, HttpStatusCode._505_HttpVersionNotSupported);
 
+                req.Url.Https = false;
+
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
-                req.SetUrl(line.Substring(start, line.Length - start - 9));
-                if (req.Url.Contains(' '))
-                    return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
+                try { req.Url.SetUrlPath(line.Substring(start, line.Length - start - 9)); }
+                catch { return errorParsingRequest(req, HttpStatusCode._400_BadRequest); }
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
 
@@ -958,20 +959,10 @@ namespace RT.Servers
 
                 if (req.Headers.Host == null)
                     return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
-                var colonPos = req.Headers.Host.IndexOf(':');
-                if (colonPos != -1)
-                {
-                    req.SetDomain(req.Headers.Host.Substring(0, colonPos));
-                    int port;
-                    if (!int.TryParse(req.Headers.Host.Substring(colonPos + 1), out port))
-                        return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
-                    req.Port = port;
-                }
-                else
-                {
-                    req.SetDomain(req.Headers.Host);
-                    req.Port = 80;
-                }
+                try { req.Url.SetHost(req.Headers.Host); }
+                catch { return errorParsingRequest(req, HttpStatusCode._400_BadRequest); }
+
+                req.Url.AssertComplete();
 
                 _sw.Log("HandleRequestAfterHeaders() - Parse headers");
 

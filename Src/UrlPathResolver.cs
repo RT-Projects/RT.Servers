@@ -25,34 +25,19 @@ namespace RT.Servers
         /// <remarks>Assign this method to <see cref="HttpServer.Handler"/>.</remarks>
         public HttpResponse Handle(HttpRequest req)
         {
-            string host = req.Headers.Host;
-            int port = 80;
-            if (host.Contains(":"))
-            {
-                int pos = host.IndexOf(":");
-                if (!int.TryParse(host.Substring(pos + 1), out port))
-                    port = 80;
-                host = host.Remove(pos);
-            }
-            host = host.TrimEnd('.');
-
-            string url = req.UrlWithoutQuery;
-
             Func<HttpResponse>[] applicableHandlers;
             lock (_hooks)
             {
-                applicableHandlers = _hooks.Where(hk => (hk.Port == null || hk.Port.Value == port) &&
-                        (hk.Domain == null || hk.Domain == host || (!hk.SpecificDomain && host.EndsWith("." + hk.Domain))) &&
-                        (hk.Path == null || hk.Path == req.UrlWithoutQuery || (!hk.SpecificPath && req.Url.StartsWith(hk.Path + "/"))))
+                applicableHandlers = _hooks.Where(hk => (hk.Port == null || hk.Port.Value == req.Url.Port) &&
+                        (hk.Domain == null || hk.Domain == req.Url.Subdomain || (!hk.SpecificDomain && req.Url.Subdomain.EndsWith("." + hk.Domain))) &&
+                        (hk.Path == null || hk.Path == req.Url.Subpath || (!hk.SpecificPath && req.Url.Subpath.StartsWith(hk.Path + "/"))))
                     .Select(hook => Ut.Lambda(() =>
                     {
-                        var response = hook.Handler(new UrlPathRequest(
-                            copyFrom: req,
-                            baseUrl: hook.Path == null ? "" : hook.Path,
-                            restUrl: hook.Path == null ? req.Url : req.Url.Substring(hook.Path.Length),
-                            baseDomain: hook.Domain == null ? "" : hook.Domain,
-                            restDomain: hook.Domain == null ? host : host.Remove(host.Length - hook.Domain.Length)
-                        ));
+                        req.Url.BasePath = hook.Path == null ? "" : hook.Path;
+                        req.Url.Subpath = hook.Path == null ? req.Url.Subpath : req.Url.Subpath.Substring(hook.Path.Length);
+                        req.Url.BaseDomain = hook.Domain == null ? "" : hook.Domain;
+                        req.Url.Subdomain = hook.Domain == null ? req.Url.Subdomain : req.Url.Subdomain.Remove(req.Url.Subdomain.Length - hook.Domain.Length);
+                        var response = hook.Handler(req);
                         if (response == null && !hook.Skippable)
                             throw new InvalidOperationException("The handler of a non-skippable hook returned null. Hook: {0}".Fmt(hook));
                         return response;
