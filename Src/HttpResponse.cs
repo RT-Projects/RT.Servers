@@ -108,6 +108,13 @@ namespace RT.Servers
             };
         }
 
+        /// <summary>Redirects the client to a new URL, using the HTTP status code 302 Found and making the response uncacheable.</summary>
+        /// <param name="newUrl">URL to redirect the client to.</param>
+        public static HttpResponse Redirect(IHttpUrl newUrl)
+        {
+            return Redirect(newUrl.ToFull());
+        }
+
         /// <summary>Generates a 304 Not Modified response.</summary>
         public static HttpResponse NotModified()
         {

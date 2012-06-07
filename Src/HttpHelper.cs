@@ -10,6 +10,8 @@ namespace RT.Servers
 {
     static class HttpHelper
     {
+        public static readonly string[] EmptyStrings = new string[0];
+
         public static List<KeyValuePair<string, string>> ParseQueryString(string s)
         {
             using (var rdr = new StringReader(s))

@@ -935,5 +935,79 @@ Content-Type: text/html
             yield return "blah";
             throw exception;
         }
+
+        [Test]
+        public void TestNestedUrlPathResolving()
+        {
+            var url = new HttpUrl();
+            url.SetHost("www.example.com");
+            url.SetUrlPath("/docgen/member/Color/ToString?thingy=stuff");
+            url.AssertComplete();
+
+            Assert.AreEqual("", url.BaseDomain);
+            Assert.AreEqual("www.example.com", url.Subdomain);
+
+            Assert.AreEqual("/docgen/member/Color/ToString", url.Path_);
+            Assert.IsTrue(url.ParentPaths.SequenceEqual(new string[0]));
+
+            bool okProp = false, okDocGen = false;
+
+            var resolverDocGen = new UrlPathResolver(
+                new UrlPathHook(path: "/member", handler: req =>
+                {
+                    Assert.AreEqual("/Color/ToString", req.Url.Path_);
+                    Assert.AreEqual("/docgen/member/blah/xyz?thingy=stuff", req.Url.WithPath_("/blah/xyz").ToHref());
+
+                    var url2 = req.Url.WithPathOnly("/blah/xyz");
+                    Assert.AreEqual("/docgen/member/blah/xyz", url2.ToHref());
+                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("http://www.example.com/docgen/member/blah/xyz", url2.ToFull());
+
+                    url2 = req.Url.WithPath_("/blah/xyz");
+                    Assert.AreEqual("/docgen/member/blah/xyz?thingy=stuff", url2.ToHref());
+                    Assert.AreEqual("/blah/xyz", url2.Path_);
+
+                    url2 = req.Url.WithPathParent().WithPath_("/blah/xyz");
+                    Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", url2.ToHref());
+                    Assert.AreEqual("/blah/xyz", url2.Path_);
+
+                    url2 = req.Url.WithPathParent().WithPathParent().WithPath_("/blah/xyz");
+                    Assert.AreEqual("/blah/xyz?thingy=stuff", url2.ToHref());
+                    Assert.AreEqual("/blah/xyz", url2.Path_);
+
+                    okDocGen = true;
+                    return HttpResponse.Empty();
+                })
+            );
+
+            var resolverPropeller = new UrlPathResolver(
+                new UrlPathHook(path: "/docgen", handler: req =>
+                {
+                    Assert.AreEqual("/member/Color/ToString", req.Url.Path_);
+                    Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", req.Url.WithPath_("/blah/xyz").ToHref());
+
+                    var url2 = req.Url.WithPathOnly("/blah/xyz");
+                    Assert.AreEqual("/docgen/blah/xyz", url2.ToHref());
+                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("http://www.example.com/docgen/blah/xyz", url2.ToFull());
+
+                    url2 = req.Url.WithPath_("/blah/xyz");
+                    Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", url2.ToHref());
+                    Assert.AreEqual("/blah/xyz", url2.Path_);
+
+                    url2 = req.Url.WithPathParent().WithPath_("/blah/xyz");
+                    Assert.AreEqual("/blah/xyz?thingy=stuff", url2.ToHref());
+                    Assert.AreEqual("/blah/xyz", url2.Path_);
+
+                    okProp = true;
+                    return resolverDocGen.Handle(req);
+                })
+            );
+
+            resolverPropeller.Handle(new HttpRequest() { Url = url });
+
+            Assert.IsTrue(okProp);
+            Assert.IsTrue(okDocGen);
+        }
     }
 }

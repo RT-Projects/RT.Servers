@@ -57,18 +57,17 @@ namespace RT.Servers
         /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer or directory listing.</returns>
         public HttpResponse Handle(HttpRequest request)
         {
-            if (request.Url.Subpath == "/$/directory-listing/xsl")
+            if (request.Url.Path_ == "/$/directory-listing/xsl")
                 return HttpResponse.Create(new MemoryStream(DirectoryListingXsl), "application/xml; charset=utf-8");
 
-            if (request.Url.Subpath.StartsWith("/$/directory-listing/icons/"))
-                return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.Url.Subpath.Substring(27))), "image/png");
+            if (request.Url.Path_.StartsWith("/$/directory-listing/icons/" /* watch out for the hardcoded length below */))
+                return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.Url.Path_.Substring(27))), "image/png");
 
-            if (request.Url.Subpath.StartsWith("/$/"))
+            if (request.Url.Path_.StartsWith("/$/"))
                 throw new HttpNotFoundException();
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
-            string url = request.Url.Subpath;
-            string[] urlPieces = url.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] urlPieces = request.Url.Path_.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
             string soFarUrl = "";
             for (int i = 0; i < urlPieces.Length; i++)
@@ -88,8 +87,8 @@ namespace RT.Servers
                         break;
                     }
 
-                    if (request.Url.Subpath != soFarUrl)
-                        return HttpResponse.Redirect(request.Url.BasePath + soFarUrl);
+                    if (request.Url.Path_ != soFarUrl)
+                        return HttpResponse.Redirect(request.Url.WithPath_(soFarUrl).ToHref());
 
                     var opts = Options ?? DefaultOptions;
                     return HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince);
@@ -105,14 +104,14 @@ namespace RT.Servers
                 }
                 else
                 {
-                    throw new HttpNotFoundException(request.Url.BasePath + soFarUrl + "/" + piece);
+                    throw new HttpNotFoundException(request.Url.WithPath_(soFarUrl + "/" + piece).ToHref());
                 }
                 soFar = nextSoFar;
             }
 
             // If this point is reached, it’s a directory
-            if (request.Url.Subpath != soFarUrl + "/")
-                return HttpResponse.Redirect(request.Url.WithSubpath(soFarUrl + "/").ToHref());
+            if (request.Url.Path_ != soFarUrl + "/")
+                return HttpResponse.Redirect(request.Url.WithPath_(soFarUrl + "/").ToHref());
 
             var style = (Options ?? DefaultOptions).DirectoryListingStyle;
             switch (style)
@@ -122,13 +121,13 @@ namespace RT.Servers
                 case DirectoryListingStyle.XmlPlusXsl:
                     if (!Directory.Exists(p + soFar))
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
-                    return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url.Subpath + soFarUrl + "/", request.Url.BasePath), "application/xml; charset=utf-8");
+                    return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url, soFarUrl + "/"), "application/xml; charset=utf-8");
                 default:
                     throw new InvalidOperationException("Invalid directory listing style: " + (int) style);
             }
         }
 
-        private static IEnumerable<string> generateDirectoryXml(string localPath, string url, string baseUrl)
+        private static IEnumerable<string> generateDirectoryXml(string localPath, IHttpUrl url, string urlPath)
         {
             List<DirectoryInfo> dirs = new List<DirectoryInfo>();
             List<FileInfo> files = new List<FileInfo>();
@@ -141,15 +140,16 @@ namespace RT.Servers
             files.Sort((a, b) => a.Name.CompareTo(b.Name));
 
             yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
-            yield return "<?xml-stylesheet href=\"{0}/$/directory-listing/xsl\" type=\"text/xsl\" ?>\n".Fmt(baseUrl.HtmlEscape());
-            yield return "<directory url=\"{0}\" unescapedurl=\"{1}\" img=\"{2}/$/directory-listing/icons/folderbig\" numdirs=\"{3}\" numfiles=\"{4}\">\n".Fmt(url.HtmlEscape(), url.UrlUnescape().HtmlEscape(), baseUrl.HtmlEscape(), dirs.Count, files.Count);
+            yield return "<?xml-stylesheet href=\"{0}\" type=\"text/xsl\" ?>\n".Fmt(url.WithPath_("/$/directory-listing/xsl").ToHref().HtmlEscape());
+            yield return "<directory url=\"{0}\" unescapedurl=\"{1}\" img=\"{2}\" numdirs=\"{3}\" numfiles=\"{4}\">\n"
+                .Fmt(url.ToHref().HtmlEscape(), url.ToHref().UrlUnescape().HtmlEscape(), url.WithPath_("/$/directory-listing/icons/folderbig").ToHref().HtmlEscape(), dirs.Count, files.Count);
             foreach (var d in dirs)
-                yield return "  <dir link=\"{0}/\" img=\"{2}/$/directory-listing/icons/folder\">{1}</dir>\n".Fmt(d.Name.UrlEscape(), d.Name.HtmlEscape(), baseUrl.HtmlEscape());
+                yield return "  <dir link=\"{0}/\" img=\"{2}\">{1}</dir>\n".Fmt(d.Name.UrlEscape(), d.Name.HtmlEscape(), url.WithPath_("/$/directory-listing/icons/folder").ToHref().HtmlEscape());
             foreach (var f in files)
             {
                 string extension = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
-                yield return "  <file link=\"{0}\" size=\"{1}\" nicesize=\"{2}\" img=\"{3}/$/directory-listing/icons/{4}\">{5}</file>\n"
-                    .Fmt(f.Name.UrlEscape(), f.Length, Ut.SizeToString(f.Length), baseUrl.HtmlEscape(), GetDirectoryListingIconStr(extension), f.Name.HtmlEscape());
+                yield return "  <file link=\"{0}\" size=\"{1}\" nicesize=\"{2}\" img=\"{3}\">{4}</file>\n"
+                    .Fmt(f.Name.UrlEscape(), f.Length, Ut.SizeToString(f.Length), url.WithPath_("/$/directory-listing/icons/" + GetDirectoryListingIconStr(extension)).ToHref().HtmlEscape(), f.Name.HtmlEscape());
             }
 
             yield return "</directory>\n";

@@ -162,32 +162,34 @@ namespace RT.Servers
 
         private void acceptSocket(IAsyncResult result)
         {
-            // Ensure that this callback is really due to a new connection (might be due to listening socket closure)
-            if (!IsListening)
-                return;
-
 #if DEBUG
             // Workaround for bug in .NET 4.0:
             // https://connect.microsoft.com/VisualStudio/feedback/details/535917
             new Thread(() =>
-            {
 #endif
+            {
+                // Ensure that this callback is really due to a new connection (might be due to listening socket closure)
+                if (!IsListening)
+                    return;
 
                 // Get the socket
                 Socket socket = null;
                 try { socket = _listeningSocket.EndAccept(result); }
                 catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
                 catch (ObjectDisposedException) { }
+                catch (NullReferenceException) { if (_listeningSocket != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
                 // Schedule the next socket accept
-                _listeningSocket.BeginAccept(acceptSocket, null);
+                if (_listeningSocket != null)
+                    try { _listeningSocket.BeginAccept(acceptSocket, null); }
+                    catch (NullReferenceException) { if (_listeningSocket != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
                 // Handle this connection
                 if (socket != null)
                     HandleConnection(socket);
-
+            }
 #if DEBUG
-            }).Start();
+).Start();
 #endif
         }
 
