@@ -28,7 +28,7 @@ namespace RT.Servers
             var returnTo = req.Post["returnto"].Value;
 
             if (username == null || password == null)
-                return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo).ToHref());
+                return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo));
 
             if (usersPath != null)
             {
@@ -124,7 +124,7 @@ namespace RT.Servers
             var returnTo = req.Post["returnto"].Value;
 
             if (username == null || oldpassword == null || newpassword == null || newpassword2 == null)
-                return HttpResponse.Redirect((returnTo == null ? req.Url : req.Url.WithQuery("returnto", returnTo)).ToHref());
+                return HttpResponse.Redirect(returnTo == null ? req.Url : req.Url.WithQuery("returnto", returnTo));
 
             if (usersPath != null)
             {

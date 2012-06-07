@@ -30,7 +30,7 @@ namespace RT.Servers
             {
                 applicableHandlers = _hooks.Where(hk => (hk.Port == null || hk.Port.Value == req.Url.Port) &&
                         (hk.Domain == null || hk.Domain == req.Url.Subdomain || (!hk.SpecificDomain && req.Url.Subdomain.EndsWith("." + hk.Domain))) &&
-                        (hk.Path == null || hk.Path == req.Url.Path_ || (!hk.SpecificPath && req.Url.Path_.StartsWith(hk.Path + "/"))))
+                        (hk.Path == null || hk.Path == req.Url.Path || (!hk.SpecificPath && req.Url.Path.StartsWith(hk.Path + "/"))))
                     .Select(hook => Ut.Lambda(() =>
                     {
                         if (hook.Path != null)
@@ -39,7 +39,7 @@ namespace RT.Servers
                             req.Url.ParentPaths = new string[parents.Length + 1];
                             Array.Copy(parents, req.Url.ParentPaths, parents.Length);
                             req.Url.ParentPaths[parents.Length] = hook.Path;
-                            req.Url.Path_ = req.Url.Path_.Substring(hook.Path.Length);
+                            req.Url.Path = req.Url.Path.Substring(hook.Path.Length);
                         }
                         req.Url.BaseDomain = hook.Domain ?? "";
                         req.Url.Subdomain = hook.Domain == null ? req.Url.Subdomain : req.Url.Subdomain.Remove(req.Url.Subdomain.Length - hook.Domain.Length);

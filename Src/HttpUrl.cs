@@ -42,9 +42,9 @@ namespace RT.Servers
 
         /// <summary>
         /// Specifies the path part of the URL – that is, the part that comes after the domain. The query string is excluded. Whenever not empty,
-        /// Path always begins with a forward slash. Manipulate this part using <see cref="IHttpUrlExtensions.WithPath_"/>.
+        /// Path always begins with a forward slash. Manipulate this part using <see cref="IHttpUrlExtensions.WithPath"/>.
         /// </summary>
-        string Path_ { get; }
+        string Path { get; }
 
         /// <summary>Specifies whether the path is followed by a query string (the part that begins with a <c>?</c> character).</summary>
         bool HasQuery { get; }
@@ -87,8 +87,8 @@ namespace RT.Servers
         public int Port { get; set; }
         /// <summary>Implements <see cref="IHttpUrl.ParentPaths"/>.</summary>
         public string[] ParentPaths { get; set; }
-        /// <summary>Implements <see cref="IHttpUrl.Path_"/>.</summary>
-        public string Path_ { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.Path"/>.</summary>
+        public string Path { get; set; }
 
         private bool _hasQuery;
         private IEnumerable<KeyValuePair<string, string>> _query;
@@ -108,7 +108,7 @@ namespace RT.Servers
             BaseDomain = source.BaseDomain;
             Port = source.Port;
             ParentPaths = source.ParentPaths;
-            Path_ = source.Path_;
+            Path = source.Path;
             _hasQuery = source.HasQuery;
             _query = source.Query;
             _queryString = null;
@@ -211,14 +211,14 @@ namespace RT.Servers
             int start = urlPath.IndexOf('?');
             if (start < 0)
             {
-                Path_ = urlPath;
+                Path = urlPath;
                 _hasQuery = false;
                 _query = Enumerable.Empty<KeyValuePair<string, string>>();
                 _queryString = "";
             }
             else
             {
-                Path_ = urlPath.Substring(0, start);
+                Path = urlPath.Substring(0, start);
                 _hasQuery = true;
                 _query = null;
                 _queryString = urlPath.Substring(start);
@@ -254,7 +254,7 @@ namespace RT.Servers
 
         internal void AssertComplete()
         {
-            if (Subdomain == null || BaseDomain == null || ParentPaths == null || Path_ == null)
+            if (Subdomain == null || BaseDomain == null || ParentPaths == null || Path == null)
                 throw new InvalidOperationException("HttpUrl is incomplete.");
             if (_query == null && _queryString == null)
                 throw new InvalidOperationException("HttpUrl is incomplete.");
@@ -278,7 +278,7 @@ namespace RT.Servers
             var sb = new StringBuilder(128);
             for (int i = 0; i < url.ParentPaths.Length; i++)
                 sb.Append(url.ParentPaths[i]);
-            sb.Append(url.Path_);
+            sb.Append(url.Path);
             url.AppendQueryString(sb, first: true);
             return sb.ToString();
         }
@@ -297,7 +297,7 @@ namespace RT.Servers
             }
             for (int i = 0; i < url.ParentPaths.Length; i++)
                 sb.Append(url.ParentPaths[i]);
-            sb.Append(url.Path_);
+            sb.Append(url.Path);
             url.AppendQueryString(sb, first: true);
             return sb.ToString();
         }
@@ -310,11 +310,11 @@ namespace RT.Servers
         /// <param name="url">Source URL.</param>
         /// <param name="subdomain">New value for the <see cref="IHttpUrl.Subdomain"/> property.</param>
         public static IHttpUrl WithSubdomain(this IHttpUrl url, string subdomain) { return new UrlWithSubdomain(url, subdomain); }
-        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path_"/> changed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
-        public static IHttpUrl WithPath_(this IHttpUrl url, string path) { return new UrlWithPath(url, path); }
-        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path_"/> changed and the query string removed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
+        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path"/> changed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
+        public static IHttpUrl WithPath(this IHttpUrl url, string path) { return new UrlWithPath(url, path); }
+        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path"/> changed and the query string removed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
         public static IHttpUrl WithPathOnly(this IHttpUrl url, string path) { return new UrlWithPathOnly(url, path); }
-        /// <summary>Returns a new URL such that the <see cref="IHttpUrl.Path_"/> includes the part matched by the most recent URL resolver.</summary>
+        /// <summary>Returns a new URL such that the <see cref="IHttpUrl.Path"/> includes the part matched by the most recent URL resolver.</summary>
         public static IHttpUrl WithPathParent(this IHttpUrl url) { return new UrlWithPathParent(url); }
         /// <summary>Returns a new URL consisting of the specified URL without the query string.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url) { return new UrlWithoutQueryAll(url); }
@@ -350,7 +350,7 @@ namespace RT.Servers
         public virtual string BaseDomain { get { return _source.BaseDomain; } }
         public virtual int Port { get { return _source.Port; } }
         public virtual string[] ParentPaths { get { return _source.ParentPaths; } }
-        public virtual string Path_ { get { return _source.Path_; } }
+        public virtual string Path { get { return _source.Path; } }
         public virtual bool HasQuery { get { return _source.HasQuery; } }
         public virtual IEnumerable<KeyValuePair<string, string>> Query { get { return _source.Query; } }
         public virtual string QueryString { get { return _source.QueryString; } }
@@ -397,7 +397,7 @@ namespace RT.Servers
                 throw new ArgumentException("The Path must start with a forward slash.");
             _path = path;
         }
-        public override string Path_ { get { return _path; } }
+        public override string Path { get { return _path; } }
     }
 
     internal class UrlWithPathOnly : UrlWithoutQueryAll
@@ -410,7 +410,7 @@ namespace RT.Servers
                 throw new ArgumentNullException();
             _path = path;
         }
-        public override string Path_ { get { return _path; } }
+        public override string Path { get { return _path; } }
     }
 
     internal class UrlWithPathParent : UrlWithNoChanges
@@ -425,12 +425,12 @@ namespace RT.Servers
             if (source.ParentPaths.Length == 1)
                 _parentPaths = HttpHelper.EmptyStrings;
         }
-        public override string Path_
+        public override string Path
         {
             get
             {
                 if (_path == null)
-                    _path = _source.ParentPaths[_source.ParentPaths.Length - 1] + _source.Path_;
+                    _path = _source.ParentPaths[_source.ParentPaths.Length - 1] + _source.Path;
                 return _path;
             }
         }

@@ -947,7 +947,7 @@ Content-Type: text/html
             Assert.AreEqual("", url.BaseDomain);
             Assert.AreEqual("www.example.com", url.Subdomain);
 
-            Assert.AreEqual("/docgen/member/Color/ToString", url.Path_);
+            Assert.AreEqual("/docgen/member/Color/ToString", url.Path);
             Assert.IsTrue(url.ParentPaths.SequenceEqual(new string[0]));
 
             bool okProp = false, okDocGen = false;
@@ -955,25 +955,25 @@ Content-Type: text/html
             var resolverDocGen = new UrlPathResolver(
                 new UrlPathHook(path: "/member", handler: req =>
                 {
-                    Assert.AreEqual("/Color/ToString", req.Url.Path_);
-                    Assert.AreEqual("/docgen/member/blah/xyz?thingy=stuff", req.Url.WithPath_("/blah/xyz").ToHref());
+                    Assert.AreEqual("/Color/ToString", req.Url.Path);
+                    Assert.AreEqual("/docgen/member/blah/xyz?thingy=stuff", req.Url.WithPath("/blah/xyz").ToHref());
 
                     var url2 = req.Url.WithPathOnly("/blah/xyz");
                     Assert.AreEqual("/docgen/member/blah/xyz", url2.ToHref());
-                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("/blah/xyz", url2.Path);
                     Assert.AreEqual("http://www.example.com/docgen/member/blah/xyz", url2.ToFull());
 
-                    url2 = req.Url.WithPath_("/blah/xyz");
+                    url2 = req.Url.WithPath("/blah/xyz");
                     Assert.AreEqual("/docgen/member/blah/xyz?thingy=stuff", url2.ToHref());
-                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("/blah/xyz", url2.Path);
 
-                    url2 = req.Url.WithPathParent().WithPath_("/blah/xyz");
+                    url2 = req.Url.WithPathParent().WithPath("/blah/xyz");
                     Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", url2.ToHref());
-                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("/blah/xyz", url2.Path);
 
-                    url2 = req.Url.WithPathParent().WithPathParent().WithPath_("/blah/xyz");
+                    url2 = req.Url.WithPathParent().WithPathParent().WithPath("/blah/xyz");
                     Assert.AreEqual("/blah/xyz?thingy=stuff", url2.ToHref());
-                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("/blah/xyz", url2.Path);
 
                     okDocGen = true;
                     return HttpResponse.Empty();
@@ -983,21 +983,21 @@ Content-Type: text/html
             var resolverPropeller = new UrlPathResolver(
                 new UrlPathHook(path: "/docgen", handler: req =>
                 {
-                    Assert.AreEqual("/member/Color/ToString", req.Url.Path_);
-                    Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", req.Url.WithPath_("/blah/xyz").ToHref());
+                    Assert.AreEqual("/member/Color/ToString", req.Url.Path);
+                    Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", req.Url.WithPath("/blah/xyz").ToHref());
 
                     var url2 = req.Url.WithPathOnly("/blah/xyz");
                     Assert.AreEqual("/docgen/blah/xyz", url2.ToHref());
-                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("/blah/xyz", url2.Path);
                     Assert.AreEqual("http://www.example.com/docgen/blah/xyz", url2.ToFull());
 
-                    url2 = req.Url.WithPath_("/blah/xyz");
+                    url2 = req.Url.WithPath("/blah/xyz");
                     Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", url2.ToHref());
-                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("/blah/xyz", url2.Path);
 
-                    url2 = req.Url.WithPathParent().WithPath_("/blah/xyz");
+                    url2 = req.Url.WithPathParent().WithPath("/blah/xyz");
                     Assert.AreEqual("/blah/xyz?thingy=stuff", url2.ToHref());
-                    Assert.AreEqual("/blah/xyz", url2.Path_);
+                    Assert.AreEqual("/blah/xyz", url2.Path);
 
                     okProp = true;
                     return resolverDocGen.Handle(req);
