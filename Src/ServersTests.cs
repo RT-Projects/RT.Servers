@@ -1009,5 +1009,47 @@ Content-Type: text/html
             Assert.IsTrue(okProp);
             Assert.IsTrue(okDocGen);
         }
+
+        [Test]
+        public void TestErrorHandlerAndCleanUp()
+        {
+            var instance = new HttpServer(new HttpServerOptions { Port = _port });
+            try
+            {
+                bool errorHandlerCalled = false;
+                bool cleanUpCalled = false;
+
+                instance.StartListening();
+                instance.Handler = req =>
+                {
+                    req.CleanUpCallback = () =>
+                    {
+                        Assert.IsTrue(errorHandlerCalled);
+                        cleanUpCalled = true;
+                    };
+                    throw new InvalidOperationException();
+                };
+                instance.ErrorHandler = (req, exc) =>
+                {
+                    Assert.IsFalse(cleanUpCalled);
+                    errorHandlerCalled = true;
+                    return HttpResponse.PlainText("Error");
+                };
+
+                TcpClient cl = new TcpClient();
+                cl.Connect("localhost", _port);
+                cl.ReceiveTimeout = 1000000; // 1000 sec
+                cl.Client.Send("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n".ToUtf8());
+                var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                cl.Close();
+                Assert.IsTrue(errorHandlerCalled);
+                Assert.IsTrue(cleanUpCalled);
+                Assert.IsTrue(response.EndsWith("\r\n\r\nError"));
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
+        }
     }
 }

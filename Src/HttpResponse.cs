@@ -35,9 +35,6 @@ namespace RT.Servers
         /// <summary>Specifies whether gzip should be used.</summary>
         public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
 
-        /// <summary>Specifies an action to perform when the request finishes.</summary>
-        public Action CleanUpCallback;
-
         private HttpResponse() { }
 
         /// <summary>Returns the specified file from the local file system using the specified MIME content type to the client.</summary>

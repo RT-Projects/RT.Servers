@@ -442,7 +442,7 @@ namespace RT.Servers
 
                 _bufferDataOffset += endOfHeadersIndex + 4 - prevHeadersLength;
                 _bufferDataLength -= endOfHeadersIndex + 4 - prevHeadersLength;
-                HttpRequest originalRequest;
+                HttpRequest originalRequest = null;
                 HttpResponse response = null;
                 bool connectionKeepAlive = false;
                 try
@@ -473,11 +473,11 @@ namespace RT.Servers
                         response.Content.Close();
                         _sw.Log("Response.Content.Close()");
                     }
-                    if (response != null && response.CleanUpCallback != null)
+                    if (originalRequest != null && originalRequest.CleanUpCallback != null)
                     {
-                        _sw.Log("Stuff before Response.CleanUpCallback()");
-                        response.CleanUpCallback();
-                        _sw.Log("Response.CleanUpCallback()");
+                        _sw.Log("Stuff before originalRequest.CleanUpCallback()");
+                        originalRequest.CleanUpCallback();
+                        _sw.Log("originalRequest.CleanUpCallback()");
                     }
                 }
 

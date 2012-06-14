@@ -39,6 +39,10 @@ namespace RT.Servers
         /// <summary>Not used by <see cref="HttpServer"/> in any way, this field may be used by the application to store any relevant information.</summary>
         public object Data { get; set; }
 
+        /// <summary>Specifies an action to perform when the request finishes.</summary>
+        /// <remarks>Use <c>+=</c> to add cleanup actions so as to not overwrite existing ones.</remarks>
+        public Action CleanUpCallback = null;
+
         /// <summary>
         /// A default constructor that initialises all fields to their defaults.
         /// </summary>
