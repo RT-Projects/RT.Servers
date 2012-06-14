@@ -36,6 +36,9 @@ namespace RT.Servers
         /// <summary>Identifies the immediate source of this request, which might be the client itself, or an HTTP proxy.</summary>
         public IPEndPoint SourceIP { get; internal set; }
 
+        /// <summary>Not used by <see cref="HttpServer"/> in any way, this field may be used by the application to store any relevant information.</summary>
+        public object Data { get; set; }
+
         /// <summary>
         /// A default constructor that initialises all fields to their defaults.
         /// </summary>
