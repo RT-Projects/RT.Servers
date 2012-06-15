@@ -97,6 +97,26 @@ namespace RT.Servers
         /// <summary>Constructor.</summary>
         internal HttpUrl() { }
 
+        /// <summary>Constructor.</summary>
+        /// <param name="httpHost">The value of the HTTP "Host" header.</param>
+        /// <param name="httpLocation">The value of the HTTP resource location field.</param>
+        public HttpUrl(string httpHost, string httpLocation)
+        {
+            SetHost(httpHost);
+            SetRestUrl(httpLocation);
+        }
+
+        /// <summary>Constructor.</summary>
+        /// <param name="https">Whether this is an HTTPS URL.</param>
+        /// <param name="httpHost">The value of the HTTP "Host" header.</param>
+        /// <param name="httpLocation">The value of the HTTP resource location field.</param>
+        public HttpUrl(bool https, string httpHost, string httpLocation)
+        {
+            Https = https;
+            SetHost(httpHost);
+            SetRestUrl(httpLocation);
+        }
+
         /// <summary>Creates a new instance based on the specified other URL.</summary>
         /// <param name="source">URL to copy information from.</param>
         public HttpUrl(IHttpUrl source)
@@ -203,7 +223,7 @@ namespace RT.Servers
                 HttpHelper.AppendQueryString(sb, _hasQuery, _query, first);
         }
 
-        internal void SetUrlPath(string urlPath)
+        internal void SetRestUrl(string urlPath)
         {
             if (urlPath == null || urlPath.Contains(' ') || urlPath.Length == 0 || urlPath[0] != '/')
                 throw new ArgumentException();
@@ -610,7 +630,7 @@ namespace RT.Servers
             _name = name;
             _value = value;
         }
-        public override bool HasQuery { get { return _value != null; } }
+        public override bool HasQuery { get { return _value != null ? true : !_source.HasQuery ? false : QueryString.Length > 0; } }
         public override IEnumerable<KeyValuePair<string, string>> Query
         {
             get

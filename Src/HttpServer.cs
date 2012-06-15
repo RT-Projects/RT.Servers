@@ -931,7 +931,7 @@ namespace RT.Servers
                 req.Url.Https = false;
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
-                try { req.Url.SetUrlPath(line.Substring(start, line.Length - start - 9)); }
+                try { req.Url.SetRestUrl(line.Substring(start, line.Length - start - 9)); }
                 catch { return errorParsingRequest(req, HttpStatusCode._400_BadRequest); }
 
                 _sw.Log("HandleRequestAfterHeaders() - setting HttpRequest members");
