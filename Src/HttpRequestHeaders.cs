@@ -359,8 +359,8 @@ namespace RT.Servers
         void ICollection<KeyValuePair<string, string>>.Clear() { throw new NotSupportedException(); }
         void ICollection<KeyValuePair<string, string>>.Add(KeyValuePair<string, string> item) { throw new NotSupportedException(); }
         bool ICollection<KeyValuePair<string, string>>.Remove(KeyValuePair<string, string> item) { throw new NotSupportedException(); }
-        bool ICollection<KeyValuePair<string, string>>.Contains(KeyValuePair<string, string> item) { throw new NotImplementedException(); }
-        void ICollection<KeyValuePair<string, string>>.CopyTo(KeyValuePair<string, string>[] array, int arrayIndex) { throw new NotImplementedException(); }
+        bool ICollection<KeyValuePair<string, string>>.Contains(KeyValuePair<string, string> item) { return ((ICollection<KeyValuePair<string, string>>) _headers).Contains(item); }
+        void ICollection<KeyValuePair<string, string>>.CopyTo(KeyValuePair<string, string>[] array, int arrayIndex) { ((ICollection<KeyValuePair<string, string>>) _headers).CopyTo(array, arrayIndex); }
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
     }
 }
