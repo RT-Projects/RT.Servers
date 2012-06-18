@@ -41,8 +41,9 @@ namespace RT.Servers
         string[] ParentPaths { get; }
 
         /// <summary>
-        /// Specifies the path part of the URL – that is, the part that comes after the domain. The query string is excluded. Whenever not empty,
-        /// Path always begins with a forward slash. Manipulate this part using <see cref="IHttpUrlExtensions.WithPath"/>.
+        /// Specifies the path part of the URL – that is, the part that comes after the domain (or, if a URL resolver is used, the part that comes
+        /// after the hook path). The query string is excluded. Whenever not empty, Path always begins with a forward slash. Manipulate this
+        /// part using <see cref="IHttpUrlExtensions.WithPath"/> or <see cref="IHttpUrlExtensions.WithPathOnly"/>.
         /// </summary>
         string Path { get; }
 
@@ -122,7 +123,7 @@ namespace RT.Servers
         public HttpUrl(IHttpUrl source)
         {
             if (source == null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException("source");
             Https = source.Https;
             Subdomain = source.Subdomain;
             BaseDomain = source.BaseDomain;
@@ -398,7 +399,7 @@ namespace RT.Servers
             : base(source)
         {
             if (subdomain == null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException("subdomain");
             _subdomain = subdomain;
         }
         public override string Subdomain { get { return _subdomain; } }
@@ -411,7 +412,7 @@ namespace RT.Servers
             : base(source)
         {
             if (path == null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException("path");
             if (path.Contains('?'))
                 throw new ArgumentException("The Path must not contain a question mark. Did you forget to escape the URL?");
             if (path != "" && path[0] != '/')
@@ -428,7 +429,7 @@ namespace RT.Servers
             : base(source)
         {
             if (path == null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException("path");
             _path = path;
         }
         public override string Path { get { return _path; } }
@@ -518,7 +519,7 @@ namespace RT.Servers
             : base(source)
         {
             if (names == null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException("names");
             _names = names;
         }
         public UrlWithoutQueryMultiple(IHttpUrl source, IEnumerable<string> names) : this(source, names.ToHashSet()) { }

@@ -104,7 +104,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    throw new HttpNotFoundException(request.Url.WithPath(soFarUrl + "/" + piece).ToHref());
+                    throw new HttpNotFoundException(request.Url.WithPathOnly(soFarUrl + "/" + piece).ToHref());
                 }
                 soFar = nextSoFar;
             }
@@ -140,16 +140,16 @@ namespace RT.Servers
             files.Sort((a, b) => a.Name.CompareTo(b.Name));
 
             yield return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
-            yield return "<?xml-stylesheet href=\"{0}\" type=\"text/xsl\" ?>\n".Fmt(url.WithPath("/$/directory-listing/xsl").ToHref().HtmlEscape());
+            yield return "<?xml-stylesheet href=\"{0}\" type=\"text/xsl\" ?>\n".Fmt(url.WithPathOnly("/$/directory-listing/xsl").ToHref().HtmlEscape());
             yield return "<directory url=\"{0}\" unescapedurl=\"{1}\" img=\"{2}\" numdirs=\"{3}\" numfiles=\"{4}\">\n"
-                .Fmt(url.ToHref().HtmlEscape(), url.ToHref().UrlUnescape().HtmlEscape(), url.WithPath("/$/directory-listing/icons/folderbig").ToHref().HtmlEscape(), dirs.Count, files.Count);
+                .Fmt(url.ToHref().HtmlEscape(), url.ToHref().UrlUnescape().HtmlEscape(), url.WithPathOnly("/$/directory-listing/icons/folderbig").ToHref().HtmlEscape(), dirs.Count, files.Count);
             foreach (var d in dirs)
-                yield return "  <dir link=\"{0}/\" img=\"{2}\">{1}</dir>\n".Fmt(d.Name.UrlEscape(), d.Name.HtmlEscape(), url.WithPath("/$/directory-listing/icons/folder").ToHref().HtmlEscape());
+                yield return "  <dir link=\"{0}/\" img=\"{2}\">{1}</dir>\n".Fmt(d.Name.UrlEscape(), d.Name.HtmlEscape(), url.WithPathOnly("/$/directory-listing/icons/folder").ToHref().HtmlEscape());
             foreach (var f in files)
             {
                 string extension = f.Name.Contains('.') ? f.Name.Substring(f.Name.LastIndexOf('.') + 1) : "";
                 yield return "  <file link=\"{0}\" size=\"{1}\" nicesize=\"{2}\" img=\"{3}\">{4}</file>\n"
-                    .Fmt(f.Name.UrlEscape(), f.Length, Ut.SizeToString(f.Length), url.WithPath("/$/directory-listing/icons/" + GetDirectoryListingIconStr(extension)).ToHref().HtmlEscape(), f.Name.HtmlEscape());
+                    .Fmt(f.Name.UrlEscape(), f.Length, Ut.SizeToString(f.Length), url.WithPathOnly("/$/directory-listing/icons/" + GetDirectoryListingIconStr(extension)).ToHref().HtmlEscape(), f.Name.HtmlEscape());
             }
 
             yield return "</directory>\n";
