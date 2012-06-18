@@ -227,7 +227,7 @@ namespace RT.Servers
                     contentHtml += "<p>" + userMessage.HtmlEscape() + "</p>";
             }
 
-            if (Options.OutputExceptionInformation)
+            //if (Options.OutputExceptionInformation)
                 contentHtml = contentHtml
                     + "<hr>"
                     + (exInErrorHandler == null
