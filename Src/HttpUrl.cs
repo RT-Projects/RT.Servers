@@ -315,8 +315,9 @@ namespace RT.Servers
                 sb.Append(':');
                 sb.Append(url.Port);
             }
-            for (int i = 0; i < url.ParentPaths.Length; i++)
-                sb.Append(url.ParentPaths[i]);
+            if (url.ParentPaths != null)
+                for (int i = 0; i < url.ParentPaths.Length; i++)
+                    sb.Append(url.ParentPaths[i]);
             sb.Append(url.Path);
             url.AppendQueryString(sb, first: true);
             return sb.ToString();

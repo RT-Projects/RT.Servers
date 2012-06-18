@@ -361,21 +361,21 @@ namespace RT.Servers
                 {
 #endif
 
-                    KeepAliveActive = false;
-                    Interlocked.Increment(ref _endedReceives);
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
 
-                    try
-                    {
-                        _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
-                    }
-                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                try
+                {
+                    _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
+                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                    if (_bufferDataLength == 0)
-                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                    else
-                        processHeaderData();
-                    cleanupIfDone();
+                if (_bufferDataLength == 0)
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                else
+                    processHeaderData();
+                cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -512,7 +512,6 @@ namespace RT.Servers
                     if (response.Headers.ContentType == null && response.Headers.Location == null)
                         response.Headers.ContentType = _server.Options.DefaultContentType;
 
-                    bool keepAliveRequested = originalRequest.Headers.Connection == HttpConnection.KeepAlive;
                     bool gzipRequested = false;
                     if (originalRequest.Headers.AcceptEncoding != null)
                         foreach (HttpContentEncoding hce in originalRequest.Headers.AcceptEncoding)
@@ -545,7 +544,10 @@ namespace RT.Servers
                         catch (NotSupportedException) { }
                     }
 
-                    bool useKeepAlive = keepAliveRequested && originalRequest.HttpVersion == HttpProtocolVersion.Http11;
+                    bool useKeepAlive =
+                        originalRequest.HttpVersion == HttpProtocolVersion.Http11 &&
+                        originalRequest.Headers.Connection == HttpConnection.KeepAlive &&
+                        response.Headers.Connection != HttpConnection.Close;
                     if (useKeepAlive)
                         response.Headers.Connection = HttpConnection.KeepAlive;
 
