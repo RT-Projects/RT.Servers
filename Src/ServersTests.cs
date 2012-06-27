@@ -22,9 +22,6 @@ using RT.Util.Streams;
 
 namespace RT.Servers
 {
-    // Things this doesn't yet test:
-    // * Expect: 100-continue / 100 Continue
-
     [TestFixture]
     public sealed class ServersTestSuite
     {
@@ -937,6 +934,55 @@ Content-Type: text/html
         }
 
         [Test]
+        public void TestHalfOpenConnection()
+        {
+            var instance = new HttpServer(new HttpServerOptions { Port = _port, OutputExceptionInformation = true });
+            instance.Handler = req => HttpResponse.PlainText(" thingy stuff ");
+            try
+            {
+                instance.StartListening();
+
+                // A proper request ending in a half closed connection
+                using (var cl = new TcpClient())
+                {
+                    cl.ReceiveTimeout = 1000; // 1 sec
+                    cl.Connect("localhost", _port);
+                    cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".ToUtf8());
+                    cl.Client.Shutdown(SocketShutdown.Send);
+                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
+                    var parts = response.Split("\r\n\r\n");
+                    Assert.AreEqual(HttpStatusCode._200_OK, code);
+                    Assert.AreEqual(" thingy stuff ", parts[1]);
+                }
+
+                // An incomplete request ending in a half closed connection
+                using (var cl = new TcpClient())
+                {
+                    cl.Connect("localhost", _port);
+                    cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close".ToUtf8());
+                    cl.Client.Shutdown(SocketShutdown.Send);
+                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    // the test is that it doesn't wait forever
+                }
+
+                // A malformed request ending in a half closed connection
+                using (var cl = new TcpClient())
+                {
+                    cl.Connect("localhost", _port);
+                    cl.Client.Send("xz".ToUtf8());
+                    cl.Client.Shutdown(SocketShutdown.Send);
+                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    // the test is that it doesn't wait forever
+                }
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
+        }
+
+        [Test]
         public void TestNestedUrlPathResolving()
         {
             var url = new HttpUrl();
@@ -1008,6 +1054,54 @@ Content-Type: text/html
 
             Assert.IsTrue(okProp);
             Assert.IsTrue(okDocGen);
+        }
+
+        [Test]
+        public void TestUrlPathResolverDomainCase()
+        {
+            var instance = new HttpServer(new HttpServerOptions { Port = _port, OutputExceptionInformation = true });
+            try
+            {
+                bool ok;
+                instance.Handler = new UrlPathResolver(
+                    new UrlPathHook(domain: "example.com", handler: req => { ok = true; return HttpResponse.Empty(); })
+                ).Handle;
+
+                var getResponse = Ut.Lambda((string host) =>
+                {
+                    TcpClient cl = new TcpClient();
+                    cl.Connect("localhost", _port);
+                    cl.ReceiveTimeout = 1000; // 1 sec
+                    cl.Client.Send(("GET /static HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n").ToUtf8());
+                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    cl.Close();
+                    var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
+                    var parts = response.Split("\r\n\r\n");
+                    return Tuple.Create(code, parts[1]);
+                });
+
+                instance.StartListening();
+
+                ok = false;
+                getResponse("blah.com");
+                Assert.IsFalse(ok);
+
+                ok = false;
+                getResponse("www.example.com");
+                Assert.IsTrue(ok);
+
+                ok = false;
+                getResponse("WWW.EXAMPLE.COM");
+                Assert.IsTrue(ok);
+
+                ok = false;
+                getResponse("www.exAmple.com");
+                Assert.IsTrue(ok);
+            }
+            finally
+            {
+                instance.StopListening(brutal: true);
+            }
         }
 
         [Test]
