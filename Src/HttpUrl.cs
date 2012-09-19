@@ -189,7 +189,7 @@ namespace RT.Servers
             set
             {
                 if (value == null)
-                    throw new ArgumentException();
+                    throw new ArgumentNullException("value");
                 _query = value;
                 _hasQuery = true;
                 _queryString = null;
