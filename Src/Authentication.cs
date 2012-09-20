@@ -9,19 +9,58 @@ using RT.Util.Xml;
 
 namespace RT.Servers
 {
-    /// <summary>Provides static methods for a login form and a change-password form.</summary>
-    public static class Authentication
+    /// <summary>Provides functionality for a login system.</summary>
+    public sealed class Authenticator
     {
-        /// <summary>Returns a login form or processes a login attempt.</summary>
-        /// <param name="req">Request to process.</param>
-        /// <param name="usersPath">Path to the file in which usernames and passwords are stored.</param>
-        /// <param name="setUsername">Action to call when login is successful. Use this to set the username in your custom session, for example.</param>
+        private string _usersPath;
+        private string _defaultReturnTo;
+        private string _appName;
+
+        /// <summary>Used to ensure that the AuthUsers XML file is not read and written concurrently.</summary>
+        /// <remarks>static in case multiple instances of <see cref="Authenticator"/> use the same XML file.</remarks>
+        private static object _lock = new object();
+
+        /// <summary>Constructor.</summary>
+        /// <param name="usersFilePath">Specifies the path and filename of an XML file containing the users and passwords.</param>
         /// <param name="defaultReturnTo">Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET parameter.</param>
-        /// <param name="appName">Name of the application which uses this login handler.</param>
-        public static HttpResponse LoginHandler(HttpRequest req, string usersPath, Action<string> setUsername, string defaultReturnTo, string appName)
+        /// <param name="appName">Name of the application which uses this authentication handler.</param>
+        public Authenticator(string usersFilePath, string defaultReturnTo, string appName)
+        {
+            if (usersFilePath == null)
+                throw new ArgumentNullException("usersFilePath");
+            if (defaultReturnTo == null)
+                throw new ArgumentNullException("defaultReturnTo");
+            if (appName == null)
+                throw new ArgumentNullException("appName");
+            _usersPath = usersFilePath;
+            _defaultReturnTo = defaultReturnTo;
+            _appName = appName;
+        }
+
+        /// <summary>Handles a request.</summary>
+        /// <param name="request">Request to handle.</param>
+        /// <param name="setUsername">Action to call when login is successful. Typically used to set the username in a session.</param>
+        /// <param name="loggedInUser">Username of the user currently logged in (typically read from a session).</param>
+        public HttpResponse Handle(HttpRequest request, string loggedInUser, Action<string> setUsername)
+        {
+            return new UrlPathResolver(
+                new UrlPathHook(path: "/login", handler: req => loginHandler(req, setUsername)),
+                new UrlPathHook(path: "/changepassword", handler: req => changePasswordHandler(req, loggedInUser)),
+                new UrlPathHook(path: "/createuser", handler: req => createUserHandler(req, loggedInUser)),
+                new UrlPathHook(path: "/logout", handler: req => logoutHandler(req, setUsername))
+            ).Handle(request);
+        }
+
+        private HttpResponse logoutHandler(HttpRequest req, Action<string> setUsername)
+        {
+            setUsername(null);
+            return HttpResponse.Redirect(req.Url.WithPathParent().WithPathOnly("/login"));
+        }
+
+        private HttpResponse loginHandler(HttpRequest req, Action<string> setUsername)
         {
             if (req.Method != HttpMethod.Post)
-                return loginForm(req.Url["returnto"], false, null, null, req.Url.WithoutQuery("returnto"), appName);
+                return loginForm(req.Url["returnto"], false, null, null, req.Url.WithoutQuery("returnto"));
 
             var username = req.Post["username"].Value;
             var password = req.Post["password"].Value;
@@ -30,27 +69,25 @@ namespace RT.Servers
             if (username == null || password == null)
                 return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo));
 
-            if (usersPath != null)
+            if (File.Exists(_usersPath))
             {
-                if (File.Exists(usersPath))
+                AuthUsers users;
+                lock (_lock)
+                    users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath);
+                var user = users.Users.FirstOrDefault(u => u.Username == username && verifyHash(password, u.PasswordHash));
+                if (user != null)
                 {
-                    AuthUsers users;
-                    lock (_lock)
-                        users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath);
-                    var user = users.Users.FirstOrDefault(u => u.Username == username && verifyHash(password, u.PasswordHash));
-                    if (user != null)
-                    {
-                        // Login successful!
-                        setUsername(username);
-                        return HttpResponse.Redirect(returnTo ?? defaultReturnTo);
-                    }
+                    // Login successful!
+                    setUsername(user.Username);
+                    return HttpResponse.Redirect(returnTo ?? _defaultReturnTo);
                 }
-                else
-                    lock (_lock)
-                        XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
             }
+            else
+                lock (_lock)
+                    XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), _usersPath);
+
             // Login failed.
-            return loginForm(returnTo, true, username, password, req.Url, appName);
+            return loginForm(returnTo, true, username, password, req.Url);
         }
 
         private static string createHash(string password)
@@ -81,7 +118,7 @@ namespace RT.Servers
             input[type=submit] { font-size: 125%; }
         ";
 
-        private static HttpResponse loginForm(string returnto, bool failed, string username, string password, IHttpUrl formSubmitUrl, string appName)
+        private HttpResponse loginForm(string returnto, bool failed, string username, string password, IHttpUrl formSubmitUrl)
         {
             return HttpResponse.Html(
                 new HTML(
@@ -93,7 +130,7 @@ namespace RT.Servers
                         new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
                             new DIV(
                                 returnto == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnto },
-                                new P("Please log in to access ", appName, "."),
+                                new P("Please log in to access ", _appName, "."),
                                 failed ? new P("The specified username and/or password has not been recognised.") { class_ = "error" } : null,
                                 HtmlTag.HtmlTable(null,
                                     new object[] { "Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username } },
@@ -107,59 +144,44 @@ namespace RT.Servers
             );
         }
 
-        /// <summary>Returns a change-password form or processes a change-password attempt.</summary>
-        /// <param name="req">Request to process.</param>
-        /// <param name="usersPath">Path to the file in which usernames and passwords are stored.</param>
-        /// <param name="defaultReturnTo">Default URL to redirect to when a change-password attempt is successful. This can be overridden by a "returnto" GET parameter.</param>
-        /// <param name="allowCreateNew">If true, existing users can create new users by "changing" the password of a non-existent user. Once created, the new user can login and change their password again.</param>
-        public static HttpResponse ChangePasswordHandler(HttpRequest req, string usersPath, string defaultReturnTo, bool allowCreateNew)
+        private HttpResponse changePasswordHandler(HttpRequest req, string loggedInUser)
         {
-            if (req.Method != HttpMethod.Post)
-                return changePasswordForm(req.Url["returnto"], false, false, null, null, null, null, req.Url.WithoutQuery("returnto"));
+            if (loggedInUser == null)
+                return HttpResponse.Redirect(req.Url.WithPathOnly("/login").WithQuery("returnto", req.Url.ToHref()));
 
-            var username = req.Post["username"].Value;
+            if (req.Method != HttpMethod.Post)
+                return changePasswordForm(loggedInUser, req.Url["returnto"], false, false, null, null, null, req.Url.WithoutQuery("returnto"));
+
             var oldpassword = req.Post["password"].Value;
             var newpassword = req.Post["newpassword1"].Value;
             var newpassword2 = req.Post["newpassword2"].Value;
             var returnTo = req.Post["returnto"].Value;
 
-            if (username == null || oldpassword == null || newpassword == null || newpassword2 == null)
+            if (loggedInUser == null || oldpassword == null || newpassword == null || newpassword2 == null)
                 return HttpResponse.Redirect(returnTo == null ? req.Url : req.Url.WithQuery("returnto", returnTo));
 
-            if (usersPath != null)
+            lock (_lock)
             {
-                lock (_lock)
-                {
-                    AuthUsers users;
-                    try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath); }
-                    catch { users = null; }
-                    if (users != null)
-                    {
-                        var user = users.Users.FirstOrDefault(u => u.Username == username);
-                        if ((user == null && allowCreateNew && username != "") || verifyHash(oldpassword, user.PasswordHash))
-                        {
-                            if (newpassword2 != newpassword)
-                                return changePasswordForm(returnTo, false, true, username, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
+                AuthUsers users;
+                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
+                catch { users = null; }
+                if (users == null)
+                    users = new AuthUsers();
 
-                            if (user == null)
-                            {
-                                user = new AuthUser { Username = username };
-                                users.Users.Add(user);
-                            }
-                            user.PasswordHash = createHash(newpassword);
-                            XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, usersPath);
-                            return HttpResponse.Redirect(returnTo ?? defaultReturnTo);
-                        }
-                    }
-                    else
-                        XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), usersPath);
-                }
+                var user = users.Users.FirstOrDefault(u => u.Username == loggedInUser);
+                if (user == null || !verifyHash(oldpassword, user.PasswordHash))
+                    return changePasswordForm(loggedInUser, returnTo, true, false, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
+
+                if (newpassword2 != newpassword)
+                    return changePasswordForm(loggedInUser, returnTo, false, true, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
+
+                user.PasswordHash = createHash(newpassword);
+                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
+                return HttpResponse.Redirect(returnTo ?? _defaultReturnTo);
             }
-            // Username or old password was wrong
-            return changePasswordForm(returnTo, true, false, username, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
         }
 
-        private static HttpResponse changePasswordForm(string returnto, bool loginFailed, bool passwordsDiffer, string username, string oldpassword, string newpassword1, string newpassword2, IHttpUrl formSubmitUrl)
+        private static HttpResponse changePasswordForm(string loggedInUser, string returnTo, bool loginFailed, bool passwordsDiffer, string oldpassword, string newpassword1, string newpassword2, IHttpUrl formSubmitUrl)
         {
             return HttpResponse.Html(
                 new HTML(
@@ -170,12 +192,12 @@ namespace RT.Servers
                     new BODY(
                         new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
                             new DIV(
-                                returnto == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnto },
-                                new P("To change your password, type your username, the old password, and then the new password twice."),
-                                loginFailed ? new P("The specified username or old password is wrong.") { class_ = "error" } : null,
+                                returnTo == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnTo },
+                                new P("To change your password, type your old password, and then the new password twice."),
+                                loginFailed ? new P("The specified old password is wrong.") { class_ = "error" } : null,
                                 passwordsDiffer ? new P("The specified new passwords do not match. You have to type the same new password twice.") { class_ = "error" } : null,
                                 HtmlTag.HtmlTable(null,
-                                    new object[] { "Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username } },
+                                    new object[] { "Username:", new STRONG(loggedInUser) },
                                     new object[] { "Old password:", new INPUT { name = "password", type = itype.password, size = 60, value = oldpassword } },
                                     new object[] { "New password (1):", new INPUT { name = "newpassword1", type = itype.password, size = 60, value = newpassword1 } },
                                     new object[] { "New password (2):", new INPUT { name = "newpassword2", type = itype.password, size = 60, value = newpassword2 } },
@@ -188,19 +210,107 @@ namespace RT.Servers
             );
         }
 
-        /// <summary>
-        /// Creates a new user with the specified username/password, or sets the existing user's password.
-        /// </summary>
-        /// <param name="usersPath">Path to the file in which usernames and passwords are stored.</param>
-        /// <param name="username">Username, case sensitive, to be added or modified.</param>
-        /// <param name="password">Password that the new/updated user should have.</param>
-        /// <returns>True if a new user was created, false if an existing one was modified.</returns>
-        public static bool AddUser(string usersPath, string username, string password)
+        private HttpResponse createUserHandler(HttpRequest req, string loggedInUserName)
+        {
+            AuthUsers users;
+            lock (_lock)
+            {
+                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
+                catch { users = null; }
+                if (users == null)
+                    users = new AuthUsers();
+
+                var loggedInUser = users.Users.FirstOrDefault(u => u.Username == loggedInUserName);
+                if (loggedInUser == null || !loggedInUser.CanCreateUsers)
+                    throw new HttpException(HttpStatusCode._401_Unauthorized);
+
+                if (req.Method != HttpMethod.Post)
+                    return createUserForm(req.Url["returnto"], false, false, null, null, null, req.Url.WithoutQuery("returnto"));
+
+                var username = req.Post["username"].Value;
+                var newpassword = req.Post["newpassword1"].Value;
+                var newpassword2 = req.Post["newpassword2"].Value;
+                var returnTo = req.Post["returnto"].Value;
+
+                if (username == null || newpassword == null || newpassword2 == null)
+                    // if returnTo is null, this removes the query parameter
+                    return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo));
+
+                var user = users.Users.FirstOrDefault(u => u.Username == username);
+                if (user != null)
+                    return createUserForm(returnTo, true, false, username, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
+
+                if (newpassword2 != newpassword)
+                    return createUserForm(returnTo, false, true, username, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
+
+                users.Users.Add(new AuthUser { Username = username, PasswordHash = createHash(newpassword) });
+                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
+                return HttpResponse.Redirect(returnTo ?? _defaultReturnTo);
+            }
+        }
+
+        /// <summary>Creates a new user. (Throws if the <paramref name="username"/> is already in use.)</summary>
+        /// <param name="username">Username of the new user.</param>
+        /// <param name="password">Password for the new user.</param>
+        /// <exception cref="InvalidOperationException">The specified username is already in use.</exception>
+        public void CreateUser(string username, string password)
+        {
+            if (username == null)
+                throw new ArgumentNullException("username");
+            if (password == null)
+                throw new ArgumentNullException("password");
+
+            lock (_lock)
+            {
+                AuthUsers users;
+                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
+                catch { users = null; }
+                if (users == null)
+                    users = new AuthUsers();
+
+                var user = users.Users.FirstOrDefault(u => u.Username == username);
+                if (user != null)
+                    throw new InvalidOperationException("The specified user already exists.");
+
+                users.Users.Add(new AuthUser { Username = username, PasswordHash = createHash(password) });
+                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
+            }
+        }
+
+        private static HttpResponse createUserForm(string returnTo, bool userAlreadyExists, bool passwordsDiffer, string username, string newpassword1, string newpassword2, IHttpUrl formSubmitUrl)
+        {
+            return HttpResponse.Html(
+                new HTML(
+                    new HEAD(
+                        new TITLE("Create user"),
+                        new STYLELiteral(_formCss)
+                    ),
+                    new BODY(
+                        new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
+                            new DIV(
+                                returnTo == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnTo },
+                                new P("To create a new user, type the desired username and the new password twice."),
+                                userAlreadyExists ? new P("The specified username is already in use.") { class_ = "error" } : null,
+                                passwordsDiffer ? new P("The specified new passwords do not match. You have to type the same new password twice.") { class_ = "error" } : null,
+                                HtmlTag.HtmlTable(null,
+                                    new object[] { "Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username } },
+                                    new object[] { "New password (1):", new INPUT { name = "newpassword1", type = itype.password, size = 60, value = newpassword1 } },
+                                    new object[] { "New password (2):", new INPUT { name = "newpassword2", type = itype.password, size = 60, value = newpassword2 } },
+                                    new[] { null, new INPUT { value = "Create user", type = itype.submit } }
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        private bool addUser(string username, string password)
         {
             lock (_lock)
             {
                 AuthUsers users;
-                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(usersPath); }
+                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
                 catch (FileNotFoundException) { users = new AuthUsers(); }
 
                 bool created = false;
@@ -213,19 +323,18 @@ namespace RT.Servers
                 }
                 user.PasswordHash = createHash(password);
 
-                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, usersPath);
+                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
                 return created;
             }
         }
-
-        /// <summary>Used to ensure that the AuthUsers XML file is not read and written concurrently.</summary>
-        private static object _lock = new object();
     }
 
     sealed class AuthUser
     {
         public string Username;
         public string PasswordHash;
+        public bool CanCreateUsers;
+        public override string ToString() { return Username + (CanCreateUsers ? " (admin)" : ""); }
     }
 
     sealed class AuthUsers
