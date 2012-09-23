@@ -280,6 +280,12 @@ namespace RT.Servers
             if (_query == null && _queryString == null)
                 throw new InvalidOperationException("HttpUrl is incomplete.");
         }
+
+        /// <summary>Returns the full URL.</summary>
+        public override string ToString()
+        {
+            return this.ToFull();
+        }
     }
 
     /// <summary>Provides extension functionality on the <see cref="IHttpUrl"/> type.</summary>
