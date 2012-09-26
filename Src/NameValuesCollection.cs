@@ -7,15 +7,17 @@ namespace RT.Servers
 {
     /// <summary>
     /// Encapsulates a collection that maps keys to collections of values.
-    /// Provides the ability to make the collection fully read-only, cheaply.
-    /// Provides a sort of auto-vivification for convenience. Example:
+    /// Provides the ability to cheaply make the collection fully read-only.
+    /// Provides a sort of auto-vivification for convenience.
+    /// </summary>
+    /// <example>
     /// <code>
     ///     // initially myNameValue does not contain the key "fruits"
     ///     int c = myNameValues["fruits"].Count;  // c == 0
     ///     myNameValues["fruits"].Add("orange");
     ///     // myNameValue now contains the key "fruits", with one value associated.
     /// </code>
-    /// </summary>
+    /// </example>
     /// <typeparam name="TValue">The type of the values to be associated with each key.</typeparam>
     public sealed class NameValuesCollection<TValue> : IDictionary<string, ValuesCollection<TValue>>
     {
