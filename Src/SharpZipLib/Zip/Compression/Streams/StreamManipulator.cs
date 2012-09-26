@@ -56,7 +56,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression.Streams
 	///
 	/// authors of the original java version : John Leuner, Jochen Hoenicke
 	/// </summary>
-	public class StreamManipulator
+	class StreamManipulator
 	{
 		#region Constructors
 		/// <summary>

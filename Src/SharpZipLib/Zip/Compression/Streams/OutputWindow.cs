@@ -48,7 +48,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression.Streams
 	/// to repeat stuff.<br/>
 	/// Author of the original java version : John Leuner
 	/// </summary>
-	public class OutputWindow
+	class OutputWindow
 	{
 		#region Constants
 		const int WindowSize = 1 << 15;

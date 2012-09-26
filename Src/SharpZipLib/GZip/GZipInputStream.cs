@@ -76,7 +76,7 @@ namespace RT.Servers.SharpZipLib.GZip
 	/// }	
 	/// </code>
 	/// </example>
-	public class GZipInputStream : InflaterInputStream
+	class GZipInputStream : InflaterInputStream
 	{
 		#region Instance Fields
 		/// <summary>

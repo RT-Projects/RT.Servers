@@ -49,7 +49,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression.Streams
 	/// written to it.  It uses a Deflater to perform actual deflating.<br/>
 	/// Authors of the original java version : Tom Tromey, Jochen Hoenicke 
 	/// </summary>
-	public class DeflaterOutputStream : Stream
+	class DeflaterOutputStream : Stream
 	{
 		#region Constructors
 		/// <summary>

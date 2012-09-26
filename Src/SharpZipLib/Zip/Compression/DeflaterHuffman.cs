@@ -50,7 +50,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression
 	/// 
 	/// author of the original java version : Jochen Hoenicke
 	/// </summary>
-	public class DeflaterHuffman
+	class DeflaterHuffman
 	{
 		const  int BUFSIZE = 1 << (DeflaterConstants.DEFAULT_MEM_LEVEL + 6);
 		const  int LITERAL_NUM = 286;

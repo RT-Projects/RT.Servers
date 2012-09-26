@@ -51,7 +51,7 @@ namespace RT.Servers.SharpZipLib.Zip
 #if !NETCF_1_0 && !NETCF_2_0
 	[Serializable]
 #endif
-	public class ZipException : SharpZipBaseException
+	class ZipException : SharpZipBaseException
 	{
 #if !NETCF_1_0 && !NETCF_2_0
 		/// <summary>

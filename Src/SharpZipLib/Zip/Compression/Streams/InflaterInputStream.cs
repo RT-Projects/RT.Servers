@@ -56,7 +56,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression.Streams
 	/// <remarks>
 	/// The buffer supports decryption of incoming data.
 	/// </remarks>
-	public class InflaterInputBuffer
+	class InflaterInputBuffer
 	{
 		#region Constructors
 		/// <summary>
@@ -351,7 +351,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression.Streams
 	///
 	/// Author of the original java version : John Leuner.
 	/// </summary>
-	public class InflaterInputStream : Stream
+	class InflaterInputStream : Stream
 	{
 		#region Constructors
 		/// <summary>

@@ -45,7 +45,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression
 	/// <summary>
 	/// Huffman tree used for inflation
 	/// </summary>
-	public class InflaterHuffmanTree
+	class InflaterHuffmanTree
 	{
 		#region Constants
 		const int MAX_BITLEN = 15;

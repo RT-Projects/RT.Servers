@@ -42,7 +42,7 @@ namespace RT.Servers.SharpZipLib.GZip
 	/// <summary>
 	/// This class contains constants used for gzip.
 	/// </summary>
-	sealed public class GZipConstants
+	sealed class GZipConstants
 	{
 		/// <summary>
 		/// Magic number found at start of GZIP header

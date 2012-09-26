@@ -50,7 +50,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression
 	/// 
 	/// author of the original java version : Jochen Hoenicke
 	/// </summary>
-	public class PendingBuffer
+	class PendingBuffer
 	{
 		#region Instance Fields
 		/// <summary>
