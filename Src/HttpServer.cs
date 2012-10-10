@@ -639,14 +639,16 @@ namespace RT.Servers
                             response.Content.Seek((contentLength - _server.Options.GzipAutodetectThreshold) / 2, SeekOrigin.Begin);
                             byte[] buf = new byte[_server.Options.GzipAutodetectThreshold];
                             response.Content.Read(buf, 0, _server.Options.GzipAutodetectThreshold);
-                            MemoryStream ms = new MemoryStream();
-                            GZipOutputStream gzTester = new GZipOutputStream(ms);
-                            gzTester.SetLevel(1);
-                            gzTester.Write(buf, 0, _server.Options.GzipAutodetectThreshold);
-                            gzTester.Close();
-                            ms.Close();
-                            if (ms.ToArray().Length >= 0.99 * _server.Options.GzipAutodetectThreshold)
-                                useGzip = false;
+                            using (var ms = new MemoryStream())
+                            {
+                                using (var gzTester = new GZipOutputStream(ms))
+                                {
+                                    gzTester.SetLevel(1);
+                                    gzTester.Write(buf, 0, _server.Options.GzipAutodetectThreshold);
+                                }
+                                if (ms.ToArray().Length >= 0.99 * _server.Options.GzipAutodetectThreshold)
+                                    useGzip = false;
+                            }
                             response.Content.Seek(0, SeekOrigin.Begin);
                         }
                         catch { }
