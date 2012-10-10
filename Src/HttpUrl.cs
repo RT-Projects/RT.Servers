@@ -436,6 +436,8 @@ namespace RT.Servers
         {
             if (path == null)
                 throw new ArgumentNullException("path");
+            if (path != "" && !path.StartsWith("/"))
+                throw new ArgumentException("The specified path must either be empty or begin with a slash ('/') character.", "path");
             _path = path;
         }
         public override string Path { get { return _path; } }
