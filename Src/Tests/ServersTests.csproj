@@ -8,16 +8,15 @@
     <ProjectGuid>{BA03D048-E465-4B80-B12A-93D21C485678}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>RT.Servers</RootNamespace>
+    <RootNamespace>RT.Servers.Tests</RootNamespace>
     <AssemblyName>RT.ServersTests</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <StartupObject>
     </StartupObject>
-    <OutputPath>..\Builds\$(Configuration)</OutputPath>
-    <IntermediateOutputPath>..\Builds\$(Configuration)\obj-$(AssemblyName)</IntermediateOutputPath>
-    <BaseIntermediateOutputPath>..\Builds\$(Configuration)\obj-$(AssemblyName)</BaseIntermediateOutputPath>
-    <DocumentationFile>..\Builds\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
+    <OutputPath>..\..\Builds\$(Configuration)</OutputPath>
+    <IntermediateOutputPath>..\..\Builds\$(Configuration)\obj-$(AssemblyName)</IntermediateOutputPath>
+    <BaseIntermediateOutputPath>..\..\Builds\$(Configuration)\obj-$(AssemblyName)</BaseIntermediateOutputPath>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -33,28 +32,36 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="nunit.framework">
-      <HintPath>..\..\RT.NUnitDirect\ThirdParty\nunit.framework.dll</HintPath>
+      <HintPath>..\..\..\RT.NUnitDirect\ThirdParty\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ServersTests.cs" />
-    <Compile Include="Properties\ServersTestsAssemblyInfo.cs" />
+    <Compile Include="DisconnectionTests.cs" />
+    <Compile Include="ErrorHandlerTests.cs" />
+    <Compile Include="HttpUrlTests.cs" />
+    <Compile Include="ProgramServersTests.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RequestParseTests.cs" />
+    <Compile Include="RequestResponseTests.cs" />
+    <Compile Include="ShutdownTests.cs" />
+    <Compile Include="SpecialHeadersTests.cs" />
+    <Compile Include="UrlPathResolverTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\RT.NUnitDirect\Src\RT.NUnitDirect.csproj">
+    <ProjectReference Include="..\..\..\RT.NUnitDirect\Src\RT.NUnitDirect.csproj">
       <Project>{275ECB9D-F75E-45F8-BB34-AD122589D2CC}</Project>
       <Name>NUnitDirect</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\RT.TagSoup\Src\RT.TagSoup.csproj">
+    <ProjectReference Include="..\..\..\RT.TagSoup\Src\RT.TagSoup.csproj">
       <Project>{8F80D916-8999-45D8-ACB2-FFA7E2698FD6}</Project>
       <Name>TagSoup</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\RT.Util\Src\RT.Util.csproj">
+    <ProjectReference Include="..\..\..\RT.Util\Src\RT.Util.csproj">
       <Project>{8D0FE79C-AD8D-475C-9E6F-9CAE85365B5D}</Project>
       <Name>Util</Name>
     </ProjectReference>
-    <ProjectReference Include="RT.Servers.csproj">
+    <ProjectReference Include="..\RT.Servers.csproj">
       <Project>{A7333C19-56A9-4A8E-A196-7648666EF26A}</Project>
       <Name>Servers</Name>
     </ProjectReference>

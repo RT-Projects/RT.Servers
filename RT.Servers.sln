@@ -1,7 +1,7 @@
 
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServersTests", "Src\ServersTests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServersTests", "Src\Tests\ServersTests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Servers", "Src\RT.Servers.csproj", "{A7333C19-56A9-4A8E-A196-7648666EF26A}"
 EndProject
