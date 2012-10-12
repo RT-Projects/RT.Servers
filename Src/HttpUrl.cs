@@ -334,6 +334,10 @@ namespace RT.Servers
         /// <param name="url">Source URL.</param>
         /// <param name="https">True to change the protocol to https; otherwise http.</param>
         public static IHttpUrl WithHttps(this IHttpUrl url, bool https) { return new UrlWithHttps(url, https); }
+        /// <summary>Returns a new URL consisting of the specified URL but with the <see cref="IHttpUrl.BaseDomain"/> changed.</summary>
+        /// <param name="url">Source URL.</param>
+        /// <param name="baseDomain">New value for the <see cref="IHttpUrl.BaseDomain"/> property.</param>
+        public static IHttpUrl WithBaseDomain(this IHttpUrl url, string baseDomain) { return new UrlWithBaseDomain(url, baseDomain); }
         /// <summary>Returns a new URL consisting of the specified URL but with the <see cref="IHttpUrl.Subdomain"/> changed.</summary>
         /// <param name="url">Source URL.</param>
         /// <param name="subdomain">New value for the <see cref="IHttpUrl.Subdomain"/> property.</param>
@@ -396,6 +400,19 @@ namespace RT.Servers
             _https = https;
         }
         public override bool Https { get { return _https; } }
+    }
+
+    internal class UrlWithBaseDomain : UrlWithNoChanges
+    {
+        private string _baseDomain;
+        public UrlWithBaseDomain(IHttpUrl source, string baseDomain)
+            : base(source)
+        {
+            if (baseDomain == null)
+                throw new ArgumentNullException("subdomain");
+            _baseDomain = baseDomain;
+        }
+        public override string BaseDomain { get { return _baseDomain; } }
     }
 
     internal class UrlWithSubdomain : UrlWithNoChanges

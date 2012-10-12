@@ -147,26 +147,26 @@ namespace RT.Servers.Tests
             var resolver = new UrlPathResolver(
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("www.example.com", url.BaseDomain);
-                    Assert.AreEqual("", url.Subdomain);
+                    Assert.AreEqual("www.example.com", req.Url.BaseDomain);
+                    Assert.AreEqual("", req.Url.Subdomain);
                     return null;
                 }, "www.example.com", skippable: true),
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("example.com", url.BaseDomain);
-                    Assert.AreEqual("www.", url.Subdomain);
+                    Assert.AreEqual("example.com", req.Url.BaseDomain);
+                    Assert.AreEqual("www.", req.Url.Subdomain);
                     return null;
                 }, "example.com", skippable: true),
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("", url.BaseDomain);
-                    Assert.AreEqual("www.example.com", url.Subdomain);
+                    Assert.AreEqual("", req.Url.BaseDomain);
+                    Assert.AreEqual("www.example.com", req.Url.Subdomain);
                     return null;
                 }, skippable: true),
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("", url.BaseDomain);
-                    Assert.AreEqual("www.example.com", url.Subdomain);
+                    Assert.AreEqual("", req.Url.BaseDomain);
+                    Assert.AreEqual("www.example.com", req.Url.Subdomain);
                     return HttpResponse.PlainText("blah");
                 }
             ));

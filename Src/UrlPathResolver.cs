@@ -50,11 +50,13 @@ namespace RT.Servers
                     }))
                     .ToArray();
             }
+            var url = req.Url.ToUrl();
             foreach (var handler in applicableHandlers)
             {
                 var response = handler();
                 if (response != null)
                     return response;
+                req.Url = url.ToUrl();
             }
             throw new HttpNotFoundException();
         }
