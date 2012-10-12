@@ -12,7 +12,7 @@ namespace RT.Servers.Tests
     public sealed class UrlPathResolverTests
     {
         [Test]
-        public void TestNestedUrlPathResolving()
+        public void TestNestedResolve()
         {
             var url = new HttpUrl();
             url.SetHost("www.example.com");
@@ -86,7 +86,7 @@ namespace RT.Servers.Tests
         }
 
         [Test]
-        public void TestUrlPathResolverDomainCase()
+        public void TestDomainCase()
         {
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, OutputExceptionInformation = true });
             try
@@ -131,6 +131,46 @@ namespace RT.Servers.Tests
             {
                 instance.StopListening(brutal: true);
             }
+        }
+
+        [Test]
+        public void TestSkippableHandlers()
+        {
+            var url = new HttpUrl();
+            url.SetHost("www.example.com");
+            url.SetRestUrl("/docgen/member/Color/ToString?thingy=stuff");
+            url.AssertComplete();
+
+            Assert.AreEqual("", url.BaseDomain);
+            Assert.AreEqual("www.example.com", url.Subdomain);
+
+            var resolver = new UrlPathResolver(
+                new UrlPathHook(req =>
+                {
+                    Assert.AreEqual("www.example.com", url.BaseDomain);
+                    Assert.AreEqual("", url.Subdomain);
+                    return null;
+                }, "www.example.com", skippable: true),
+                new UrlPathHook(req =>
+                {
+                    Assert.AreEqual("example.com", url.BaseDomain);
+                    Assert.AreEqual("www.", url.Subdomain);
+                    return null;
+                }, "example.com", skippable: true),
+                new UrlPathHook(req =>
+                {
+                    Assert.AreEqual("", url.BaseDomain);
+                    Assert.AreEqual("www.example.com", url.Subdomain);
+                    return null;
+                }, skippable: true),
+                new UrlPathHook(req =>
+                {
+                    Assert.AreEqual("", url.BaseDomain);
+                    Assert.AreEqual("www.example.com", url.Subdomain);
+                    return HttpResponse.PlainText("blah");
+                }
+            ));
+            resolver.Handle(new HttpRequest { Url = url });
         }
     }
 }
