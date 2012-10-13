@@ -112,7 +112,7 @@ Content-Type: text/html
                     },
                     Method = HttpMethod.Post
                 };
-                r.Url.SetRestUrl("/");
+                r.Url.SetLocation("/");
                 r.Url.SetHost("example.com");
 
                 using (Stream f = new SlowStream(new MemoryStream(testCase), cs))

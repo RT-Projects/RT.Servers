@@ -29,10 +29,18 @@ namespace RT.Servers
             lock (_hooks)
             {
                 applicableHandlers = _hooks.Where(hk => (hk.Port == null || hk.Port.Value == req.Url.Port) &&
-                        (hk.Domain == null || hk.Domain == req.Url.Subdomain || (!hk.SpecificDomain && req.Url.Subdomain.EndsWith("." + hk.Domain))) &&
+                        (hk.Domain == null || hk.Domain == req.Url.Domain || (!hk.SpecificDomain && req.Url.Domain.EndsWith("." + hk.Domain))) &&
                         (hk.Path == null || hk.Path == req.Url.Path || (!hk.SpecificPath && req.Url.Path.StartsWith(hk.Path + "/"))))
                     .Select(hook => Ut.Lambda(() =>
                     {
+                        if (hook.Domain != null)
+                        {
+                            var parents = req.Url.ParentDomains;
+                            req.Url.ParentDomains = new string[parents.Length + 1];
+                            Array.Copy(parents, req.Url.ParentDomains, parents.Length);
+                            req.Url.ParentDomains[parents.Length] = hook.Domain;
+                            req.Url.Domain = req.Url.Domain.Remove(req.Url.Domain.Length - hook.Domain.Length);
+                        }
                         if (hook.Path != null)
                         {
                             var parents = req.Url.ParentPaths;
@@ -41,8 +49,6 @@ namespace RT.Servers
                             req.Url.ParentPaths[parents.Length] = hook.Path;
                             req.Url.Path = req.Url.Path.Substring(hook.Path.Length);
                         }
-                        req.Url.BaseDomain = hook.Domain ?? "";
-                        req.Url.Subdomain = hook.Domain == null ? req.Url.Subdomain : req.Url.Subdomain.Remove(req.Url.Subdomain.Length - hook.Domain.Length);
                         var response = hook.Handler(req);
                         if (response == null && !hook.Skippable)
                             throw new InvalidOperationException("The handler of a non-skippable hook returned null. Hook: {0}".Fmt(hook));

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using RT.Util;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
@@ -12,27 +13,22 @@ namespace RT.Servers
         /// <summary>Specifies whether the protocol used is HTTPS (secure) or not.</summary>
         bool Https { get; }
 
-        /// <summary>Specifies the part of the domain that precedes the <see cref="BaseDomain"/>.
-        /// Use <c><see cref="Subdomain"/> + <see cref="BaseDomain"/></c> to obtain the entire domain.</summary>
-        /// <example>
-        ///     <para>Consider the following example code:</para>
-        ///     <code>
-        ///         var myResolver = new UrlPathResolver();
-        ///         myResolver.Add(new UrlPathHook(myHandler, domain: "homepages.mydomain.com"));
-        ///     </code>
-        ///     <para>In the above example, an HTTP request for the URL <c>http://peter.schmidt.homepages.mydomain.com/</c>
-        ///     would have <see cref="Subdomain"/> set to the value <c>peter.schmidt.</c> (note the trailing dot) and
-        ///     <see cref="BaseDomain"/> to <c>homepages.mydomain.com</c>.</para>
-        /// </example>
-        string Subdomain { get; }
-
-        /// <summary>Specifies the part of the domain to which the handler is hooked by a <see cref="UrlPathHook"/>,
-        /// or empty if no <see cref="UrlPathResolver"/> is used. See <see cref="Subdomain"/> for details.</summary>
-        string BaseDomain { get; }
-
         /// <summary>Specifies the port.</summary>
         /// <remarks>The default for HTTP is 80. The default for HTTPS is 443.</remarks>
         int Port { get; }
+
+        /// <summary>
+        /// Specifies parts of the domain which were resolved via a compatible URL resolver. Must not be modified directly. Do not use this
+        /// member directly; instead use a relevant extension method to manipulate the URL (such as <see cref="IHttpUrlExtensions.WithDomainParent"/>).
+        /// </summary>
+        string[] ParentDomains { get; }
+
+        /// <summary>
+        /// Specifies the domain part of the URL – that is, the part that comes before the first slash (or, if a URL resolver is used, the part that comes
+        /// before the hook domain). The protocol is excluded. Whenever not empty, Domain always ends with a dot unless it contains the full domain
+        /// up to the TLD. Manipulate this part using <see cref="IHttpUrlExtensions.WithDomain"/>.
+        /// </summary>
+        string Domain { get; }
 
         /// <summary>
         /// Specifies parts of the URL path which were resolved via a compatible URL resolver. Must not be modified directly. Do not use this
@@ -80,12 +76,12 @@ namespace RT.Servers
     {
         /// <summary>Implements <see cref="IHttpUrl.Https"/>.</summary>
         public bool Https { get; set; }
-        /// <summary>Implements <see cref="IHttpUrl.Subdomain"/>.</summary>
-        public string Subdomain { get; set; }
-        /// <summary>Implements <see cref="IHttpUrl.BaseDomain"/>.</summary>
-        public string BaseDomain { get; set; }
         /// <summary>Implements <see cref="IHttpUrl.Port"/>.</summary>
         public int Port { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.ParentDomains"/>.</summary>
+        public string[] ParentDomains { get; set; }
+        /// <summary>Implements <see cref="IHttpUrl.Domain"/>.</summary>
+        public string Domain { get; set; }
         /// <summary>Implements <see cref="IHttpUrl.ParentPaths"/>.</summary>
         public string[] ParentPaths { get; set; }
         /// <summary>Implements <see cref="IHttpUrl.Path"/>.</summary>
@@ -104,7 +100,7 @@ namespace RT.Servers
         public HttpUrl(string httpHost, string httpLocation)
         {
             SetHost(httpHost);
-            SetRestUrl(httpLocation);
+            SetLocation(httpLocation);
         }
 
         /// <summary>Constructor.</summary>
@@ -115,7 +111,7 @@ namespace RT.Servers
         {
             Https = https;
             SetHost(httpHost);
-            SetRestUrl(httpLocation);
+            SetLocation(httpLocation);
         }
 
         /// <summary>Creates a new instance based on the specified other URL.</summary>
@@ -125,9 +121,9 @@ namespace RT.Servers
             if (source == null)
                 throw new ArgumentNullException("source");
             Https = source.Https;
-            Subdomain = source.Subdomain;
-            BaseDomain = source.BaseDomain;
             Port = source.Port;
+            ParentDomains = source.ParentDomains;
+            Domain = source.Domain;
             ParentPaths = source.ParentPaths;
             Path = source.Path;
             _hasQuery = source.HasQuery;
@@ -224,58 +220,58 @@ namespace RT.Servers
                 HttpHelper.AppendQueryString(sb, _hasQuery, _query, first);
         }
 
-        internal void SetRestUrl(string urlPath)
+        /// <summary>Sets the part of the URL after the host, consisting of the path and optionally the query parameters.</summary>
+        internal void SetLocation(string location)
         {
-            if (urlPath == null || urlPath.Contains(' ') || urlPath.Length == 0 || urlPath[0] != '/')
-                throw new ArgumentException();
+            Ut.Assert(location != null && location.Length > 0 && location[0] == '/');
             ParentPaths = HttpHelper.EmptyStrings;
-            int start = urlPath.IndexOf('?');
+            int start = location.IndexOf('?');
             if (start < 0)
             {
-                Path = urlPath;
+                Path = location;
                 _hasQuery = false;
                 _query = Enumerable.Empty<KeyValuePair<string, string>>();
                 _queryString = "";
             }
             else
             {
-                Path = urlPath.Substring(0, start);
+                Path = location.Substring(0, start);
                 _hasQuery = true;
                 _query = null;
-                _queryString = urlPath.Substring(start);
+                _queryString = location.Substring(start);
             }
         }
 
+        /// <summary>Sets the host part of the URL, consisting of the domain and optionally the port number.</summary>
         internal void SetHost(string host)
         {
-            if (host == null)
-                throw new ArgumentException();
+            Ut.Assert(host != null);
             var colonPos = host.IndexOf(':');
             if (colonPos < 0)
             {
                 if (host.Length > 0 && host[host.Length - 1] == '.')
-                    Subdomain = host.Substring(0, host.Length - 1);
+                    Domain = host.Substring(0, host.Length - 1);
                 else
-                    Subdomain = host;
+                    Domain = host;
                 Port = Https ? 443 : 80;
             }
             else
             {
                 if (colonPos > 0 && host[colonPos - 1] == '.')
-                    Subdomain = host.Substring(0, colonPos - 1);
+                    Domain = host.Substring(0, colonPos - 1);
                 else
-                    Subdomain = host.Substring(0, colonPos);
+                    Domain = host.Substring(0, colonPos);
                 int port;
                 if (!int.TryParse(host.Substring(colonPos + 1), out port))
                     throw new ArgumentException();
                 Port = port;
             }
-            BaseDomain = "";
+            ParentDomains = HttpHelper.EmptyStrings;
         }
 
         internal void AssertComplete()
         {
-            if (Subdomain == null || BaseDomain == null || ParentPaths == null || Path == null)
+            if (ParentDomains == null || Domain == null || ParentPaths == null || Path == null)
                 throw new InvalidOperationException("HttpUrl is incomplete.");
             if (_query == null && _queryString == null)
                 throw new InvalidOperationException("HttpUrl is incomplete.");
@@ -315,8 +311,10 @@ namespace RT.Servers
         {
             var sb = new StringBuilder(256);
             sb.Append(url.Https ? "https://" : "http://");
-            sb.Append(url.Subdomain);
-            sb.Append(url.BaseDomain);
+            sb.Append(url.Domain);
+            if (url.ParentDomains != null)
+                for (int i = url.ParentDomains.Length - 1; i >= 0; i--)
+                    sb.Append(url.ParentDomains[i]);
             if ((!url.Https && url.Port != 80) || (url.Https && url.Port != 443))
             {
                 sb.Append(':');
@@ -334,14 +332,10 @@ namespace RT.Servers
         /// <param name="url">Source URL.</param>
         /// <param name="https">True to change the protocol to https; otherwise http.</param>
         public static IHttpUrl WithHttps(this IHttpUrl url, bool https) { return new UrlWithHttps(url, https); }
-        /// <summary>Returns a new URL consisting of the specified URL but with the <see cref="IHttpUrl.BaseDomain"/> changed.</summary>
-        /// <param name="url">Source URL.</param>
-        /// <param name="baseDomain">New value for the <see cref="IHttpUrl.BaseDomain"/> property.</param>
-        public static IHttpUrl WithBaseDomain(this IHttpUrl url, string baseDomain) { return new UrlWithBaseDomain(url, baseDomain); }
-        /// <summary>Returns a new URL consisting of the specified URL but with the <see cref="IHttpUrl.Subdomain"/> changed.</summary>
-        /// <param name="url">Source URL.</param>
-        /// <param name="subdomain">New value for the <see cref="IHttpUrl.Subdomain"/> property.</param>
-        public static IHttpUrl WithSubdomain(this IHttpUrl url, string subdomain) { return new UrlWithSubdomain(url, subdomain); }
+        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Domain"/> changed. The domain must be empty or end with a dot, unless it is at the TLD level, in which case it must be non-empty and not end with a dot.</summary>
+        public static IHttpUrl WithDomain(this IHttpUrl url, string domain) { return new UrlWithDomain(url, domain); }
+        /// <summary>Returns a new URL such that the <see cref="IHttpUrl.Domain"/> includes the part matched by the most recent URL resolver.</summary>
+        public static IHttpUrl WithDomainParent(this IHttpUrl url) { return new UrlWithDomainParent(url); }
         /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path"/> changed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
         public static IHttpUrl WithPath(this IHttpUrl url, string path) { return new UrlWithPath(url, path); }
         /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path"/> changed and the query string removed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
@@ -378,9 +372,9 @@ namespace RT.Servers
         public UrlWithNoChanges(IHttpUrl source) { _source = source; }
 
         public virtual bool Https { get { return _source.Https; } }
-        public virtual string Subdomain { get { return _source.Subdomain; } }
-        public virtual string BaseDomain { get { return _source.BaseDomain; } }
         public virtual int Port { get { return _source.Port; } }
+        public virtual string[] ParentDomains { get { return _source.ParentDomains; } }
+        public virtual string Domain { get { return _source.Domain; } }
         public virtual string[] ParentPaths { get { return _source.ParentPaths; } }
         public virtual string Path { get { return _source.Path; } }
         public virtual bool HasQuery { get { return _source.HasQuery; } }
@@ -402,30 +396,21 @@ namespace RT.Servers
         public override bool Https { get { return _https; } }
     }
 
-    internal class UrlWithBaseDomain : UrlWithNoChanges
+    internal class UrlWithDomain : UrlWithNoChanges
     {
-        private string _baseDomain;
-        public UrlWithBaseDomain(IHttpUrl source, string baseDomain)
+        private string _domain;
+        public UrlWithDomain(IHttpUrl source, string domain)
             : base(source)
         {
-            if (baseDomain == null)
-                throw new ArgumentNullException("subdomain");
-            _baseDomain = baseDomain;
+            if (domain == null)
+                throw new ArgumentNullException("domain");
+            if (ParentDomains.Length == 0 && (domain == "" || domain.EndsWith(".")))
+                throw new ArgumentException("At the TLD level the domain name must not be empty and must not end with a dot (.).");
+            if (ParentDomains.Length > 0 && domain != "" && !domain.EndsWith("."))
+                throw new ArgumentException("The domain name must be empty or end with a dot.");
+            _domain = domain;
         }
-        public override string BaseDomain { get { return _baseDomain; } }
-    }
-
-    internal class UrlWithSubdomain : UrlWithNoChanges
-    {
-        private string _subdomain;
-        public UrlWithSubdomain(IHttpUrl source, string subdomain)
-            : base(source)
-        {
-            if (subdomain == null)
-                throw new ArgumentNullException("subdomain");
-            _subdomain = subdomain;
-        }
-        public override string Subdomain { get { return _subdomain; } }
+        public override string Domain { get { return _domain; } }
     }
 
     internal class UrlWithPath : UrlWithNoChanges
@@ -458,6 +443,41 @@ namespace RT.Servers
             _path = path;
         }
         public override string Path { get { return _path; } }
+    }
+
+    internal class UrlWithDomainParent : UrlWithNoChanges
+    {
+        private string _domain;
+        private string[] _parentDomains;
+        public UrlWithDomainParent(IHttpUrl source)
+            : base(source)
+        {
+            if (source.ParentDomains.Length == 0)
+                throw new ArgumentException();
+            if (source.ParentDomains.Length == 1)
+                _parentDomains = HttpHelper.EmptyStrings;
+        }
+        public override string Domain
+        {
+            get
+            {
+                if (_domain == null)
+                    _domain = _source.ParentDomains[_source.ParentDomains.Length - 1] + _source.Domain;
+                return _domain;
+            }
+        }
+        public override string[] ParentDomains
+        {
+            get
+            {
+                if (_parentDomains == null)
+                {
+                    _parentDomains = new string[_source.ParentDomains.Length - 1];
+                    Array.Copy(_source.ParentDomains, _parentDomains, _parentDomains.Length);
+                }
+                return _parentDomains;
+            }
+        }
     }
 
     internal class UrlWithPathParent : UrlWithNoChanges

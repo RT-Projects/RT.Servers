@@ -16,11 +16,11 @@ namespace RT.Servers.Tests
         {
             var url = new HttpUrl();
             url.SetHost("www.example.com");
-            url.SetRestUrl("/docgen/member/Color/ToString?thingy=stuff");
+            url.SetLocation("/docgen/member/Color/ToString?thingy=stuff");
             url.AssertComplete();
 
-            Assert.AreEqual("", url.BaseDomain);
-            Assert.AreEqual("www.example.com", url.Subdomain);
+            Assert.AreEqual(0, url.ParentDomains.Length);
+            Assert.AreEqual("www.example.com", url.Domain);
 
             Assert.AreEqual("/docgen/member/Color/ToString", url.Path);
             Assert.IsTrue(url.ParentPaths.SequenceEqual(new string[0]));
@@ -138,35 +138,37 @@ namespace RT.Servers.Tests
         {
             var url = new HttpUrl();
             url.SetHost("www.example.com");
-            url.SetRestUrl("/docgen/member/Color/ToString?thingy=stuff");
+            url.SetLocation("/docgen/member/Color/ToString?thingy=stuff");
             url.AssertComplete();
 
-            Assert.AreEqual("", url.BaseDomain);
-            Assert.AreEqual("www.example.com", url.Subdomain);
+            Assert.AreEqual(0, url.ParentDomains.Length);
+            Assert.AreEqual("www.example.com", url.Domain);
 
             var resolver = new UrlPathResolver(
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("www.example.com", req.Url.BaseDomain);
-                    Assert.AreEqual("", req.Url.Subdomain);
+                    Assert.AreEqual(1, req.Url.ParentDomains.Length);
+                    Assert.AreEqual("www.example.com", req.Url.ParentDomains[0]);
+                    Assert.AreEqual("", req.Url.Domain);
                     return null;
                 }, "www.example.com", skippable: true),
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("example.com", req.Url.BaseDomain);
-                    Assert.AreEqual("www.", req.Url.Subdomain);
+                    Assert.AreEqual(1, req.Url.ParentDomains.Length);
+                    Assert.AreEqual("example.com", req.Url.ParentDomains[0]);
+                    Assert.AreEqual("www.", req.Url.Domain);
                     return null;
                 }, "example.com", skippable: true),
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("", req.Url.BaseDomain);
-                    Assert.AreEqual("www.example.com", req.Url.Subdomain);
+                    Assert.AreEqual(0, req.Url.ParentDomains.Length);
+                    Assert.AreEqual("www.example.com", req.Url.Domain);
                     return null;
                 }, skippable: true),
                 new UrlPathHook(req =>
                 {
-                    Assert.AreEqual("", req.Url.BaseDomain);
-                    Assert.AreEqual("www.example.com", req.Url.Subdomain);
+                    Assert.AreEqual(0, req.Url.ParentDomains.Length);
+                    Assert.AreEqual("www.example.com", req.Url.Domain);
                     return HttpResponse.PlainText("blah");
                 }
             ));
