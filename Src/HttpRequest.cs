@@ -224,13 +224,13 @@ namespace RT.Servers
                         bool boundaryFound = false;
                         bool end = false;
 
-                        int boundaryIndex = buffer.IndexOfSubarray(lastBoundary, bufferIndex, bufferIndex + bytesRead);
+                        int boundaryIndex = buffer.IndexOfSubarray(lastBoundary, bufferIndex, bytesRead);
                         if (boundaryIndex != -1)
                         {
                             boundaryFound = true;
                             end = true;
                         }
-                        int middleBoundaryIndex = buffer.IndexOfSubarray(middleBoundary, bufferIndex, bufferIndex + bytesRead);
+                        int middleBoundaryIndex = buffer.IndexOfSubarray(middleBoundary, bufferIndex, bytesRead);
                         if (middleBoundaryIndex != -1 && (!boundaryFound || middleBoundaryIndex < boundaryIndex))
                         {
                             boundaryFound = true;
