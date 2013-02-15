@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using RT.TagSoup;
+using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 
@@ -26,11 +27,16 @@ namespace RT.Servers
         public HttpResponseHeaders Headers = new HttpResponseHeaders();
 
         /// <summary>
-        /// A stream object providing read access to the content returned. For static files, use <see cref="FileStream"/>.
-        /// For objects cached in memory, use <see cref="MemoryStream"/>.
-        /// For dynamic websites, consider using <see cref="RT.Util.Streams.DynamicContentStream"/>.
+        /// A delegate that generates a stream providing read access to the content to be returned.
+        /// The delegate should create a new stream object each time it is called, as multiple requests
+        /// running in parallel may call it.
         /// </summary>
-        public Stream Content;
+        /// <remarks>
+        /// For static files, use <see cref="FileStream"/>. For objects cached in memory, use <see cref="MemoryStream"/>.
+        /// For dynamic websites, consider using <see cref="RT.Util.Streams.DynamicContentStream"/>.
+        /// A null delegate is acceptable and sends an empty response body (e.g. for redirects).
+        /// </remarks>
+        public Func<Stream> GetContentStream;
 
         /// <summary>Specifies whether gzip should be used.</summary>
         public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
@@ -50,28 +56,28 @@ namespace RT.Servers
                 if (timestamp <= ifModifiedSince)
                     return NotModified();
 
-                var fileStream = System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var getFileStream = Ut.Lambda(() => System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
 
                 // Do a limited amount of content-type guessing if necessary.
                 if (contentType == null)
-                {
-                    // Look at the first 1 KB. If there are special control characters in it, it's likely a binary file. Otherwise, output as text/plain.
-                    byte[] buf = new byte[1024];
-                    int bytesRead = fileStream.FillBuffer(buf, 0, buf.Length);
-                    fileStream.Position = 0;
-                    contentType = "text/plain; charset=utf-8";
-                    for (int i = 0; i < bytesRead; i++)
-                        if (buf[i] < 32 && buf[i] != 9 && buf[i] != 10 && buf[i] != 13)
-                        {
-                            contentType = "application/octet-stream";
-                            break;
-                        }
-                }
+                    using (var stream = getFileStream())
+                    {
+                        // Look at the first 1 KB. If there are special control characters in it, it's likely a binary file. Otherwise, output as text/plain.
+                        byte[] buf = new byte[1024];
+                        int bytesRead = stream.FillBuffer(buf, 0, buf.Length);
+                        contentType = "text/plain; charset=utf-8";
+                        for (int i = 0; i < bytesRead; i++)
+                            if (buf[i] < 32 && buf[i] != 9 && buf[i] != 10 && buf[i] != 13)
+                            {
+                                contentType = "application/octet-stream";
+                                break;
+                            }
+                    }
 
                 return new HttpResponse
                 {
                     Status = HttpStatusCode._200_OK,
-                    Content = fileStream,
+                    GetContentStream = getFileStream,
                     Headers = new HttpResponseHeaders
                     {
                         ContentType = contentType,
@@ -134,7 +140,7 @@ namespace RT.Servers
         /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
         public static HttpResponse Html(Tag content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
-            return create(new DynamicContentStream(content.ToEnumerable(), buffered), "text/html; charset=utf-8", status, headers);
+            return create(() => new DynamicContentStream(content.ToEnumerable(), buffered), "text/html; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client with the MIME type “text/html; charset=utf-8”.</summary>
@@ -143,7 +149,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Html(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content.ToUtf8()), "text/html; charset=utf-8", status, headers);
+            return Create(content, "text/html; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/html; charset=utf-8”.</summary>
@@ -153,7 +159,7 @@ namespace RT.Servers
         /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
         public static HttpResponse Html(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
-            return create(new DynamicContentStream(content, buffered), "text/html; charset=utf-8", status, headers);
+            return create(() => new DynamicContentStream(content, buffered), "text/html; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified byte array to the client.</summary>
@@ -162,7 +168,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Html(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content), "text/html; charset=utf-8", status, headers);
+            return create(() => new MemoryStream(content), "text/html; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified stream to the client.</summary>
@@ -171,7 +177,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Html(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(content, "text/html; charset=utf-8", status, headers);
+            return Create(content, "text/html; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client with the MIME type “text/plain; charset=utf-8”.</summary>
@@ -180,7 +186,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse PlainText(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content.ToUtf8()), "text/plain; charset=utf-8", status, headers);
+            return Create(content, "text/plain; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/plain; charset=utf-8”.</summary>
@@ -190,7 +196,7 @@ namespace RT.Servers
         /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
         public static HttpResponse PlainText(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
-            return create(new DynamicContentStream(content, buffered), "text/plain; charset=utf-8", status, headers);
+            return create(() => new DynamicContentStream(content, buffered), "text/plain; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified byte array to the client.</summary>
@@ -199,7 +205,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse PlainText(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content), "text/plain; charset=utf-8", status, headers);
+            return create(() => new MemoryStream(content), "text/plain; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified stream to the client.</summary>
@@ -208,7 +214,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse PlainText(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(content, "text/plain; charset=utf-8", status, headers);
+            return Create(content, "text/plain; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client with the MIME type “text/javascript; charset=utf-8”.</summary>
@@ -217,7 +223,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse JavaScript(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content.ToUtf8()), "text/javascript; charset=utf-8", status, headers);
+            return Create(content, "text/javascript; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/javascript; charset=utf-8”.</summary>
@@ -227,7 +233,7 @@ namespace RT.Servers
         /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
         public static HttpResponse JavaScript(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
-            return create(new DynamicContentStream(content, buffered), "text/javascript; charset=utf-8", status, headers);
+            return create(() => new DynamicContentStream(content, buffered), "text/javascript; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified byte array to the client.</summary>
@@ -236,7 +242,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse JavaScript(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content), "text/javascript; charset=utf-8", status, headers);
+            return create(() => new MemoryStream(content), "text/javascript; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified stream to the client.</summary>
@@ -245,7 +251,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse JavaScript(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(content, "text/javascript; charset=utf-8", status, headers);
+            return Create(content, "text/javascript; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client with the MIME type “text/css; charset=utf-8”.</summary>
@@ -254,7 +260,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Css(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content.ToUtf8()), "text/css; charset=utf-8", status, headers);
+            return Create(content, "text/css; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client as a single concatenated piece of text with the MIME type “text/css; charset=utf-8”.</summary>
@@ -264,7 +270,7 @@ namespace RT.Servers
         /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
         public static HttpResponse Css(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
-            return create(new DynamicContentStream(content, buffered), "text/css; charset=utf-8", status, headers);
+            return create(() => new DynamicContentStream(content, buffered), "text/css; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified byte array to the client.</summary>
@@ -273,7 +279,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Css(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content), "text/css; charset=utf-8", status, headers);
+            return create(() => new MemoryStream(content), "text/css; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the contents of the specified stream to the client.</summary>
@@ -282,7 +288,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Css(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(content, "text/css; charset=utf-8", status, headers);
+            return Create(content, "text/css; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client with the specified MIME type.</summary>
@@ -292,7 +298,8 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Create(string content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content.ToUtf8()), contentType, status, headers);
+            var utf8 = content.ToUtf8();
+            return create(() => new MemoryStream(utf8), contentType, status, headers);
         }
 
         /// <summary>Returns the specified content to the client as a single concatenated piece of text with the specified MIME type.</summary>
@@ -303,7 +310,7 @@ namespace RT.Servers
         /// <param name="buffered">If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as possible.</param>
         public static HttpResponse Create(IEnumerable<string> content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
-            return create(new DynamicContentStream(content, buffered), contentType, status, headers);
+            return create(() => new DynamicContentStream(content, buffered), contentType, status, headers);
         }
 
         /// <summary>Returns the contents of the specified byte array to the client with the specified MIME type.</summary>
@@ -313,7 +320,7 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Create(byte[] content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(new MemoryStream(content), contentType, status, headers);
+            return create(() => new MemoryStream(content), contentType, status, headers);
         }
 
         /// <summary>Returns the contents of the specified stream to the client with the specified MIME type.</summary>
@@ -323,15 +330,26 @@ namespace RT.Servers
         /// <param name="headers">Headers to use in the response, or null to use default values.</param>
         public static HttpResponse Create(Stream content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return create(content, contentType, status, headers);
+            var used = false;
+            return create(() =>
+            {
+                if (used)
+                    throw new InvalidOperationException("You cannot re-use an HttpResponse instance constructed from a Stream for multiple separate HTTP requests. Instead, construct a new Stream and HttpResponse from within the request handler.");
+                used = true;
+                return content;
+            }, contentType, status, headers);
         }
 
-
-        private static HttpResponse create(Stream content, string contentType, HttpStatusCode status, HttpResponseHeaders headers)
+        private static HttpResponse create(Func<Stream> getContentStream, string contentType, HttpStatusCode status, HttpResponseHeaders headers)
         {
             headers = headers ?? new HttpResponseHeaders();
             headers.ContentType = contentType;
-            return new HttpResponse { Content = content, Status = status, Headers = headers };
+            return new HttpResponse
+            {
+                GetContentStream = getContentStream,
+                Status = status,
+                Headers = headers
+            };
         }
 
         /// <summary>Modifies the <see cref="UseGzip"/> option in this response object and returns the same object.</summary>

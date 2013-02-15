@@ -361,21 +361,21 @@ namespace RT.Servers
                 {
 #endif
 
-                KeepAliveActive = false;
-                Interlocked.Increment(ref _endedReceives);
+                    KeepAliveActive = false;
+                    Interlocked.Increment(ref _endedReceives);
 
-                try
-                {
-                    _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
-                }
-                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                    try
+                    {
+                        _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
+                    }
+                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                if (_bufferDataLength == 0)
-                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                else
-                    processHeaderData();
-                cleanupIfDone();
+                    if (_bufferDataLength == 0)
+                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    else
+                        processHeaderData();
+                    cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -445,12 +445,15 @@ namespace RT.Servers
                 HttpRequest originalRequest = null;
                 HttpResponse response = null;
                 bool connectionKeepAlive = false;
+                Stream contentStream = null;
                 try
                 {
                     _sw.Log("Stuff before handleRequestAfterHeaders()");
                     response = handleRequestAfterHeaders(out originalRequest);
                     _sw.Log("Returned from handleRequestAfterHeaders()");
-                    connectionKeepAlive = outputResponse(response, originalRequest);
+                    contentStream = response.GetContentStream.NullOr(g => g());
+                    _sw.Log("Returned from response.GetContentStream()");
+                    connectionKeepAlive = outputResponse(response, contentStream, originalRequest);
                     _sw.Log("Returned from outputResponse()");
                 }
                 catch (SocketException e)
@@ -467,11 +470,11 @@ namespace RT.Servers
                 }
                 finally
                 {
-                    if (response != null && response.Content != null)
+                    if (contentStream != null)
                     {
-                        _sw.Log("Stuff before Response.Content.Close()");
-                        response.Content.Close();
-                        _sw.Log("Response.Content.Close()");
+                        _sw.Log("Stuff before contentStream.Close()");
+                        contentStream.Close();
+                        _sw.Log("contentStream.Close()");
                     }
                     if (originalRequest != null && originalRequest.CleanUpCallback != null)
                     {
@@ -501,7 +504,7 @@ namespace RT.Servers
                 }
             }
 
-            private bool outputResponse(HttpResponse response, HttpRequest originalRequest)
+            private bool outputResponse(HttpResponse response, Stream contentStream, HttpRequest originalRequest)
             {
                 Socket.NoDelay = false;
                 _sw.Log("OutputResponse() - enter");
@@ -520,7 +523,7 @@ namespace RT.Servers
                     long contentLength = 0;
 
                     // Find out if we know the content length
-                    if (response.Content == null)
+                    if (contentStream == null)
                     {
                         contentLength = 0;
                         contentLengthKnown = true;
@@ -535,9 +538,9 @@ namespace RT.Servers
                         // See if we can deduce the content length from the stream
                         try
                         {
-                            if (response.Content.CanSeek)
+                            if (contentStream.CanSeek)
                             {
-                                contentLength = response.Content.Length;
+                                contentLength = contentStream.Length;
                                 contentLengthKnown = true;
                             }
                         }
@@ -569,7 +572,7 @@ namespace RT.Servers
                     }
 
                     // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 16 KB
-                    if (originalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && response.Status == HttpStatusCode._200_OK && response.Content.CanSeek)
+                    if (originalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && response.Status == HttpStatusCode._200_OK && contentStream.CanSeek)
                     {
                         response.Headers.AcceptRanges = HttpAcceptRanges.Bytes;
 
@@ -618,12 +621,12 @@ namespace RT.Servers
                                 if (ranges.Count == 1)
                                 {
                                     var range = ranges.First();
-                                    serveSingleRange(response, originalRequest, range.Key, range.Value, contentLength);
+                                    serveSingleRange(response, contentStream, originalRequest, range.Key, range.Value, contentLength);
                                     return useKeepAlive;
                                 }
                                 else if (ranges.Count > 1)
                                 {
-                                    serveRanges(response, originalRequest, ranges, contentLength);
+                                    serveRanges(response, contentStream, originalRequest, ranges, contentLength);
                                     return useKeepAlive;
                                 }
                             }
@@ -632,13 +635,13 @@ namespace RT.Servers
 
                     bool useGzip = response.UseGzip != UseGzipOption.DontUseGzip && gzipRequested && !(contentLengthKnown && contentLength <= 1024) && originalRequest.HttpVersion == HttpProtocolVersion.Http11;
 
-                    if (useGzip && response.UseGzip == UseGzipOption.AutoDetect && contentLengthKnown && contentLength >= _server.Options.GzipAutodetectThreshold && response.Content.CanSeek)
+                    if (useGzip && response.UseGzip == UseGzipOption.AutoDetect && contentLengthKnown && contentLength >= _server.Options.GzipAutodetectThreshold && contentStream.CanSeek)
                     {
                         try
                         {
-                            response.Content.Seek((contentLength - _server.Options.GzipAutodetectThreshold) / 2, SeekOrigin.Begin);
+                            contentStream.Seek((contentLength - _server.Options.GzipAutodetectThreshold) / 2, SeekOrigin.Begin);
                             byte[] buf = new byte[_server.Options.GzipAutodetectThreshold];
-                            response.Content.Read(buf, 0, _server.Options.GzipAutodetectThreshold);
+                            contentStream.Read(buf, 0, _server.Options.GzipAutodetectThreshold);
                             using (var ms = new MemoryStream())
                             {
                                 using (var gzTester = new GZipOutputStream(ms))
@@ -649,7 +652,7 @@ namespace RT.Servers
                                 if (ms.ToArray().Length >= 0.99 * _server.Options.GzipAutodetectThreshold)
                                     useGzip = false;
                             }
-                            response.Content.Seek(0, SeekOrigin.Begin);
+                            contentStream.Seek(0, SeekOrigin.Begin);
                         }
                         catch { }
                     }
@@ -669,11 +672,11 @@ namespace RT.Servers
                         GZipOutputStream gz = new GZipOutputStream(ms);
                         gz.SetLevel(1);
                         byte[] contentReadBuffer = new byte[65536];
-                        int bytes = response.Content.Read(contentReadBuffer, 0, 65536);
+                        int bytes = contentStream.Read(contentReadBuffer, 0, 65536);
                         while (bytes > 0)
                         {
                             gz.Write(contentReadBuffer, 0, bytes);
-                            bytes = response.Content.Read(contentReadBuffer, 0, 65536);
+                            bytes = contentStream.Read(contentReadBuffer, 0, 65536);
                         }
                         gz.Close();
                         _sw.Log("OutputResponse() - finished gzipping");
@@ -756,9 +759,9 @@ namespace RT.Servers
                         // There are no “valid” exceptions that may originate from the content stream, so the “Error500” setting
                         // actually propagates everything.
                         if (_server.PropagateExceptions)
-                            bytesRead = response.Content.Read(buffer, 0, bufferSize);
+                            bytesRead = contentStream.Read(buffer, 0, bufferSize);
                         else
-                            try { bytesRead = response.Content.Read(buffer, 0, bufferSize); }
+                            try { bytesRead = contentStream.Read(buffer, 0, bufferSize); }
                             catch (Exception e)
                             {
                                 if (!(e is SocketException) && _server.Options.OutputExceptionInformation)
@@ -777,7 +780,7 @@ namespace RT.Servers
                         // the last bit to be sent to the socket without the Nagle delay
                         try
                         {
-                            if (response.Content.CanSeek && response.Content.Position == response.Content.Length)
+                            if (contentStream.CanSeek && contentStream.Position == contentStream.Length)
                                 Socket.NoDelay = true;
                         }
                         catch { }
@@ -816,7 +819,7 @@ namespace RT.Servers
                 Socket.Send(Encoding.UTF8.GetBytes(headersStr));
             }
 
-            private void serveSingleRange(HttpResponse response, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
+            private void serveSingleRange(HttpResponse response, Stream contentStream, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
             {
                 response.Status = HttpStatusCode._206_PartialContent;
                 // Note: this is the length of just the range, not the complete file (that's totalFileSize)
@@ -827,18 +830,18 @@ namespace RT.Servers
                     return;
                 byte[] buffer = new byte[65536];
 
-                response.Content.Seek(rangeFrom, SeekOrigin.Begin);
+                contentStream.Seek(rangeFrom, SeekOrigin.Begin);
                 long bytesMissing = rangeTo - rangeFrom + 1;
-                int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
+                int bytesRead = contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
                 while (bytesRead > 0)
                 {
                     Socket.Send(buffer, 0, bytesRead, SocketFlags.None);
                     bytesMissing -= bytesRead;
-                    bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
+                    bytesRead = (bytesMissing > 0) ? contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                 }
             }
 
-            private void serveRanges(HttpResponse response, HttpRequest originalRequest, SortedList<long, long> ranges, long totalFileSize)
+            private void serveRanges(HttpResponse response, Stream contentStream, HttpRequest originalRequest, SortedList<long, long> ranges, long totalFileSize)
             {
                 response.Status = HttpStatusCode._206_PartialContent;
 
@@ -876,14 +879,14 @@ namespace RT.Servers
                     Socket.Send(boundary);
                     Socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToUtf8());
 
-                    response.Content.Seek(r.Key, SeekOrigin.Begin);
+                    contentStream.Seek(r.Key, SeekOrigin.Begin);
                     long bytesMissing = r.Value - r.Key + 1;
-                    int bytesRead = response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
+                    int bytesRead = contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
                     while (bytesRead > 0)
                     {
                         Socket.Send(buffer, 0, bytesRead, SocketFlags.None);
                         bytesMissing -= bytesRead;
-                        bytesRead = (bytesMissing > 0) ? response.Content.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
+                        bytesRead = (bytesMissing > 0) ? contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                     }
                     Socket.Send(new byte[] { 13, 10 });
                 }
