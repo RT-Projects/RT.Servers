@@ -12,7 +12,7 @@ namespace RT.Servers
     public sealed class AjaxHandler<TSession> where TSession : Session, new()
     {
         private readonly Dictionary<string, apiFunctionInfo> _apiFunctions;
-        private bool _returnExceptionMessages;
+        private readonly bool _returnExceptionMessages;
 
         public AjaxHandler(Type typeContainingAjaxMethods, bool returnExceptionMessages)
         {
@@ -34,21 +34,16 @@ namespace RT.Servers
                 {
                     var i = iFor;
                     var paramName = parameters[i].Name;
-                    if (parameters[i].ParameterType == typeof(int))
-                        parameterSetters.Add((dict, session, arr) => { arr[i] = dict[paramName].GetInt(); });
-                    else if (parameters[i].ParameterType == typeof(double))
-                        parameterSetters.Add((dict, session, arr) => { arr[i] = dict[paramName].GetDouble(); });
-                    else if (parameters[i].ParameterType == typeof(string))
-                        parameterSetters.Add((dict, session, arr) => { arr[i] = dict[paramName].GetString(); });
-                    else if (parameters[i].ParameterType == typeof(bool))
-                        parameterSetters.Add((dict, session, arr) => { arr[i] = dict[paramName].GetBool(); });
-                    else if (parameters[i].ParameterType == typeof(TSession))
+                    if (parameters[i].ParameterType == typeof(TSession))
                     {
                         requireSession = true;
                         parameterSetters.Add((dict, session, arr) => { arr[i] = session; });
                     }
                     else
-                        throw new InvalidOperationException("The AJAX method {0} has a parameter {1} of type {2}, which is not supported.".Fmt(method.Name, parameters[i], parameters[i].ParameterType.FullName));
+                    {
+                        var converter = getConverter(parameters[i].ParameterType, method.Name, paramName);
+                        parameterSetters.Add((dict, session, arr) => { arr[i] = converter(dict[paramName]); });
+                    }
                 }
 
                 _apiFunctions.Add(method.Name, new apiFunctionInfo(requireSession, (TSession session, HttpRequest req) =>
@@ -60,6 +55,59 @@ namespace RT.Servers
                     return (JsonValue) method.Invoke(null, arr);
                 }));
             }
+        }
+
+        public Func<JsonValue, object> getConverter(Type targetType, string methodName, string parameterName)
+        {
+            Type[] types;
+
+            if (targetType == typeof(int))
+                return val => val.GetInt();
+            else if (targetType == typeof(long))
+                return val => val.GetLong();
+            else if (targetType == typeof(double))
+                return val => val.GetDouble();
+            else if (targetType == typeof(decimal))
+                return val => val.GetDecimal();
+            else if (targetType == typeof(bool))
+                return val => val.GetBool();
+            else if (targetType == typeof(string))
+                return val => val.GetString();
+            else if (typeof(JsonValue).IsAssignableFrom(targetType))
+                return val => val;
+            else if (targetType.TryGetInterfaceGenericParameters(typeof(ICollection<>), out types))
+            {
+                var innerType = types[0];
+                var innerConverter = getConverter(innerType, methodName, parameterName);
+                var constructor = targetType.GetConstructor(Type.EmptyTypes);
+                if (constructor == null)
+                    throw new InvalidOperationException("The AJAX method {0} has a parameter {1} which uses the type {2}, which does not have a default constructor.".Fmt(methodName, parameterName, targetType.FullName));
+                var addMethod = typeof(ICollection<>).MakeGenericType(types).GetMethod("Add");
+                return val =>
+                {
+                    var list = constructor.Invoke(null);
+                    foreach (var item in val.GetList())
+                        addMethod.Invoke(list, new object[] { innerConverter(item) });
+                    return list;
+                };
+            }
+            else if (targetType.IsArray || (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(IEnumerable<>)))
+            {
+                var innerType = targetType.IsArray ? targetType.GetElementType() : targetType.GetGenericArguments()[0];
+                var innerConverter = getConverter(innerType, methodName, parameterName);
+                var castMethod = typeof(Enumerable).GetMethod("Cast").MakeGenericMethod(innerType);
+                var toArrayMethod = typeof(Enumerable).GetMethod("ToArray").MakeGenericMethod(innerType);
+                return val => toArrayMethod.Invoke(null, new object[] { castMethod.Invoke(null, new object[] { val.GetList().Select(innerConverter) }) });
+            }
+            else if (targetType.TryGetInterfaceGenericParameters(typeof(List<>), out types))
+            {
+                var innerType = types[0];
+                var innerConverter = getConverter(innerType, methodName, parameterName);
+                var castMethod = typeof(Enumerable).GetMethod("Cast").MakeGenericMethod(innerType);
+                return val => castMethod.Invoke(null, new object[] { val.GetList().Select(innerConverter) });
+            }
+            else
+                throw new InvalidOperationException("The AJAX method {0} has a parameter {1} which uses the type {2}, which is not supported.".Fmt(methodName, parameterName, targetType.FullName));
         }
 
         public HttpResponse Handle(HttpRequest req)
