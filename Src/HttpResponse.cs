@@ -4,6 +4,7 @@ using System.IO;
 using RT.TagSoup;
 using RT.Util;
 using RT.Util.ExtensionMethods;
+using RT.Util.Json;
 using RT.Util.Streams;
 
 namespace RT.Servers
@@ -252,6 +253,15 @@ namespace RT.Servers
         public static HttpResponse JavaScript(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/javascript; charset=utf-8", status, headers);
+        }
+
+        /// <summary>Returns the specified content to the client with the MIME type “application/json; charset=utf-8”.</summary>
+        /// <param name="content">Content to return to the client.</param>
+        /// <param name="status">HTTP status code to use in the response.</param>
+        /// <param name="headers">Headers to use in the response, or null to use default values.</param>
+        public static HttpResponse Json(JsonValue content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        {
+            return Create(JsonValue.ToEnumerable(content), "application/json; charset=utf-8", status, headers);
         }
 
         /// <summary>Returns the specified content to the client with the MIME type “text/css; charset=utf-8”.</summary>
