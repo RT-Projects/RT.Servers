@@ -33,6 +33,8 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AjaxHandler.cs" />
+    <Compile Include="AjaxMethodAttribute.cs" />
     <Compile Include="Authentication.cs" />
     <Compile Include="FileSystemHandler.cs" />
     <Compile Include="FileSystemOptions.cs" />
