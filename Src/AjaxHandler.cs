@@ -9,11 +9,23 @@ using RT.Util.Serialization;
 
 namespace RT.Servers
 {
+    /// <summary>
+    ///     Provides a means to call methods decorated with an <see cref="AjaxMethodAttribute"/> via AJAX, using JSON as the data
+    ///     interchange format.</summary>
+    /// <typeparam name="TSession">
+    ///     Type of session to use. Specify <see cref="Session"/> if you do not wish to use sessions.</typeparam>
     public sealed class AjaxHandler<TSession> where TSession : Session, new()
     {
         private readonly Dictionary<string, apiFunctionInfo> _apiFunctions;
         private readonly bool _returnExceptionMessages;
 
+        /// <summary>
+        ///     Constructs a new instance of <see cref="AjaxHandler{TSession}"/>.</summary>
+        /// <param name="typeContainingAjaxMethods">
+        ///     The type from which AJAX methods are taken. Methods must be static and have the <see cref="AjaxMethodAttribute"/>
+        ///     on them.</param>
+        /// <param name="returnExceptionMessages">
+        ///     If true, exception messages contained in exceptions thrown by an AJAX method are returned to the client.</param>
         public AjaxHandler(Type typeContainingAjaxMethods, bool returnExceptionMessages)
         {
             _apiFunctions = new Dictionary<string, apiFunctionInfo>();
@@ -54,6 +66,8 @@ namespace RT.Servers
             }
         }
 
+        /// <summary>
+        ///     Provides the handler for AJAX calls. Pass this to a <see cref="UrlPathHook"/>.</summary>
         public HttpResponse Handle(HttpRequest req)
         {
             try
