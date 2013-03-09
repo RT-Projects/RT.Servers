@@ -23,8 +23,6 @@ namespace RT.Servers
             {
                 if (!method.IsStatic)
                     throw new InvalidOperationException("API function {0} is not static.".Fmt(method.Name));
-                if (!typeof(JsonValue).IsAssignableFrom(method.ReturnType))
-                    throw new InvalidOperationException("API function {0} has an unsupported return type ({1}). Only JsonValue (or a derived type) is supported.".Fmt(method.Name, method.ReturnType.FullName));
 
                 var parameterSetters = new List<Action<JsonDict, TSession, object[]>>();
                 var parameters = method.GetParameters();
@@ -51,7 +49,7 @@ namespace RT.Servers
                     var arr = new object[parameters.Length];
                     foreach (var setter in parameterSetters)
                         setter(json, session, arr);
-                    return (JsonValue) method.Invoke(null, arr);
+                    return Classify.ObjectToElement(method.ReturnType, method.Invoke(null, arr), ClassifyFormats.Json);
                 }));
             }
         }
