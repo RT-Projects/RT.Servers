@@ -51,7 +51,7 @@ namespace RT.Servers
                     }
                     else
                     {
-                        parameterSetters.Add((dict, session, arr) => { arr[i] = Classify.ObjectFromElement(parameters[i].ParameterType, dict[paramName], ClassifyFormats.Json); });
+                        parameterSetters.Add((dict, session, arr) => { arr[i] = Classify.Deserialize(parameters[i].ParameterType, dict[paramName], ClassifyFormats.Json); });
                     }
                 }
 
@@ -61,7 +61,7 @@ namespace RT.Servers
                     var arr = new object[parameters.Length];
                     foreach (var setter in parameterSetters)
                         setter(json, session, arr);
-                    return Classify.ObjectToElement(method.ReturnType, method.Invoke(null, arr), ClassifyFormats.Json);
+                    return Classify.Serialize(method.ReturnType, method.Invoke(null, arr), ClassifyFormats.Json);
                 }));
             }
         }
