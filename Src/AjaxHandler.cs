@@ -14,7 +14,7 @@ namespace RT.Servers
     ///     interchange format.</summary>
     /// <typeparam name="TSession">
     ///     Type of session to use. Specify <see cref="Session"/> if you do not wish to use sessions.</typeparam>
-    public sealed class AjaxHandler<TSession> where TSession : Session, new()
+    public sealed class AjaxHandler<TSession> where TSession : Session, ISessionEquatable<TSession>, new()
     {
         private readonly Dictionary<string, apiFunctionInfo> _apiFunctions;
         private readonly bool _returnExceptionMessages;
@@ -78,7 +78,7 @@ namespace RT.Servers
                     { "result", info.RequestHandler(session, req) },
                     { "status", "ok" }
                 }));
-                return info.RequiresSession ? Session.Enable<TSession>(req, handler) : handler(null);
+                return info.RequiresSession ? Session.EnableAutomatic<TSession>(req, handler) : handler(null);
             }
             catch (Exception e)
             {
