@@ -31,7 +31,7 @@ namespace RT.Servers
     ///                     /* code to handle request with session variable available */
     ///                 })</code>
     ///             <para>
-    ///                 (replace "TSession" with the name of your derived class; see <see cref="EnableAutomatic"/> or <see
+    ///                 (replace <c>TSession</c> with the name of your derived class; see <see cref="EnableAutomatic"/> or <see
     ///                 cref="EnableManual"/>).</para></description></item>
     ///         <item><description>
     ///             Within your request handler, you can make arbitrary changes to the session object, which will be persisted
@@ -207,6 +207,16 @@ namespace RT.Servers
         public static HttpResponse EnableAutomatic<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, ISessionEquatable<TSession>, new()
         {
             var session = new TSession();
+            session.InitialiseFromRequest(req);
+            var sessionCopy = session.DeepClone();
+            var response = handler(session);
+            session.CleanUp(response, wasModified: !sessionCopy.Equals(session));
+            return response;
+        }
+
+        public static HttpResponse EnableAutomatic<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler, Func<TSession>constructor) where TSession : Session, ISessionEquatable<TSession>
+        {
+            var session = constructor();
             session.InitialiseFromRequest(req);
             var sessionCopy = session.DeepClone();
             var response = handler(session);

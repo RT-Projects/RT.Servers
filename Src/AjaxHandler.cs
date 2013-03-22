@@ -18,15 +18,18 @@ namespace RT.Servers
     {
         private readonly Dictionary<string, apiFunctionInfo> _apiFunctions;
         private readonly bool _returnExceptionMessages;
+        private readonly Func<TSession> _constructor;
 
         /// <summary>
         ///     Constructs a new instance of <see cref="AjaxHandler{TSession}"/>.</summary>
         /// <param name="typeContainingAjaxMethods">
         ///     The type from which AJAX methods are taken. Methods must be static and have the <see cref="AjaxMethodAttribute"/>
         ///     on them.</param>
+        /// <param name="constructor">
+        ///     Specifies how to instantiate a session object. (Can be null if you are not using sessions.)</param>
         /// <param name="returnExceptionMessages">
         ///     If true, exception messages contained in exceptions thrown by an AJAX method are returned to the client.</param>
-        public AjaxHandler(Type typeContainingAjaxMethods, bool returnExceptionMessages)
+        public AjaxHandler(Type typeContainingAjaxMethods, Func<TSession> constructor, bool returnExceptionMessages)
         {
             _apiFunctions = new Dictionary<string, apiFunctionInfo>();
             _returnExceptionMessages = returnExceptionMessages;
@@ -66,8 +69,7 @@ namespace RT.Servers
             }
         }
 
-        /// <summary>
-        ///     Provides the handler for AJAX calls. Pass this to a <see cref="UrlPathHook"/>.</summary>
+        /// <summary>Provides the handler for AJAX calls. Pass this to a <see cref="UrlPathHook"/>.</summary>
         public HttpResponse Handle(HttpRequest req)
         {
             try
@@ -78,7 +80,7 @@ namespace RT.Servers
                     { "result", info.RequestHandler(session, req) },
                     { "status", "ok" }
                 }));
-                return info.RequiresSession ? Session.EnableAutomatic<TSession>(req, handler) : handler(null);
+                return info.RequiresSession ? Session.EnableAutomatic<TSession>(req, handler, _constructor) : handler(null);
             }
             catch (Exception e)
             {
