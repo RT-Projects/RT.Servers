@@ -12,60 +12,45 @@ namespace RT.Servers
     /// <summary>
     ///     Provides a means to call methods decorated with an <see cref="AjaxMethodAttribute"/> via AJAX, using JSON as the data
     ///     interchange format.</summary>
-    /// <typeparam name="TSession">
-    ///     Type of session to use. Specify <see cref="Session"/> if you do not wish to use sessions.</typeparam>
-    public sealed class AjaxHandler<TSession> where TSession : Session, ISessionEquatable<TSession>, new()
+    /// <typeparam name="TApi">
+    ///     Type of the object containing the Ajax methods to use.</typeparam>
+    public sealed class AjaxHandler<TApi>
     {
-        private readonly Dictionary<string, apiFunctionInfo> _apiFunctions;
+        private readonly Dictionary<string, Func<HttpRequest, JsonValue>> _apiFunctions;
         private readonly bool _returnExceptionMessages;
-        private readonly Func<TSession> _constructor;
 
         /// <summary>
-        ///     Constructs a new instance of <see cref="AjaxHandler{TSession}"/>.</summary>
-        /// <param name="typeContainingAjaxMethods">
-        ///     The type from which AJAX methods are taken. Methods must be static and have the <see cref="AjaxMethodAttribute"/>
+        ///     Constructs a new instance of <see cref="AjaxHandler{TApi}"/>.</summary>
+        /// <param name="objContainingAjaxMethods">
+        ///     The object instance of type \<c>TApi</c> on which the AJAX methods are called. Methods must be public instance methods and have the <see cref="AjaxMethodAttribute"/>
         ///     on them.</param>
-        /// <param name="constructor">
-        ///     Specifies how to instantiate a session object. (Can be null if you are not using sessions.)</param>
         /// <param name="returnExceptionMessages">
         ///     If true, exception messages contained in exceptions thrown by an AJAX method are returned to the client.</param>
-        public AjaxHandler(Type typeContainingAjaxMethods, Func<TSession> constructor, bool returnExceptionMessages)
+        public AjaxHandler(TApi objContainingAjaxMethods, bool returnExceptionMessages)
         {
-            _apiFunctions = new Dictionary<string, apiFunctionInfo>();
+            _apiFunctions = new Dictionary<string, Func<HttpRequest, JsonValue>>();
             _returnExceptionMessages = returnExceptionMessages;
-
-            foreach (var method in typeContainingAjaxMethods.GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static).Where(m => m.IsDefined<AjaxMethodAttribute>()))
+            var typeContainingAjaxMethods = typeof(TApi);
+            foreach (var method in typeContainingAjaxMethods.GetMethods(BindingFlags.Public | BindingFlags.Instance).Where(m => m.IsDefined<AjaxMethodAttribute>()))
             {
-                if (!method.IsStatic)
-                    throw new InvalidOperationException("API function {0} is not static.".Fmt(method.Name));
-
-                var parameterSetters = new List<Action<JsonDict, TSession, object[]>>();
+                var parameterSetters = new List<Action<JsonDict, object[]>>();
                 var parameters = method.GetParameters();
-                var requireSession = false;
 
                 for (int iFor = 0; iFor < parameters.Length; iFor++)
                 {
                     var i = iFor;
                     var paramName = parameters[i].Name;
-                    if (parameters[i].ParameterType == typeof(TSession))
-                    {
-                        requireSession = true;
-                        parameterSetters.Add((dict, session, arr) => { arr[i] = session; });
-                    }
-                    else
-                    {
-                        parameterSetters.Add((dict, session, arr) => { arr[i] = ClassifyJson.Deserialize(parameters[i].ParameterType, dict[paramName]); });
-                    }
+                    parameterSetters.Add((dict, arr) => { arr[i] = ClassifyJson.Deserialize(parameters[i].ParameterType, dict[paramName]); });
                 }
 
-                _apiFunctions.Add(method.Name, new apiFunctionInfo(requireSession, (TSession session, HttpRequest req) =>
+                _apiFunctions.Add(method.Name, req =>
                 {
                     var json = JsonDict.Parse(req.Post["data"].Value);
                     var arr = new object[parameters.Length];
                     foreach (var setter in parameterSetters)
-                        setter(json, session, arr);
-                    return ClassifyJson.Serialize(method.ReturnType, method.Invoke(null, arr));
-                }));
+                        setter(json, arr);
+                    return ClassifyJson.Serialize(method.ReturnType, method.Invoke(objContainingAjaxMethods, arr));
+                });
             }
         }
 
@@ -74,13 +59,12 @@ namespace RT.Servers
         {
             try
             {
-                var info = _apiFunctions[req.Post["apiFunction"].Value];
-                var handler = Ut.Lambda((TSession session) => HttpResponse.Json(new JsonDict
+                var apiFunction = _apiFunctions[req.Post["apiFunction"].Value];
+                return HttpResponse.Json(new JsonDict
                 {
-                    { "result", info.RequestHandler(session, req) },
+                    { "result", apiFunction(req) },
                     { "status", "ok" }
-                }));
-                return info.RequiresSession ? Session.EnableAutomatic<TSession>(req, handler, _constructor) : handler(null);
+                });
             }
             catch (Exception e)
             {
@@ -91,17 +75,6 @@ namespace RT.Servers
                 if (_returnExceptionMessages)
                     error.Add("message", "{0} ({1})".Fmt(e.Message, e.GetType().Name));
                 return HttpResponse.Json(error);
-            }
-        }
-
-        private sealed class apiFunctionInfo
-        {
-            public Func<TSession, HttpRequest, JsonValue> RequestHandler { get; private set; }
-            public bool RequiresSession { get; private set; }
-            public apiFunctionInfo(bool requiresSession, Func<TSession, HttpRequest, JsonValue> requestHandler)
-            {
-                RequestHandler = requestHandler;
-                RequiresSession = requiresSession;
             }
         }
     }
