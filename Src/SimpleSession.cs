@@ -86,7 +86,7 @@ namespace RT.Servers
         }
 
 
-        /// <param name="sessionID">If null, a random base 64 and URL encoded string of length 21 bytes is taken.</param>
+        /// <param name="sessionID">Returns a random base 64 and URL encoded string of 21 bytes.</param>
         public static string CreateNewSessionId()
         {
             return RndCrypto.NextBytes(21).Base64UrlEncode();
@@ -97,23 +97,19 @@ namespace RT.Servers
         /// <summary>
         /// This method retrieves the session ID from the session cookie (specified by the cookie name) from the given <see cref="HttpRequest"/> 
         /// and calls the handler function (specified in the constructor) on the ID and the request. 
-        /// A session cookie is added to the HTTP response returned by the handler if either DeleteSession() or NewSession() have been called (possibly by the handler), 
-        /// or if the cookie path and/or expiry date specified in the constructor differ from the values retrieved from the session cookie. Before the possibly augmented
-        /// HTTP response is returned, the status of DeleteSession and NewSession are reset, respectively.
+        /// A session cookie is added to the HTTP response returned by the handler only if either DeleteSession() or NewSession() have been called (possibly by the handler). 
+        /// Before the possibly augmented HTTP response is returned, the status of DeleteSession and NewSession is reset.
         /// </summary>
         /// <param name="req"></param>
         /// <returns>An HTTP response, possibly augmented with a session cookie.</returns>
         public HttpResponse Handle(HttpRequest req)
         {
-            string path = CookiePath;
-            DateTime? expiry = CookieExpires;
             if (req.Headers != null && req.Headers.Cookie != null && req.Headers.Cookie.ContainsKey(CookieName))
             {
                 var cookie = req.Headers.Cookie[CookieName];
-                // Note that cookie.Value is not null
                 SessionID = cookie.Value;
-                path = cookie.Path;
-                expiry = cookie.Expires;
+                CookiePath = cookie.Path;
+                CookieExpires = cookie.Expires;
             }
             else
             {
@@ -122,26 +118,38 @@ namespace RT.Servers
 
             var response = _handler(this);
 
-            if (_deleteSession || _newSession || !object.Equals(path, CookiePath) || !object.Equals(expiry, CookieExpires))
+            if ((_deleteSession && SessionID != null) || _newSession)
             {
-                // At this point, we know that SessionID is either not null, or else _deleteSession is true
                 if (response.Headers.SetCookie == null)
                 {
                     response.Headers.SetCookie = new List<Cookie>();
                 }
 
-                response.Headers.SetCookie.Add(new Cookie
+                Cookie cookie;
+                if (_deleteSession)
                 {
-                    Name = CookieName,
-                    Value = 
-                        _deleteSession ? "-" : 
-                        _newSession ?  _newSessionID : SessionID,
-                    Path = _newSession ? _newCookiePath : CookiePath,
-                    Expires = 
-                        _deleteSession ? DateTime.Today - TimeSpan.FromDays(300) : 
-                        _newSession ? _newCookieExpires : CookieExpires,
-                    HttpOnly = true,
-                });
+                    cookie = new Cookie
+                    {
+                        Name = CookieName,
+                        Value = "-",
+                        Path = CookiePath,
+                        Expires = new DateTime(1970, 1, 1),
+                        HttpOnly = true,
+                    };
+                }
+                else // _newSession is true
+                {
+                    cookie = new Cookie
+                    {
+                        Name = CookieName,
+                        Value = _newSessionID,
+                        Path = _newCookiePath,
+                        Expires =_newCookieExpires,
+                        HttpOnly = true,
+                    };
+                }
+
+                response.Headers.SetCookie.Add(cookie);
 
             }
             _deleteSession = false;
