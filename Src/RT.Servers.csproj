@@ -74,6 +74,7 @@
     <Compile Include="SharpZipLib\Zip\Compression\Streams\OutputWindow.cs" />
     <Compile Include="SharpZipLib\Zip\Compression\Streams\StreamManipulator.cs" />
     <Compile Include="SharpZipLib\Zip\ZipException.cs" />
+    <Compile Include="SimpleSession.cs" />
     <Compile Include="ValueTypes.cs" />
     <Compile Include="Resources.Designer.cs">
       <AutoGen>True</AutoGen>

@@ -16,19 +16,16 @@ namespace RT.Servers
     ///     Type of the object containing the Ajax methods to use.</typeparam>
     public sealed class AjaxHandler<TApi>
     {
-        private readonly Dictionary<string, Func<HttpRequest, JsonValue>> _apiFunctions;
+        private readonly Dictionary<string, Func<HttpRequest, TApi, JsonValue>> _apiFunctions;
         private readonly bool _returnExceptionMessages;
 
         /// <summary>
         ///     Constructs a new instance of <see cref="AjaxHandler{TApi}"/>.</summary>
-        /// <param name="objContainingAjaxMethods">
-        ///     The object instance of type \<c>TApi</c> on which the AJAX methods are called. Methods must be public instance methods and have the <see cref="AjaxMethodAttribute"/>
-        ///     on them.</param>
         /// <param name="returnExceptionMessages">
         ///     If true, exception messages contained in exceptions thrown by an AJAX method are returned to the client.</param>
-        public AjaxHandler(TApi objContainingAjaxMethods, bool returnExceptionMessages)
+        public AjaxHandler(bool returnExceptionMessages)
         {
-            _apiFunctions = new Dictionary<string, Func<HttpRequest, JsonValue>>();
+            _apiFunctions = new Dictionary<string, Func<HttpRequest, TApi, JsonValue>>();
             _returnExceptionMessages = returnExceptionMessages;
             var typeContainingAjaxMethods = typeof(TApi);
             foreach (var method in typeContainingAjaxMethods.GetMethods(BindingFlags.Public | BindingFlags.Instance).Where(m => m.IsDefined<AjaxMethodAttribute>()))
@@ -43,26 +40,28 @@ namespace RT.Servers
                     parameterSetters.Add((dict, arr) => { arr[i] = ClassifyJson.Deserialize(parameters[i].ParameterType, dict[paramName]); });
                 }
 
-                _apiFunctions.Add(method.Name, req =>
+                _apiFunctions.Add(method.Name, (req, api) =>
                 {
                     var json = JsonDict.Parse(req.Post["data"].Value);
                     var arr = new object[parameters.Length];
                     foreach (var setter in parameterSetters)
                         setter(json, arr);
-                    return ClassifyJson.Serialize(method.ReturnType, method.Invoke(objContainingAjaxMethods, arr));
+                    return ClassifyJson.Serialize(method.ReturnType, method.Invoke(api, arr));
                 });
             }
         }
 
         /// <summary>Provides the handler for AJAX calls. Pass this to a <see cref="UrlPathHook"/>.</summary>
-        public HttpResponse Handle(HttpRequest req)
+        /// <param name="req">The incoming HTTP POST request to be handled, containing the API function name and parameters.</param>
+        /// <param name="api">The API object on which the API function is to be invoked.</param>
+        public HttpResponse Handle(HttpRequest req, TApi api)
         {
             try
             {
                 var apiFunction = _apiFunctions[req.Post["apiFunction"].Value];
                 return HttpResponse.Json(new JsonDict
                 {
-                    { "result", apiFunction(req) },
+                    { "result", apiFunction(req, api) },
                     { "status", "ok" }
                 });
             }
