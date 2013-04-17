@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -79,7 +80,7 @@ namespace RT.Servers.Tests
                     cl.Connect("localhost", ProgramServersTests.Port);
                     cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".ToUtf8());
                     cl.Client.Shutdown(SocketShutdown.Send);
-                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
                     var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
                     var parts = response.Split("\r\n\r\n");
                     Assert.AreEqual(HttpStatusCode._200_OK, code);
@@ -92,7 +93,7 @@ namespace RT.Servers.Tests
                     cl.Connect("localhost", ProgramServersTests.Port);
                     cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close".ToUtf8());
                     cl.Client.Shutdown(SocketShutdown.Send);
-                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
                     // the test is that it doesn't wait forever
                 }
 
@@ -102,7 +103,7 @@ namespace RT.Servers.Tests
                     cl.Connect("localhost", ProgramServersTests.Port);
                     cl.Client.Send("xz".ToUtf8());
                     cl.Client.Shutdown(SocketShutdown.Send);
-                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
                     // the test is that it doesn't wait forever
                 }
             }

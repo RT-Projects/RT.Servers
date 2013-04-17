@@ -102,7 +102,7 @@ namespace RT.Servers.Tests
                     cl.Connect("localhost", ProgramServersTests.Port);
                     cl.ReceiveTimeout = 1000; // 1 sec
                     cl.Client.Send(("GET /static HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n").ToUtf8());
-                    var response = Encoding.UTF8.GetString(new SocketReaderStream(cl.Client, long.MaxValue).ReadAllBytes());
+                    var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
                     cl.Close();
                     var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
                     var parts = response.Split("\r\n\r\n");

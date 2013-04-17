@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -52,7 +54,7 @@ namespace RT.Servers
         /// </summary>
         public readonly ManualResetEvent ShutdownComplete = new ManualResetEvent(false);
 
-        private Socket _listeningSocket;
+        private Socket[] _listeningSockets = new Socket[2]; // index 0 = HTTP, index 1 = HTTPS
         private HttpServerOptions _opt;
         private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
 
@@ -99,10 +101,13 @@ namespace RT.Servers
         {
             IsListening = false;
 
-            if (_listeningSocket != null)
+            for (int index = 0; index < 1; index++)
             {
-                _listeningSocket.Close();
-                _listeningSocket = null;
+                if (_listeningSockets[index] != null)
+                {
+                    _listeningSockets[index].Close();
+                    _listeningSockets[index] = null;
+                }
             }
 
             lock (_activeConnectionHandlers)
@@ -130,40 +135,57 @@ namespace RT.Servers
         /// This is equivalent to waiting for <see cref="ShutdownComplete"/> indefinitely.</param>
         public void StartListening(bool blocking = false)
         {
+            if (_opt.Port == null && _opt.SecurePort == null)
+                throw new ArgumentException("In the server options, both 'Port' and 'SecurePort' are null. There is no port to listen on.");
+
+            if (_opt.SecurePort != null && _opt.CertificatePath == null)
+                throw new ArgumentException("Since 'SecurePort' is not null, a 'CertificatePath' must be specified in the options.");
+
             if (IsListening)
                 return;
+
             IsListening = true;
             ShutdownComplete.Reset();
 
             IPAddress addr;
             if (_opt.BindAddress == null || !IPAddress.TryParse(_opt.BindAddress, out addr))
                 addr = IPAddress.Any;
-            var ep = new IPEndPoint(addr, _opt.Port);
 
-            _listeningSocket = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _listeningSocket.Bind(ep);
-
-            try
+            foreach (var secure in new[] { false, true })
             {
-                _listeningSocket.Listen(int.MaxValue);
-            }
-            catch (SocketException)
-            {
-                _listeningSocket.Close();
-                throw;
-            }
+                var port = secure ? _opt.SecurePort : _opt.Port;
+                if (port == null)
+                    continue;
 
-            // BeginAccept might complete synchronously as per MSDN, so call it on a pool thread
-            ThreadPool.QueueUserWorkItem(delegate { _listeningSocket.BeginAccept(acceptSocket, null); });
+                var ep = new IPEndPoint(addr, port.Value);
+
+                var index = secure ? 1 : 0;
+                _listeningSockets[index] = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+                _listeningSockets[index].Bind(ep);
+
+                try
+                {
+                    _listeningSockets[index].Listen(int.MaxValue);
+                }
+                catch (SocketException)
+                {
+                    _listeningSockets[index].Close();
+                    throw;
+                }
+
+                // BeginAccept might complete synchronously as per MSDN, so call it on a pool thread
+                ThreadPool.QueueUserWorkItem(delegate { _listeningSockets[index].BeginAccept(r => acceptSocket(r, secure), null); });
+            }
 
             if (blocking)
                 ShutdownComplete.WaitOne();
         }
 
-        private void acceptSocket(IAsyncResult result)
+        private void acceptSocket(IAsyncResult result, bool secure)
         {
 #if DEBUG
-            // Workaround for bug in .NET 4.0:
+            // Workaround for bug in .NET 4.0 and 4.5:
             // https://connect.microsoft.com/VisualStudio/feedback/details/535917
             new Thread(() =>
 #endif
@@ -172,21 +194,23 @@ namespace RT.Servers
                 if (!IsListening)
                     return;
 
+                var socketIndex = secure ? 1 : 0;
+
                 // Get the socket
                 Socket socket = null;
-                try { socket = _listeningSocket.EndAccept(result); }
+                try { socket = _listeningSockets[socketIndex].EndAccept(result); }
                 catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
                 catch (ObjectDisposedException) { }
-                catch (NullReferenceException) { if (_listeningSocket != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
+                catch (NullReferenceException) { if (_listeningSockets[socketIndex] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
                 // Schedule the next socket accept
-                if (_listeningSocket != null)
-                    try { _listeningSocket.BeginAccept(acceptSocket, null); }
-                    catch (NullReferenceException) { if (_listeningSocket != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
+                if (_listeningSockets[socketIndex] != null)
+                    try { _listeningSockets[socketIndex].BeginAccept(r => acceptSocket(r, secure), null); }
+                    catch (NullReferenceException) { if (_listeningSockets[socketIndex] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
                 // Handle this connection
                 if (socket != null)
-                    HandleConnection(socket);
+                    HandleConnection(socket, secure);
             }
 #if DEBUG
 ).Start();
@@ -200,13 +224,14 @@ namespace RT.Servers
         /// the data has already been received and buffered by the OS.
         /// </summary>
         /// <param name="incomingConnection">The incoming connection to process.</param>
-        public void HandleConnection(Socket incomingConnection)
+        /// <param name="secure">True to use SSL, false otherwise.</param>
+        public void HandleConnection(Socket incomingConnection, bool secure)
         {
             Stats.AddConnectionReceived();
             if (_opt.IdleTimeout != 0)
                 incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
             // The reader will add itself to the active connections, process the current connection, and remove from active connections when done
-            new connectionHandler(incomingConnection, this);
+            new connectionHandler(incomingConnection, this, secure);
         }
 
         private HttpResponse defaultErrorHandler(HttpRequest req, Exception exception, Exception exInErrorHandler = null)
@@ -279,6 +304,7 @@ namespace RT.Servers
             public bool DisallowKeepAlive = false;
             public bool KeepAliveActive = false;
 
+            private Stream _stream;
             private Stopwatch _sw;
             private byte[] _buffer;
             private int _bufferDataOffset;
@@ -289,9 +315,10 @@ namespace RT.Servers
             private int _endedReceives = 0;
             private Func<HttpRequest, HttpResponse> _handler;
 
-            public connectionHandler(Socket socket, HttpServer server)
+            public connectionHandler(Socket socket, HttpServer server, bool secure)
             {
                 Socket = socket;
+
                 _server = server;
                 _handler = _server.Handler ?? (req => { throw new HttpNotFoundException(); });
 
@@ -308,7 +335,31 @@ namespace RT.Servers
                 lock (server._activeConnectionHandlers)
                     server._activeConnectionHandlers.Add(this);
 
-                receiveMoreHeaderData();
+                var stream = new NetworkStream(socket, ownsSocket: true);
+                if (secure)
+                {
+                    var secureStream = new SslStream(stream);
+                    _stream = secureStream;
+                    secureStream.BeginAuthenticateAsServer(new X509Certificate2(server.Options.CertificatePath), ar =>
+                    {
+                        try
+                        {
+                            secureStream.EndAuthenticateAsServer(ar);
+                        }
+                        catch
+                        {
+                            Socket.Close();
+                            cleanupIfDone();
+                            return;
+                        }
+                        receiveMoreHeaderData();
+                    }, null);
+                }
+                else
+                {
+                    _stream = stream;
+                    receiveMoreHeaderData();
+                }
             }
 
             /// <summary>
@@ -322,11 +373,11 @@ namespace RT.Servers
                 // Try reading some data synchronously
                 try
                 {
-                    int available = Socket.Available;
-                    if (available > 0)
-                        _bufferDataLength = Socket.Receive(_buffer, Math.Min(available, _buffer.Length), SocketFlags.None);
+                    if (_stream is NetworkStream ? ((NetworkStream) _stream).DataAvailable : false)
+                        _bufferDataLength = Socket.Receive(_buffer, Math.Min(Socket.Available, _buffer.Length), SocketFlags.None);
                 }
                 catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
                 catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
                 if (_bufferDataLength > 0)
@@ -339,10 +390,11 @@ namespace RT.Servers
                     // Couldn’t read synchronously, so begin an async read that waits for the data to arrive
                     try
                     {
-                        Socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, moreHeaderDataReceived, null);
+                        _stream.BeginRead(_buffer, 0, _buffer.Length, moreHeaderDataReceived, null);
                         Interlocked.Increment(ref _begunReceives);
                     }
                     catch (SocketException) { Socket.Close(); }
+                    catch (IOException) { Socket.Close(); }
                     catch (ObjectDisposedException) { }
                 }
 
@@ -366,9 +418,10 @@ namespace RT.Servers
 
                     try
                     {
-                        _bufferDataLength = Socket.Connected ? Socket.EndReceive(res) : 0;
+                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
                     }
                     catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
                     catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
                     if (_bufferDataLength == 0)
@@ -408,6 +461,9 @@ namespace RT.Servers
                 _sw.Log("Start of processHeaderData()");
 
                 // Request more header data if we have none
+                // (This only happens if we just finished a request and are in a keep-alive connection which has
+                // already received some of the header data for the next request. In this case we must process
+                // that data instead of waiting for more.)
                 if (_bufferDataLength == 0)
                 {
                     receiveMoreHeaderData();
@@ -459,6 +515,13 @@ namespace RT.Servers
                 catch (SocketException e)
                 {
                     _sw.Log("Caught SocketException - closing ({0})".Fmt(e.Message));
+                    Socket.Close();
+                    _sw.Log("Socket.Close()");
+                    return;
+                }
+                catch (IOException e)
+                {
+                    _sw.Log("Caught IOException - closing ({0})".Fmt(e.Message));
                     Socket.Close();
                     _sw.Log("Socket.Close()");
                     return;
@@ -686,7 +749,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - finished sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        Socket.Send(resultBuffer);
+                        _stream.Write(resultBuffer);
                         _sw.Log("OutputResponse() - finished sending response");
                         return useKeepAlive;
                     }
@@ -705,7 +768,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        var str = new GZipOutputStream(new SocketWriterStream(Socket));
+                        var str = new GZipOutputStream(new DoNotCloseStream(_stream));
                         str.SetLevel(1);
                         output = str;
                     }
@@ -717,7 +780,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        var str = new GZipOutputStream(new ChunkedSocketWriterStream(Socket));
+                        var str = new GZipOutputStream(new ChunkedEncodingStream(_stream, leaveInnerOpen: true));
                         str.SetLevel(1);
                         output = str;
                     }
@@ -729,7 +792,7 @@ namespace RT.Servers
                         _sw.Log("OutputResponse() - sending headers");
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
-                        output = new ChunkedSocketWriterStream(Socket);
+                        output = new ChunkedEncodingStream(_stream, leaveInnerOpen: true);
                     }
                     else
                     {
@@ -744,7 +807,10 @@ namespace RT.Servers
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
 
-                        output = new SocketWriterStream(Socket);
+                        // We need DoNotCloseStream here because the later code needs to be able to
+                        // close ‘output’ in case it’s a Gzip and/or Chunked stream; however, we don’t
+                        // want to close the socket because it might be a keep-alive connection.
+                        output = new DoNotCloseStream(_stream);
                     }
 
                     _sw.Log("OutputResponse() - instantiating output stream");
@@ -774,7 +840,8 @@ namespace RT.Servers
                             }
 
                         _sw.Log("OutputResponse() - Response.Content.Read()");
-                        if (bytesRead == 0) break;
+                        if (bytesRead == 0)
+                            break;
 
                         // Performance optimisation: If we’re at the end of a body of known length, cause
                         // the last bit to be sent to the socket without the Nagle delay
@@ -787,14 +854,16 @@ namespace RT.Servers
 
                         output.Write(buffer, 0, bytesRead);
 
-                        // If we are actually gzipping and chunking something of known length, we don’t want several TCP packets
-                        // of just a few bytes from when the gzip and chunked stream finish. The chunked stream already sets this
-                        // back to true just before outputting the real final bit.
-                        Socket.NoDelay = false;
-
                         _sw.Log("OutputResponse() - Output.Write()");
                     }
+
+                    // Important: If we are using Gzip and/or Chunked encoding, this causes the relevant
+                    // streams to output the last bytes.
                     output.Close();
+
+                    // Now re-enable the Nagle algorithm in case this is a keep-alive connection.
+                    Socket.NoDelay = false;
+
                     _sw.Log("OutputResponse() - Output.Close()");
                     return useKeepAlive;
                 }
@@ -816,7 +885,7 @@ namespace RT.Servers
             {
                 string headersStr = "HTTP/1.1 " + ((int) response.Status) + " " + response.Status.ToText() + "\r\n" +
                     response.Headers.ToString() + "\r\n";
-                Socket.Send(Encoding.UTF8.GetBytes(headersStr));
+                _stream.Write(Encoding.UTF8.GetBytes(headersStr));
             }
 
             private void serveSingleRange(HttpResponse response, Stream contentStream, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
@@ -835,7 +904,7 @@ namespace RT.Servers
                 int bytesRead = contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
                 while (bytesRead > 0)
                 {
-                    Socket.Send(buffer, 0, bytesRead, SocketFlags.None);
+                    _stream.Write(buffer, 0, bytesRead);
                     bytesMissing -= bytesRead;
                     bytesRead = (bytesMissing > 0) ? contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                 }
@@ -875,24 +944,24 @@ namespace RT.Servers
                 byte[] buffer = new byte[65536];
                 foreach (var r in ranges)
                 {
-                    Socket.Send(new byte[] { (byte) '-', (byte) '-' });
-                    Socket.Send(boundary);
-                    Socket.Send(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToUtf8());
+                    _stream.Write(new byte[] { (byte) '-', (byte) '-' });
+                    _stream.Write(boundary);
+                    _stream.Write(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToUtf8());
 
                     contentStream.Seek(r.Key, SeekOrigin.Begin);
                     long bytesMissing = r.Value - r.Key + 1;
                     int bytesRead = contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing));
                     while (bytesRead > 0)
                     {
-                        Socket.Send(buffer, 0, bytesRead, SocketFlags.None);
+                        _stream.Write(buffer, 0, bytesRead);
                         bytesMissing -= bytesRead;
                         bytesRead = (bytesMissing > 0) ? contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                     }
-                    Socket.Send(new byte[] { 13, 10 });
+                    _stream.Write(new byte[] { 13, 10 });
                 }
-                Socket.Send(new byte[] { (byte) '-', (byte) '-' });
-                Socket.Send(boundary);
-                Socket.Send(new byte[] { (byte) '-', (byte) '-', 13, 10 });
+                _stream.Write(new byte[] { (byte) '-', (byte) '-' });
+                _stream.Write(boundary);
+                _stream.Write(new byte[] { (byte) '-', (byte) '-', 13, 10 });
             }
 
             private HttpResponse errorParsingRequest(HttpRequest req, HttpStatusCode status, string userMessage = null)
@@ -978,7 +1047,7 @@ namespace RT.Servers
                 if (req.Method == HttpMethod.Post)
                 {
                     // This returns null in case of success and an error response in case of error
-                    var result = processPostContent(Socket, req);
+                    var result = processPostContent(req);
                     if (result != null)
                         return result;
                 }
@@ -1051,7 +1120,7 @@ namespace RT.Servers
                 return null;
             }
 
-            private HttpResponse processPostContent(Socket socket, HttpRequest req)
+            private HttpResponse processPostContent(HttpRequest req)
             {
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
@@ -1068,7 +1137,7 @@ namespace RT.Servers
 
                 // If "Expect: 100-continue" was specified, send a 100 Continue here
                 if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
-                    socket.Send("HTTP/1.1 100 Continue\r\n\r\n".ToUtf8());
+                    _stream.Write("HTTP/1.1 100 Continue\r\n\r\n".ToUtf8());
 
                 // Read the contents of the POST request
                 Stream contentStream;
@@ -1080,16 +1149,16 @@ namespace RT.Servers
                 }
                 else
                 {
-                    contentStream = new SocketReaderStream(socket, req.Headers.ContentLength.Value, _buffer, _bufferDataOffset, _bufferDataLength);
+                    contentStream = new Substream(_stream, req.Headers.ContentLength.Value, _buffer, _bufferDataOffset, _bufferDataLength);
                     _bufferDataOffset = 0;
                     _bufferDataLength = 0;
                 }
+
                 try
                 {
                     req.ParsePostBody(contentStream, _server.Options.TempDir, _server.Options.StoreFileUploadInFileAtSize);
                 }
                 catch (SocketException) { }
-                catch (EndOfStreamException) { }
                 catch (IOException) { }
 
                 // null means: no error

@@ -46,6 +46,7 @@
     <Compile Include="RequestResponseTests.cs" />
     <Compile Include="ShutdownTests.cs" />
     <Compile Include="SpecialHeadersTests.cs" />
+    <Compile Include="TestHelpers.cs" />
     <Compile Include="UrlPathResolverTests.cs" />
   </ItemGroup>
   <ItemGroup>

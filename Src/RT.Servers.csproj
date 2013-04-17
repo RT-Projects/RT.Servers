@@ -36,6 +36,7 @@
     <Compile Include="AjaxHandler.cs" />
     <Compile Include="AjaxMethodAttribute.cs" />
     <Compile Include="Authentication.cs" />
+    <Compile Include="Communicator.cs" />
     <Compile Include="FileSystemHandler.cs" />
     <Compile Include="FileSystemOptions.cs" />
     <Compile Include="HttpEnums.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="SharpZipLib\Zip\Compression\Streams\StreamManipulator.cs" />
     <Compile Include="SharpZipLib\Zip\ZipException.cs" />
     <Compile Include="SimpleSession.cs" />
+    <Compile Include="SocketStreams.cs" />
     <Compile Include="ValueTypes.cs" />
     <Compile Include="Resources.Designer.cs">
       <AutoGen>True</AutoGen>
