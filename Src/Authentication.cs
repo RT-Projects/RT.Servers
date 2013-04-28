@@ -13,7 +13,7 @@ namespace RT.Servers
     public sealed class Authenticator
     {
         private string _usersPath;
-        private string _defaultReturnTo;
+        private Func<IHttpUrl, string> _defaultReturnTo;
         private string _appName;
 
         /// <summary>Used to ensure that the AuthUsers XML file is not read and written concurrently.</summary>
@@ -24,7 +24,7 @@ namespace RT.Servers
         /// <param name="usersFilePath">Specifies the path and filename of an XML file containing the users and passwords.</param>
         /// <param name="defaultReturnTo">Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET parameter.</param>
         /// <param name="appName">Name of the application which uses this authentication handler.</param>
-        public Authenticator(string usersFilePath, string defaultReturnTo, string appName)
+        public Authenticator(string usersFilePath, Func<IHttpUrl, string> defaultReturnTo, string appName)
         {
             if (usersFilePath == null)
                 throw new ArgumentNullException("usersFilePath");
@@ -79,7 +79,7 @@ namespace RT.Servers
                 {
                     // Login successful!
                     setUsername(user.Username);
-                    return HttpResponse.Redirect(returnTo ?? _defaultReturnTo);
+                    return HttpResponse.Redirect(returnTo ?? _defaultReturnTo(req.Url));
                 }
             }
             else
@@ -177,7 +177,7 @@ namespace RT.Servers
 
                 user.PasswordHash = createHash(newpassword);
                 XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
-                return HttpResponse.Redirect(returnTo ?? _defaultReturnTo);
+                return HttpResponse.Redirect(returnTo ?? _defaultReturnTo(req.Url));
             }
         }
 
@@ -245,7 +245,7 @@ namespace RT.Servers
 
                 users.Users.Add(new AuthUser { Username = username, PasswordHash = createHash(newpassword) });
                 XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
-                return HttpResponse.Redirect(returnTo ?? _defaultReturnTo);
+                return HttpResponse.Redirect(returnTo ?? _defaultReturnTo(req.Url));
             }
         }
 
