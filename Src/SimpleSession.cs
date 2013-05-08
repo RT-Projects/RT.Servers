@@ -56,7 +56,7 @@ namespace RT.Servers
 
         /// <summary>
         ///     Specifies that a new session should be created. (The <see cref="Handle"/> method adds the relevant cookie to the
-        ///     HTTP response.)</summary>
+        ///     HTTP response.) It also sets the current SessionID to the specified ID.</summary>
         /// <param name="sessionID">
         ///     The ID for the new session.</param>
         /// <param name="cookieExpiry">
@@ -70,6 +70,7 @@ namespace RT.Servers
 
             _newSession = true;
             _newSessionID = sessionID;
+            SessionID = sessionID;
             _newCookiePath = cookiePath;
             _newCookieExpires = cookieExpiry;
         }
