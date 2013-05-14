@@ -370,11 +370,13 @@ namespace RT.Servers
             {
                 _bufferDataOffset = 0;
 
-                // Try reading some data synchronously
+                // Try reading some data synchronously. Ideally we'd do it on the secure stream too, but because the Stream interface is
+                // so limited, we can't determine whether the read will block, nor ask it to return immediately instead of blocking. Sigh...
+                // See http://stackoverflow.com/questions/16550606/
                 try
                 {
-                    if (_stream is NetworkStream ? ((NetworkStream) _stream).DataAvailable : false)
-                        _bufferDataLength = Socket.Receive(_buffer, Math.Min(Socket.Available, _buffer.Length), SocketFlags.None);
+                    if (_stream is NetworkStream && ((NetworkStream) _stream).DataAvailable)
+                        _bufferDataLength = ((NetworkStream) _stream).Read(_buffer, 0, _buffer.Length);
                 }
                 catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
                 catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
