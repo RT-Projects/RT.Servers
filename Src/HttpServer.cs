@@ -271,7 +271,7 @@ namespace RT.Servers
                 var exc = "<h3>" + exception.GetType().FullName.HtmlEscape() + "</h3>";
                 if (!string.IsNullOrWhiteSpace(exception.Message))
                     exc += "<p>" + exception.Message.HtmlEscape() + "</p>";
-                exc += "<pre>" + exception.StackTrace.HtmlEscape() + "</pre>";
+                exc += "<pre>" + exception.StackTrace.NullOr(st => st.HtmlEscape()) + "</pre>";
                 exc += first ? "" : "<hr>";
                 exceptionHtml = exc + exceptionHtml;
                 exception = exception.InnerException;
