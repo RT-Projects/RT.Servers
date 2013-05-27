@@ -17,19 +17,19 @@ namespace RT.Servers
     public sealed class AjaxHandler<TApi>
     {
         private readonly Dictionary<string, Func<HttpRequest, TApi, JsonValue>> _apiFunctions;
-        private readonly bool _returnExceptionMessages;
+        private readonly AjaxHandlerOptions _options;
         private readonly Func<Func<JsonValue>, JsonValue> _wrapper;
 
         /// <summary>
         ///     Constructs a new instance of <see cref="AjaxHandler{TApi}"/>.</summary>
-        /// <param name="returnExceptionMessages">
-        ///     If true, exception messages contained in exceptions thrown by an AJAX method are returned to the client.</param>
+        /// <param name="options">
+        ///     Specifies <see cref="AjaxHandler"/>’s exception behaviour.</param>
         /// <param name="wrapper">
         ///     If not <c>null</c>, provides a function in which to wrap every API function call.</param>
-        public AjaxHandler(bool returnExceptionMessages, Func<Func<JsonValue>, JsonValue> wrapper = null)
+        public AjaxHandler(AjaxHandlerOptions options = AjaxHandlerOptions.ReturnExceptionsWithoutMessages, Func<Func<JsonValue>, JsonValue> wrapper = null)
         {
             _apiFunctions = new Dictionary<string, Func<HttpRequest, TApi, JsonValue>>();
-            _returnExceptionMessages = returnExceptionMessages;
+            _options = options;
             _wrapper = wrapper;
 
             var typeContainingAjaxMethods = typeof(TApi);
@@ -64,7 +64,7 @@ namespace RT.Servers
         ///     The API object on which the API function is to be invoked.</param>
         public HttpResponse Handle(HttpRequest req, TApi api)
         {
-            try
+            if (_options == AjaxHandlerOptions.PropagateExceptions)
             {
                 var apiFunction = _apiFunctions[req.Post["apiFunction"].Value];
                 return HttpResponse.Json(new JsonDict
@@ -73,16 +73,46 @@ namespace RT.Servers
                     { "status", "ok" }
                 });
             }
-            catch (Exception e)
+            else
             {
-                while (e is TargetInvocationException)
-                    e = e.InnerException;
+                try
+                {
+                    var apiFunction = _apiFunctions[req.Post["apiFunction"].Value];
+                    return HttpResponse.Json(new JsonDict
+                    {
+                        { "result", _wrapper == null ? apiFunction(req, api) : _wrapper(() => apiFunction(req, api)) },
+                        { "status", "ok" }
+                    });
+                }
+                catch (Exception e)
+                {
+                    while (e is TargetInvocationException)
+                        e = e.InnerException;
 
-                var error = new JsonDict { { "status", "error" } };
-                if (_returnExceptionMessages)
-                    error.Add("message", "{0} ({1})".Fmt(e.Message, e.GetType().Name));
-                return HttpResponse.Json(error);
+                    var error = new JsonDict { { "status", "error" } };
+                    if (_options == AjaxHandlerOptions.ReturnExceptionsWithMessages)
+                        error.Add("message", "{0} ({1})".Fmt(e.Message, e.GetType().Name));
+                    return HttpResponse.Json(error);
+                }
             }
         }
+    }
+
+    /// <summary>Specifies the exception behaviour for <see cref="AjaxHandler{TApi}"/>.</summary>
+    public enum AjaxHandlerOptions
+    {
+        /// <summary>
+        ///     Exceptions thrown by an AJAX method (or the wrapper) are returned to the client as simply <c>{ "status": "error"
+        ///     }</c>.</summary>
+        ReturnExceptionsWithoutMessages,
+        /// <summary>
+        ///     Exceptions thrown by an AJAX method (or the wrapper) are returned to the client including their exception messages
+        ///     as <c>{ "status": "error", "message": "{0} ({1})" }</c>, where <c>{0}</c> is the exception message and <c>{1}</c>
+        ///     the exception type.</summary>
+        ReturnExceptionsWithMessages,
+        /// <summary>
+        ///     <see cref="AjaxHandler{TApi}"/> does not catch exceptions thrown by the API functions. If you do not catch the
+        ///     exceptions either, they will bring down the server.</summary>
+        PropagateExceptions
     }
 }
