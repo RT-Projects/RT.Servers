@@ -64,7 +64,7 @@ namespace RT.Servers
                     return response;
                 req.Url = url.ToUrl();
             }
-            throw new HttpNotFoundException();
+            throw new HttpNotFoundException(url.ToFull());
         }
 
         private List<UrlPathHook> _hooks = new List<UrlPathHook>();
