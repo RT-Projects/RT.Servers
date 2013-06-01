@@ -23,7 +23,7 @@ namespace RT.Servers
         /// <summary>
         ///     Constructs a new instance of <see cref="AjaxHandler{TApi}"/>.</summary>
         /// <param name="options">
-        ///     Specifies <see cref="AjaxHandler"/>’s exception behaviour.</param>
+        ///     Specifies <see cref="AjaxHandler{TApi}"/>’s exception behaviour.</param>
         /// <param name="wrapper">
         ///     If not <c>null</c>, provides a function in which to wrap every API function call.</param>
         public AjaxHandler(AjaxHandlerOptions options = AjaxHandlerOptions.ReturnExceptionsWithoutMessages, Func<Func<JsonValue>, JsonValue> wrapper = null)
