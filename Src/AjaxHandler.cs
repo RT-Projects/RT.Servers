@@ -117,19 +117,51 @@ namespace RT.Servers
         PropagateExceptions
     }
 
+    /// <summary>Indicates that an error occurred during processing of an AJAX request.</summary>
     public class AjaxException : Exception
     {
+        /// <summary>Constructor.</summary>
         public AjaxException() { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="message">
+        ///     Exception message.</param>
         public AjaxException(string message) : base(message) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="message">
+        ///     Exception message.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxException(string message, Exception inner) : base(message, inner) { }
     }
 
+    /// <summary>Indicates that an AJAX method was requested that does not exist.</summary>
     public class AjaxMethodNotFoundException : Exception
     {
+        /// <summary>Gets the name of the requested method that does not exist.</summary>
         public string AjaxMethodName { get; private set; }
 
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="ajaxMethodName">
+        ///     Name of the requested method that does not exist.</param>
         public AjaxMethodNotFoundException(string ajaxMethodName) : this(ajaxMethodName, "The specified AJAX method {0} does not exist.".Fmt(ajaxMethodName), null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="ajaxMethodName">
+        ///     Name of the requested method that does not exist.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
         public AjaxMethodNotFoundException(string ajaxMethodName, string message) : this(ajaxMethodName, message, null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="ajaxMethodName">
+        ///     Name of the requested method that does not exist.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxMethodNotFoundException(string ajaxMethodName, string message, Exception inner)
             : base(message, inner)
         {
@@ -137,13 +169,39 @@ namespace RT.Servers
         }
     }
 
+    /// <summary>Indicates that, during processing of an AJAX request, the value for a method parameter could not be deseralized.</summary>
     public class AjaxInvalidParameterException : Exception
     {
+        /// <summary>Gets the name of the parameter that could not be deserialized.</summary>
         public string ParameterName { get; private set; }
 
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterName">
+        ///     Name of the parameter that could not be deserialized.</param>
         public AjaxInvalidParameterException(string parameterName) : this(parameterName, (Exception) null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterName">
+        ///     Name of the parameter that could not be deserialized.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
         public AjaxInvalidParameterException(string parameterName, string message) : this(parameterName, message, null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterName">
+        ///     Name of the parameter that could not be deserialized.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxInvalidParameterException(string parameterName, Exception inner) : this(parameterName, "The parameter {0} could not be deseralized.".Fmt(parameterName), inner) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterName">
+        ///     Name of the parameter that could not be deserialized.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxInvalidParameterException(string parameterName, string message, Exception inner)
             : base(message, inner)
         {
@@ -151,13 +209,39 @@ namespace RT.Servers
         }
     }
 
+    /// <summary>Indicates that, during processing of an AJAX request, the data containing the method parameters could not be parsed.</summary>
     public class AjaxInvalidParameterDataException : Exception
     {
+        /// <summary>Gets the raw data that could not be parsed.</summary>
         public string ParameterData { get; private set; }
 
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterData">
+        ///     The raw data that could not be parsed.</param>
         public AjaxInvalidParameterDataException(string parameterData) : this(parameterData, (Exception) null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterData">
+        ///     The raw data that could not be parsed.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
         public AjaxInvalidParameterDataException(string parameterData, string message) : this(parameterData, message, null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterData">
+        ///     The raw data that could not be parsed.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxInvalidParameterDataException(string parameterData, Exception inner) : this(parameterData, "The provided JSON for the method paramters is not a valid JSON dictionary.", inner) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterData">
+        ///     The raw data that could not be parsed.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxInvalidParameterDataException(string parameterData, string message, Exception inner)
             : base(message, inner)
         {
@@ -165,14 +249,49 @@ namespace RT.Servers
         }
     }
 
+    /// <summary>Indicates that the value returned by an AJAX method could not be serialized.</summary>
     public class AjaxInvalidReturnValueException : Exception
     {
+        /// <summary>Gets the return value that could not be serialized.</summary>
         public object ReturnValue { get; private set; }
+        /// <summary>Gets the return type of the relevant AJAX method.</summary>
         public Type ReturnType { get; private set; }
 
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="returnValue">
+        ///     The return value that could not be serialized.</param>
+        /// <param name="returnType">
+        ///     The return type of the relevant AJAX method.</param>
         public AjaxInvalidReturnValueException(object returnValue, Type returnType) : this(returnValue, returnType, (Exception) null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="returnValue">
+        ///     The return value that could not be serialized.</param>
+        /// <param name="returnType">
+        ///     The return type of the relevant AJAX method.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
         public AjaxInvalidReturnValueException(object returnValue, Type returnType, string message) : this(returnValue, returnType, message, null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="returnValue">
+        ///     The return value that could not be serialized.</param>
+        /// <param name="returnType">
+        ///     The return type of the relevant AJAX method.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxInvalidReturnValueException(object returnValue, Type returnType, Exception inner) : this(returnValue, returnType, "The return value of the AJAX call could not be serialized.", inner) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="returnValue">
+        ///     The return value that could not be serialized.</param>
+        /// <param name="returnType">
+        ///     The return type of the relevant AJAX method.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
         public AjaxInvalidReturnValueException(object returnValue, Type returnType, string message, Exception inner)
             : base(message, inner)
         {
