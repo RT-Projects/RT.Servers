@@ -68,5 +68,17 @@ namespace RT.Servers
 
         /// <summary>Content-Type to return when handler provides none. Default is "text/html; charset=utf-8".</summary>
         public string DefaultContentType = "text/html; charset=utf-8";
+
+        /// <summary>A path and filename to a log file where every HTTP request is logged.</summary>
+        public string AccessLog = null;
+
+        /// <summary>If true, all HTTP requests are logged to the console.</summary>
+        public bool LogToConsole = false;
+
+        /// <summary>
+        ///     Configures the verbosity of the log. Highest verbosity currently generated is 4. See <see
+        ///     cref="LoggerBase.ConfigureVerbosity"/> for the format. Default is <c>"1D0"</c>, which means only messages of
+        ///     Verbosity 1 are printed, while Debug messages are not printed at all.</summary>
+        public string LogVerbosity = "1D0";
     }
 }
