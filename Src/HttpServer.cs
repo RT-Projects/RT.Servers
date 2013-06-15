@@ -526,17 +526,17 @@ namespace RT.Servers
                     connectionKeepAlive = outputResponse(response, contentStream, originalRequest);
                     _server._log.Info(3, "{0:X8} Finished: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
                 }
-                catch (SocketException e)
+                catch (SocketException)
                 {
                     Socket.Close();
                     return;
                 }
-                catch (IOException e)
+                catch (IOException)
                 {
                     Socket.Close();
                     return;
                 }
-                catch (ObjectDisposedException e)
+                catch (ObjectDisposedException)
                 {
                     return;
                 }
