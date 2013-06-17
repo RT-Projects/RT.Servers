@@ -47,7 +47,7 @@ namespace RT.Servers
             else
                 _log = new NullLogger();
 
-            _log.ConfigureVerbosity(_opt.LogVerbosity ?? "1D0");
+            _log.ConfigureVerbosity(_opt.LogVerbosity ?? "1d0");
         }
 
         /// <summary>
