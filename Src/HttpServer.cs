@@ -16,15 +16,14 @@ using RT.Util.Streams;
 
 namespace RT.Servers
 {
-    /// <summary>
-    /// Provides an HTTP server.
-    /// </summary>
+    /// <summary>Provides an HTTP server.</summary>
     public class HttpServer
     {
         /// <summary>
-        /// Constructs an HTTP server with the specified configuration settings.
-        /// </summary>
-        /// <param name="options">Specifies the configuration settings to use for this <see cref="HttpServer"/>, or null to set all configuration values to default values.</param>
+        ///     Constructs an HTTP server with the specified configuration settings.</summary>
+        /// <param name="options">
+        ///     Specifies the configuration settings to use for this <see cref="HttpServer"/>, or null to set all configuration
+        ///     values to default values.</param>
         public HttpServer(HttpServerOptions options = null)
         {
             _opt = options ?? new HttpServerOptions();
@@ -50,27 +49,20 @@ namespace RT.Servers
             _log.ConfigureVerbosity(_opt.LogVerbosity ?? "1d0");
         }
 
-        /// <summary>
-        /// Returns the configuration settings currently in effect for this server.
-        /// </summary>
+        /// <summary>Returns the configuration settings currently in effect for this server.</summary>
         public HttpServerOptions Options { get { return _opt; } }
 
-        /// <summary>
-        /// Gets an object containing various server performance statistics.
-        /// </summary>
+        /// <summary>Gets an object containing various server performance statistics.</summary>
         public Statistics Stats { get; private set; }
 
-        /// <summary>
-        /// Gets a value indicating whether the server is currently running (listening).
-        /// </summary>
+        /// <summary>Gets a value indicating whether the server is currently running (listening).</summary>
         public bool IsListening { get; private set; }
 
         /// <summary>
-        /// Wait on this event after starting the server to be notified of when the server has fully shut down. This event is
-        /// initially un-signalled; starting the server resets it, stopping the server sets it as soon as the last active connection
-        /// is terminated. Starting the server again before the previous shutdown is complete will result in this event not
-        /// being raised at all for the previous shutdown.
-        /// </summary>
+        ///     Wait on this event after starting the server to be notified of when the server has fully shut down. This event is
+        ///     initially un-signalled; starting the server resets it, stopping the server sets it as soon as the last active
+        ///     connection is terminated. Starting the server again before the previous shutdown is complete will result in this
+        ///     event not being raised at all for the previous shutdown.</summary>
         public readonly ManualResetEvent ShutdownComplete = new ManualResetEvent(false);
 
         private Socket[] _listeningSockets = new Socket[2]; // index 0 = HTTP, index 1 = HTTPS
@@ -78,45 +70,55 @@ namespace RT.Servers
         private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
         private LoggerBase _log;
 
-        /// <summary>Specifies the HTTP request handler for this server.</summary>
+        /// <summary>
+        ///     Specifies the HTTP request handler for this server.</summary>
         /// <remarks>
-        /// Returning null from this handler is a bug, and will cause a generic "error 500". All exceptions leaving this handler will be
-        /// handled by the server, unless <see cref="HttpServerOptions.OutputExceptionInformation"/> is configured to do otherwise.
-        /// All exceptions are passed to the <see cref="ErrorHandler"/>, which may return an arbitrary response as a result. See Remarks
-        /// on <see cref="ErrorHandler"/> for further information.
-        /// </remarks>
+        ///     Returning null from this handler is a bug, and will cause a generic "error 500". All exceptions leaving this
+        ///     handler will be handled by the server, unless <see cref="HttpServerOptions.OutputExceptionInformation"/> is
+        ///     configured to do otherwise. All exceptions are passed to the <see cref="ErrorHandler"/>, which may return an
+        ///     arbitrary response as a result. See Remarks on <see cref="ErrorHandler"/> for further information.</remarks>
         public Func<HttpRequest, HttpResponse> Handler { get; set; }
 
-        /// <summary>Specifies a request handler that is invoked whenever <see cref="Handler"/> throws an exception.</summary>
+        /// <summary>
+        ///     Specifies a request handler that is invoked whenever <see cref="Handler"/> throws an exception.</summary>
         /// <remarks>
-        /// If null, a default handler will be used. This default handler is also used if the error handler returns null or throws an exception.
-        /// The default error handler will use HTTP status 500 except if the <see cref="Handler"/> threw an <see cref="HttpException"/>,
-        /// in which case the exception's HTTP status is used instead.
-        /// </remarks>
+        ///     If null, a default handler will be used. This default handler is also used if the error handler returns null or
+        ///     throws an exception. The default error handler will use HTTP status 500 except if the <see cref="Handler"/> threw
+        ///     an <see cref="HttpException"/>, in which case the exception's HTTP status is used instead.</remarks>
         public Func<HttpRequest, Exception, HttpResponse> ErrorHandler { get; set; }
 
-        /// <summary>Specifies a method to be invoked whenever an exception occurs while reading from the response stream.</summary>
-        /// <remarks>Regardless of what this method does, the server will close the socket, cutting off the incomplete response.</remarks>
+        /// <summary>
+        ///     Specifies a method to be invoked whenever an exception occurs while reading from the response stream.</summary>
+        /// <remarks>
+        ///     Regardless of what this method does, the server will close the socket, cutting off the incomplete
+        ///     response.</remarks>
         public Action<HttpRequest, Exception, HttpResponse> ResponseExceptionHandler { get; set; }
 
-        /// <summary>Determines whether exceptions in <see cref="Handler"/>, <see cref="ErrorHandler"/> and the response stream
-        /// get propagated to the debugger. Setting this to <c>true</c> will cause exceptions to bring down the server.</summary>
+        /// <summary>
+        ///     Determines whether exceptions in <see cref="Handler"/>, <see cref="ErrorHandler"/> and the response stream get
+        ///     propagated to the debugger. Setting this to <c>true</c> will cause exceptions to bring down the server.</summary>
         /// <remarks>
-        /// <para>If <c>false</c>, all exceptions are handled. <see cref="HttpException"/> determines its own HTTP response status code,
-        /// all other exception types lead to 500 Internal Server Error. Use this setting in RELEASE mode.</para>
-        /// <para>If <c>true</c>, only <see cref="HttpException"/> is handled. All other exceptions are left unhandled so that the
-        /// Visual Studio debugger is triggered when they occur, enabling debugging. Use this setting in DEBUG mode only.</para>
-        /// </remarks>
+        ///     <para>
+        ///         If <c>false</c>, all exceptions are handled. <see cref="HttpException"/> determines its own HTTP response
+        ///         status code, all other exception types lead to 500 Internal Server Error. Use this setting in RELEASE
+        ///         mode.</para>
+        ///     <para>
+        ///         If <c>true</c>, only <see cref="HttpException"/> is handled. All other exceptions are left unhandled so that
+        ///         the Visual Studio debugger is triggered when they occur, enabling debugging. Use this setting in DEBUG mode
+        ///         only.</para></remarks>
         public bool PropagateExceptions { get; set; }
 
         /// <summary>
-        /// Shuts the HTTP server down.
-        /// </summary>
-        /// <param name="brutal">If true, currently executing requests will have their connections brutally closed. The server will be
-        /// fully shut down when the method returns. If false, all idle keepalive connections will be closed but active connections will
-        /// be allowed to end normally. In this case, use <see cref="ShutdownComplete"/> to wait until all connections are closed.</param>
-        /// <param name="blocking">If true, will only return once all connections are closed. This might take a while unless the
-        /// <paramref name="brutal"/> option is true. Setting this to true is the same as waiting for <see cref="ShutdownComplete"/> indefinitely.</param>
+        ///     Shuts the HTTP server down.</summary>
+        /// <param name="brutal">
+        ///     If true, currently executing requests will have their connections brutally closed. The server will be fully shut
+        ///     down when the method returns. If false, all idle keepalive connections will be closed but active connections will
+        ///     be allowed to end normally. In this case, use <see cref="ShutdownComplete"/> to wait until all connections are
+        ///     closed.</param>
+        /// <param name="blocking">
+        ///     If true, will only return once all connections are closed. This might take a while unless the <paramref
+        ///     name="brutal"/> option is true. Setting this to true is the same as waiting for <see cref="ShutdownComplete"/>
+        ///     indefinitely.</param>
         public void StopListening(bool brutal = false, bool blocking = false)
         {
             IsListening = false;
@@ -148,11 +150,11 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Runs the HTTP server.
-        /// </summary>
-        /// <param name="blocking">Normally the method will return as soon as the listening socket is open. If this parameter is
-        /// set to true, however, this method will block and only return once the server is fully shut down by a call to <see cref="StopListening"/>.
-        /// This is equivalent to waiting for <see cref="ShutdownComplete"/> indefinitely.</param>
+        ///     Runs the HTTP server.</summary>
+        /// <param name="blocking">
+        ///     Normally the method will return as soon as the listening socket is open. If this parameter is set to true,
+        ///     however, this method will block and only return once the server is fully shut down by a call to <see
+        ///     cref="StopListening"/>. This is equivalent to waiting for <see cref="ShutdownComplete"/> indefinitely.</param>
         public void StartListening(bool blocking = false)
         {
             if (_opt.Port == null && _opt.SecurePort == null)
@@ -238,13 +240,14 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Handles an incoming connection. This function can be used to let the server handle a TCP connection
-        /// that was received by some other component outside the HttpServer class. This function may or may
-        /// not return immediately; some requests may, theoretically, be handled completely synchronously if all
-        /// the data has already been received and buffered by the OS.
-        /// </summary>
-        /// <param name="incomingConnection">The incoming connection to process.</param>
-        /// <param name="secure">True to use SSL, false otherwise.</param>
+        ///     Handles an incoming connection. This function can be used to let the server handle a TCP connection that was
+        ///     received by some other component outside the HttpServer class. This function may or may not return immediately;
+        ///     some requests may, theoretically, be handled completely synchronously if all the data has already been received
+        ///     and buffered by the OS.</summary>
+        /// <param name="incomingConnection">
+        ///     The incoming connection to process.</param>
+        /// <param name="secure">
+        ///     True to use SSL, false otherwise.</param>
         public void HandleConnection(Socket incomingConnection, bool secure)
         {
             Stats.AddConnectionReceived();
@@ -384,9 +387,8 @@ namespace RT.Servers
             }
 
             /// <summary>
-            /// Initiates the process of receiving more header data. Invoked whenever the header buffer is empty and we haven’t yet
-            /// received all the headers belonging to the current request.
-            /// </summary>
+            ///     Initiates the process of receiving more header data. Invoked whenever the header buffer is empty and we
+            ///     haven’t yet received all the headers belonging to the current request.</summary>
             private void receiveMoreHeaderData()
             {
                 _bufferDataOffset = 0;
@@ -425,8 +427,8 @@ namespace RT.Servers
             }
 
             /// <summary>
-            /// Completes the process of receiving more header data by passing it on to <see cref="processHeaderData"/> for processing.
-            /// </summary>
+            ///     Completes the process of receiving more header data by passing it on to <see cref="processHeaderData"/> for
+            ///     processing.</summary>
             private void moreHeaderDataReceived(IAsyncResult res)
             {
 #if DEBUG
@@ -459,8 +461,8 @@ namespace RT.Servers
             }
 
             /// <summary>
-            /// Checks whether there are any outstanding async receives, and if not, cleans up / winds down this connection handler.
-            /// </summary>
+            ///     Checks whether there are any outstanding async receives, and if not, cleans up / winds down this connection
+            ///     handler.</summary>
             private void cleanupIfDone()
             {
                 if (Interlocked.CompareExchange(ref _begunReceives, 0, 0) <= Interlocked.CompareExchange(ref _endedReceives, 0, 0))
@@ -476,9 +478,9 @@ namespace RT.Servers
             }
 
             /// <summary>
-            /// Starts or continues processing of any buffered header data. If none are buffered, will instead initiate the reception
-            /// of more header data - a process which, when complete, will call this method to process whatever got received.
-            /// </summary>
+            ///     Starts or continues processing of any buffered header data. If none are buffered, will instead initiate the
+            ///     reception of more header data - a process which, when complete, will call this method to process whatever got
+            ///     received.</summary>
             private void processHeaderData()
             {
                 // Request more header data if we have none
@@ -1142,7 +1144,9 @@ namespace RT.Servers
             /// <summary>Constructor.</summary>
             public Statistics(HttpServer server) { _server = server; }
 
-            /// <summary>Gets the number of connections which are currently alive, that is receiving data, waiting to receive data, or sending a response.</summary>
+            /// <summary>
+            ///     Gets the number of connections which are currently alive, that is receiving data, waiting to receive data, or
+            ///     sending a response.</summary>
             public int ActiveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Count(r => !r.KeepAliveActive); } } }
 
             /// <summary>Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
