@@ -28,25 +28,6 @@ namespace RT.Servers
         {
             _opt = options ?? new HttpServerOptions();
             Stats = new Statistics(this);
-
-            LoggerBase console = _opt.LogToConsole ? new ConsoleLogger() : null;
-            LoggerBase file = _opt.AccessLog != null ? new FileAppendLogger(_opt.AccessLog) : null;
-
-            if (console != null && file != null)
-            {
-                var m = new MulticastLogger();
-                m.Loggers["console"] = console;
-                m.Loggers["file"] = file;
-                _log = m;
-            }
-            else if (console != null)
-                _log = console;
-            else if (file != null)
-                _log = file;
-            else
-                _log = new NullLogger();
-
-            _log.ConfigureVerbosity(_opt.LogVerbosity ?? "1d0");
         }
 
         /// <summary>Returns the configuration settings currently in effect for this server.</summary>
@@ -54,6 +35,18 @@ namespace RT.Servers
 
         /// <summary>Gets an object containing various server performance statistics.</summary>
         public Statistics Stats { get; private set; }
+
+        /// <summary>
+        ///     Gets or sets a logger to log all HTTP requests to.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         If you set this to <c>null</c>, the method <see cref="StartListening"/> will instantiate a <see
+        ///         cref="NullLogger"/> and assign it here.</para>
+        ///     <para>
+        ///         Do not modify properties of the logger while the server is running as doing so is not thread-safe. Reassigning
+        ///         a new logger, however, should be safe (as assignment is atomic) as long as you don’t assign <c>null</c> while
+        ///         the server is running.</para></remarks>
+        public LoggerBase Log;
 
         /// <summary>Gets a value indicating whether the server is currently running (listening).</summary>
         public bool IsListening { get; private set; }
@@ -68,7 +61,6 @@ namespace RT.Servers
         private Socket[] _listeningSockets = new Socket[2]; // index 0 = HTTP, index 1 = HTTPS
         private HttpServerOptions _opt;
         private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
-        private LoggerBase _log;
 
         /// <summary>
         ///     Specifies the HTTP request handler for this server.</summary>
@@ -168,6 +160,9 @@ namespace RT.Servers
 
             IsListening = true;
             ShutdownComplete.Reset();
+
+            if (Log == null)
+                Log = new NullLogger();
 
             IPAddress addr;
             if (_opt.BindAddress == null || !IPAddress.TryParse(_opt.BindAddress, out addr))
@@ -348,7 +343,7 @@ namespace RT.Servers
                 _server = server;
                 _handler = _server.Handler ?? (req => { throw new HttpNotFoundException(); });
 
-                _server._log.Info(4, "{0:X8} Start".Fmt(_requestId));
+                _server.Log.Info(4, "{0:X8} Start".Fmt(_requestId));
 
                 _buffer = new byte[1024];
                 _bufferDataOffset = 0;
@@ -524,9 +519,9 @@ namespace RT.Servers
                 {
                     response = handleRequestAfterHeaders(out originalRequest);
                     contentStream = response.GetContentStream.NullOr(g => g());
-                    _server._log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, response.Headers.ContentType));
+                    _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, response.Headers.ContentType));
                     connectionKeepAlive = outputResponse(response, contentStream, originalRequest);
-                    _server._log.Info(3, "{0:X8} Finished: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
+                    _server.Log.Info(3, "{0:X8} Finished: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
                 }
                 catch (SocketException)
                 {
@@ -1015,7 +1010,7 @@ namespace RT.Servers
 
                 req.Url.AssertComplete();
 
-                _server._log.Info(1, "{0:X8} Request: {1} {2}".Fmt(_requestId, req.Method, req.Url.ToFull()));
+                _server.Log.Info(1, "{0:X8} Request: {1} {2}".Fmt(_requestId, req.Method, req.Url.ToFull()));
 
                 if (req.Method == HttpMethod.Post)
                 {
