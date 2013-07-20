@@ -40,13 +40,19 @@ namespace RT.Servers
         ///     Gets or sets a logger to log all HTTP requests to.</summary>
         /// <remarks>
         ///     <para>
-        ///         If you set this to <c>null</c>, the method <see cref="StartListening"/> will instantiate a <see
-        ///         cref="NullLogger"/> and assign it here.</para>
-        ///     <para>
         ///         Do not modify properties of the logger while the server is running as doing so is not thread-safe.
-        ///         Reassigning a new logger, however, should be safe (as assignment is atomic) as long as you don’t assign
-        ///         <c>null</c> while the server is running.</para></remarks>
-        public LoggerBase Log;
+        ///         Reassigning a new logger, however, should be safe (as assignment is atomic).</para></remarks>
+        public LoggerBase Log
+        {
+            get { return _log; }
+            set
+            {
+                if (value == null)
+                    throw new ArgumentNullException("value");
+                _log = value;
+            }
+        }
+        private LoggerBase _log = new NullLogger();
 
         /// <summary>Gets a value indicating whether the server is currently running (listening).</summary>
         public bool IsListening { get; private set; }
@@ -159,9 +165,6 @@ namespace RT.Servers
 
             IsListening = true;
             ShutdownComplete.Reset();
-
-            if (Log == null)
-                Log = new NullLogger();
 
             IPAddress addr;
             if (_opt.BindAddress == null || !IPAddress.TryParse(_opt.BindAddress, out addr))
