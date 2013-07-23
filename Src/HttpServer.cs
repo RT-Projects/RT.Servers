@@ -254,7 +254,7 @@ namespace RT.Servers
             new connectionHandler(incomingConnection, this, secure);
         }
 
-        private HttpResponse defaultErrorHandler(HttpRequest req, Exception exception, Exception exInErrorHandler = null)
+        private HttpResponse defaultErrorHandler(Exception exception, Exception exInErrorHandler = null)
         {
             var statusCode = HttpStatusCode._500_InternalServerError;
             if (exception is HttpException)
@@ -435,22 +435,22 @@ namespace RT.Servers
                 {
 #endif
 
-                    KeepAliveActive = false;
-                    Interlocked.Increment(ref _endedReceives);
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
 
-                    try
-                    {
-                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                    }
-                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                try
+                {
+                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                    if (_bufferDataLength == 0)
-                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                    else
-                        processHeaderData();
-                    cleanupIfDone();
+                if (_bufferDataLength == 0)
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                else
+                    processHeaderData();
+                cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -517,28 +517,55 @@ namespace RT.Servers
                 HttpResponse response = null;
                 bool connectionKeepAlive = false;
                 Stream contentStream = null;
+
                 try
                 {
-                    response = handleRequestAfterHeaders(out originalRequest);
+                    if (_server.PropagateExceptions)
+                    {
+                        // Catch only *HTTP*Exception
+                        try
+                        {
+                            response = handleRequestAfterHeaders(out originalRequest);
+                            contentStream = response.GetContentStream.NullOr(g => g());
+                        }
+                        catch (HttpException exInHandler)
+                        {
+                            response = exceptionToResponse(originalRequest, exInHandler);
+                            contentStream = response.GetContentStream.NullOr(g => g());
+                        }
+                    }
+                    else
+                    {
+                        // Catch all exceptions
+                        try
+                        {
+                            response = handleRequestAfterHeaders(out originalRequest);
+                            contentStream = response.GetContentStream.NullOr(g => g());
+                        }
+                        catch (Exception exInHandler)
+                        {
+                            response = exceptionToResponse(originalRequest, exInHandler);
+                            contentStream = response.GetContentStream.NullOr(g => g());
+                        }
+                    }
+                }
+                catch (SocketException) { Socket.Close(); return; }
+                catch (IOException) { Socket.Close(); return; }
+                catch (ObjectDisposedException) { return; }
+
+                try { contentStream = response.GetContentStream.NullOr(g => g()); }
+                catch (Exception e)
+                {
+                    response = exceptionToResponse(originalRequest, e);
                     contentStream = response.GetContentStream.NullOr(g => g());
-                    _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, response.Headers.ContentType));
-                    connectionKeepAlive = outputResponse(response, contentStream, originalRequest);
-                    _server.Log.Info(3, "{0:X8} Finished: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
                 }
-                catch (SocketException)
-                {
-                    Socket.Close();
-                    return;
-                }
-                catch (IOException)
-                {
-                    Socket.Close();
-                    return;
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
+
+                _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, response.Headers.ContentType));
+
+                try { connectionKeepAlive = outputResponse(response, contentStream, originalRequest); }
+                catch (SocketException) { Socket.Close(); return; }
+                catch (IOException) { Socket.Close(); return; }
+                catch (ObjectDisposedException) { return; }
                 finally
                 {
                     if (contentStream != null)
@@ -547,6 +574,8 @@ namespace RT.Servers
                     if (originalRequest != null && originalRequest.CleanUpCallback != null)
                         originalRequest.CleanUpCallback();
                 }
+
+                _server.Log.Info(3, "{0:X8} Finished: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
 
                 // Reuse connection if allowed; close it otherwise
                 bool connected;
@@ -1022,16 +1051,7 @@ namespace RT.Servers
                         return result;
                 }
 
-                if (_server.PropagateExceptions)
-                {
-                    try { return requestToResponse(req); }
-                    catch (HttpException exInHandler) { return exceptionToResponse(req, exInHandler); }
-                }
-                else
-                {
-                    try { return requestToResponse(req); }
-                    catch (Exception exInHandler) { return exceptionToResponse(req, exInHandler); }
-                }
+                return requestToResponse(req);
             }
 
             private HttpResponse requestToResponse(HttpRequest req)
@@ -1059,7 +1079,7 @@ namespace RT.Servers
                         exInErrorHandler = ex;
                     }
                 }
-                return _server.defaultErrorHandler(req, exInHandler, exInErrorHandler);
+                return _server.defaultErrorHandler(exInHandler, exInErrorHandler);
             }
 
             private HttpResponse parseHeader(string headerName, string headerValue, HttpRequest req)
