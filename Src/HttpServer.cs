@@ -553,13 +553,6 @@ namespace RT.Servers
                 catch (IOException) { Socket.Close(); return; }
                 catch (ObjectDisposedException) { return; }
 
-                try { contentStream = response.GetContentStream.NullOr(g => g()); }
-                catch (Exception e)
-                {
-                    response = exceptionToResponse(originalRequest, e);
-                    contentStream = response.GetContentStream.NullOr(g => g());
-                }
-
                 _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, response.Headers.ContentType));
 
                 try { connectionKeepAlive = outputResponse(response, contentStream, originalRequest); }
