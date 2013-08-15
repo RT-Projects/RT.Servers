@@ -361,7 +361,7 @@ namespace RT.Servers
                 {
                     var secureStream = new SslStream(stream);
                     _stream = secureStream;
-                    secureStream.BeginAuthenticateAsServer(new X509Certificate2(server.Options.CertificatePath), ar =>
+                    secureStream.BeginAuthenticateAsServer(new X509Certificate2(server.Options.CertificatePath, server.Options.CertificatePassword), ar =>
                     {
                         try
                         {
@@ -435,22 +435,22 @@ namespace RT.Servers
                 {
 #endif
 
-                KeepAliveActive = false;
-                Interlocked.Increment(ref _endedReceives);
+                    KeepAliveActive = false;
+                    Interlocked.Increment(ref _endedReceives);
 
-                try
-                {
-                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                }
-                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                    try
+                    {
+                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                    }
+                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                if (_bufferDataLength == 0)
-                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                else
-                    processHeaderData();
-                cleanupIfDone();
+                    if (_bufferDataLength == 0)
+                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    else
+                        processHeaderData();
+                    cleanupIfDone();
 
 #if DEBUG
                 }).Start();
