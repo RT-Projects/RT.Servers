@@ -69,7 +69,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression
 	///
 	/// author of the original java version : John Leuner, Jochen Hoenicke
 	/// </summary>
-	class Inflater
+	public class Inflater
 	{
 		#region Constants/Readonly
 		/// <summary>

@@ -47,7 +47,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression
 	/// <summary>
 	/// Strategies for deflater
 	/// </summary>
-	enum DeflateStrategy 
+	public enum DeflateStrategy 
 	{
 		/// <summary>
 		/// The default strategy

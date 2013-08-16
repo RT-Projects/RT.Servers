@@ -74,7 +74,7 @@ namespace RT.Servers.SharpZipLib.GZip
 	/// }	
 	/// </code>
 	/// </example>
-	class GZipOutputStream : DeflaterOutputStream
+	public class GZipOutputStream : DeflaterOutputStream
 	{
         enum OutputState
         {

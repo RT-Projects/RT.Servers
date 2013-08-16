@@ -52,7 +52,7 @@ namespace RT.Servers.SharpZipLib.Zip.Compression
 	/// 
 	/// author of the original java version : Jochen Hoenicke
 	/// </summary>
-	class Deflater
+	public class Deflater
 	{
 		#region Deflater Documentation
 		/*
