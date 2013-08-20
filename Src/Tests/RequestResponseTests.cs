@@ -63,10 +63,10 @@ namespace RT.Servers.Tests
             var store = 1024 * 1024;
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, StoreFileUploadInFileAtSize = store })
             {
-                Handler = new UrlPathResolver(
-                    new UrlPathHook(handlerStatic, path: "/static"),
-                    new UrlPathHook(handlerDynamic, path: "/dynamic"),
-                    new UrlPathHook(handler64KFile, path: "/64kfile")
+                Handler = new UrlResolver(
+                    new UrlMapping(handlerStatic, path: "/static"),
+                    new UrlMapping(handlerDynamic, path: "/dynamic"),
+                    new UrlMapping(handler64KFile, path: "/64kfile")
                 ).Handle
             };
             try
@@ -177,9 +177,9 @@ namespace RT.Servers.Tests
             {
                 instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize })
                 {
-                    Handler = new UrlPathResolver(
-                        new UrlPathHook(handlerStatic, path: "/static"),
-                        new UrlPathHook(handlerDynamic, path: "/dynamic")
+                    Handler = new UrlResolver(
+                        new UrlMapping(handlerStatic, path: "/static"),
+                        new UrlMapping(handlerDynamic, path: "/dynamic")
                     ).Handle
                 };
                 try

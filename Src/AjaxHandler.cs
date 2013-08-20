@@ -59,7 +59,7 @@ namespace RT.Servers
         }
 
         /// <summary>
-        ///     Provides the handler for AJAX calls. Pass this to a <see cref="UrlPathHook"/>.</summary>
+        ///     Provides the handler for AJAX calls. Pass this to a <see cref="UrlMapping"/>.</summary>
         /// <param name="req">
         ///     The incoming HTTP POST request to be handled, containing the API function name and parameters.</param>
         /// <param name="api">

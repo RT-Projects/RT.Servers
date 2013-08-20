@@ -43,11 +43,11 @@ namespace RT.Servers
         /// <param name="loggedInUser">Username of the user currently logged in (typically read from a session).</param>
         public HttpResponse Handle(HttpRequest request, string loggedInUser, Action<string> setUsername)
         {
-            return new UrlPathResolver(
-                new UrlPathHook(path: "/login", handler: req => loginHandler(req, setUsername)),
-                new UrlPathHook(path: "/changepassword", handler: req => changePasswordHandler(req, loggedInUser)),
-                new UrlPathHook(path: "/createuser", handler: req => createUserHandler(req, loggedInUser)),
-                new UrlPathHook(path: "/logout", handler: req => logoutHandler(req, setUsername))
+            return new UrlResolver(
+                new UrlMapping(path: "/login", handler: req => loginHandler(req, setUsername)),
+                new UrlMapping(path: "/changepassword", handler: req => changePasswordHandler(req, loggedInUser)),
+                new UrlMapping(path: "/createuser", handler: req => createUserHandler(req, loggedInUser)),
+                new UrlMapping(path: "/logout", handler: req => logoutHandler(req, setUsername))
             ).Handle(request);
         }
 

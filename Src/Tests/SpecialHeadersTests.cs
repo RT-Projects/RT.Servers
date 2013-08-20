@@ -25,8 +25,8 @@ namespace RT.Servers.Tests
             HttpRequest request = null;
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
             {
-                Handler = new UrlPathResolver(
-                    new UrlPathHook(req => { request = req; return HttpResponse.PlainText("blah"); }, path: "/static")
+                Handler = new UrlResolver(
+                    new UrlMapping(req => { request = req; return HttpResponse.PlainText("blah"); }, path: "/static")
                 ).Handle
             };
             try

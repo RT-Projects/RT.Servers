@@ -29,7 +29,7 @@ namespace RT.Servers
         ///     An instance that implements or derives from <typeparamref name="T"/> which provides the factory functionality to
         ///     be accessed by clients.</param>
         /// <returns>
-        ///     An HTTP handler that can be used in <see cref="HttpServer"/> or <see cref="UrlPathResolver"/>.</returns>
+        ///     An HTTP handler that can be used in <see cref="HttpServer"/> or <see cref="UrlResolver"/>.</returns>
         public static Func<HttpRequest, HttpResponse> CreateHandlerFromFactory<T>(T factoryInstance)
         {
             var thisType = typeof(T);

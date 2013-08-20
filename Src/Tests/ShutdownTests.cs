@@ -14,8 +14,8 @@ namespace RT.Servers.Tests
         {
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
             {
-                Handler = new UrlPathResolver(
-                    new UrlPathHook(req => HttpResponse.PlainText("bunch of text"), path: "/static")
+                Handler = new UrlResolver(
+                    new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
                 ).Handle
             };
             try
@@ -43,8 +43,8 @@ namespace RT.Servers.Tests
         {
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
             {
-                Handler = new UrlPathResolver(
-                    new UrlPathHook(req => HttpResponse.PlainText("bunch of text"), path: "/static")
+                Handler = new UrlResolver(
+                    new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
                 ).Handle
             };
             try
@@ -81,8 +81,8 @@ namespace RT.Servers.Tests
         {
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
             {
-                Handler = new UrlPathResolver(
-                    new UrlPathHook(req => HttpResponse.PlainText("bunch of text"), path: "/static")
+                Handler = new UrlResolver(
+                    new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
                 ).Handle
             };
             try
@@ -123,8 +123,8 @@ namespace RT.Servers.Tests
         {
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
             {
-                Handler = new UrlPathResolver(
-                    new UrlPathHook(req => HttpResponse.PlainText("bunch of text"), path: "/static")
+                Handler = new UrlResolver(
+                    new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
                 ).Handle
             };
             try

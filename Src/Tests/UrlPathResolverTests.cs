@@ -27,8 +27,8 @@ namespace RT.Servers.Tests
 
             bool okProp = false, okDocGen = false;
 
-            var resolverDocGen = new UrlPathResolver(
-                new UrlPathHook(path: "/member", handler: req =>
+            var resolverDocGen = new UrlResolver(
+                new UrlMapping(path: "/member", handler: req =>
                 {
                     Assert.AreEqual("/Color/ToString", req.Url.Path);
                     Assert.AreEqual("/docgen/member/blah/xyz?thingy=stuff", req.Url.WithPath("/blah/xyz").ToHref());
@@ -55,8 +55,8 @@ namespace RT.Servers.Tests
                 })
             );
 
-            var resolverPropeller = new UrlPathResolver(
-                new UrlPathHook(path: "/docgen", handler: req =>
+            var resolverPropeller = new UrlResolver(
+                new UrlMapping(path: "/docgen", handler: req =>
                 {
                     Assert.AreEqual("/member/Color/ToString", req.Url.Path);
                     Assert.AreEqual("/docgen/blah/xyz?thingy=stuff", req.Url.WithPath("/blah/xyz").ToHref());
@@ -92,8 +92,8 @@ namespace RT.Servers.Tests
             try
             {
                 bool ok;
-                instance.Handler = new UrlPathResolver(
-                    new UrlPathHook(domain: "example.com", handler: req => { ok = true; return HttpResponse.Empty(); })
+                instance.Handler = new UrlResolver(
+                    new UrlMapping(domain: "example.com", handler: req => { ok = true; return HttpResponse.Empty(); })
                 ).Handle;
 
                 var getResponse = Ut.Lambda((string host) =>
@@ -144,28 +144,28 @@ namespace RT.Servers.Tests
             Assert.AreEqual(0, url.ParentDomains.Length);
             Assert.AreEqual("www.example.com", url.Domain);
 
-            var resolver = new UrlPathResolver(
-                new UrlPathHook(req =>
+            var resolver = new UrlResolver(
+                new UrlMapping(req =>
                 {
                     Assert.AreEqual(1, req.Url.ParentDomains.Length);
                     Assert.AreEqual("www.example.com", req.Url.ParentDomains[0]);
                     Assert.AreEqual("", req.Url.Domain);
                     return null;
                 }, "www.example.com", skippable: true),
-                new UrlPathHook(req =>
+                new UrlMapping(req =>
                 {
                     Assert.AreEqual(1, req.Url.ParentDomains.Length);
                     Assert.AreEqual("example.com", req.Url.ParentDomains[0]);
                     Assert.AreEqual("www.", req.Url.Domain);
                     return null;
                 }, "example.com", skippable: true),
-                new UrlPathHook(req =>
+                new UrlMapping(req =>
                 {
                     Assert.AreEqual(0, req.Url.ParentDomains.Length);
                     Assert.AreEqual("www.example.com", req.Url.Domain);
                     return null;
                 }, skippable: true),
-                new UrlPathHook(req =>
+                new UrlMapping(req =>
                 {
                     Assert.AreEqual(0, req.Url.ParentDomains.Length);
                     Assert.AreEqual("www.example.com", req.Url.Domain);

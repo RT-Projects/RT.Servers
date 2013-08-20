@@ -28,8 +28,8 @@ namespace RT.Servers.Tests
         {
             var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
             {
-                Handler = new UrlPathResolver(
-                    new UrlPathHook(req => { return HttpResponse.Create(enumInfinite(), "text/plain"); }, path: "/infinite-and-slow")
+                Handler = new UrlResolver(
+                    new UrlMapping(req => { return HttpResponse.Create(enumInfinite(), "text/plain"); }, path: "/infinite-and-slow")
                 ).Handle
             };
             try
