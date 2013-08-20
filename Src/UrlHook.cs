@@ -1,14 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
+using RT.Util.Serialization;
+using RT.Util.Xml;
 
 namespace RT.Servers
 {
     /// <summary>
     ///     Encapsulates properties of a URL that can be mapped to a request handler using <see cref="UrlMapping"/>. This
     ///     class is immutable.</summary>
-    public sealed class UrlHook : IEquatable<UrlHook>, IComparable<UrlHook>
+    [ClassifyIgnoreIfDefault, XmlIgnoreIfDefault]
+    public sealed class UrlHook : IEquatable<UrlHook>, IComparable<UrlHook>, IXmlClassifyProcess, IClassifyXmlObjectProcessor
     {
         /// <summary>
         ///     Gets a value indicating what domain name the hook applies to. Returns <c>null</c> if it applies to all
@@ -52,35 +53,42 @@ namespace RT.Servers
         ///     it applies to the specific path only.</param>
         public UrlHook(string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
         {
-            if (domain == null && specificDomain)
-                throw new ArgumentException("If the specificDomain parameter is set to true, a non-null domain must be specified using the domain parameter.");
-            if (domain != null && !Regex.IsMatch(domain, @"^[-.a-z0-9]+$"))
-                throw new ArgumentException("The domain specified by the domain parameter must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
-            if (domain != null && (domain.Contains(".-") || domain.Contains("-.") || domain.StartsWith("-") || domain.EndsWith("-")))
-                throw new ArgumentException("The domain specified by the domain parameter must not contain a domain name beginning or ending with a hyphen (-).");
-            if (domain != null && !specificDomain && domain.StartsWith("."))
-                throw new ArgumentException(@"If the specificDomain parameter is set to false or not specified, the domain specified by the domain parameter must not begin with a period (.). It will, however, be treated as a domain. For example, if you specify the domain ""cream.net"", only domains ending in "".cream.net"" and the domain ""cream.net"" itself are matched. The domain ""scream.net"" would not be considered a match. If you wish to map every domain, set domain to null.");
-            if (domain != null && (domain.StartsWith(".") || domain.EndsWith(".")))
-                throw new ArgumentException(@"The domain specified by the domain parameter must not begin or end with a period (.).");
-
-            if (path == null && specificPath)
-                throw new ArgumentException("If the specificPath parameter is set to true, a non-null path must be specified using the path parameter.");
-            if (path != null && !Regex.IsMatch(path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]*$"))
-                throw new ArgumentException("The path specified by the path parameter must not contain any characters that are invalid in URLs, or the question mark (?) character, and it must begin with a slash (/).");
-            if (path != null && !specificPath && path.EndsWith("/"))
-                throw new ArgumentException(@"If the specificPath parameter is set to false or not specified, the path specified by the path parameter must not end with a slash (/). It will, however, be treated as a directory. For example, if you specify the path ""/files"", only URLs beginning with ""/files/"" and the URL ""/files"" itself are matched. The URL ""/fileshare"" would not be considered a match. If you wish to map the root directory of the domain, set path to null.");
-
-            if (path != null && !path.StartsWith("/"))
-                throw new ArgumentException("A path specified by the path parameter must begin with the slash character (\"/\").");
-            if (port != null && (port.Value < 1 || port.Value > 65535))
-                throw new ArgumentException("The port parameter must contain an integer in the range 1 to 65535 or null.");
-
             Domain = domain;
             Port = port;
             Path = path;
             SpecificDomain = specificDomain;
             SpecificPath = specificPath;
+            checkValues();
         }
+
+        private void checkValues()
+        {
+            if (Domain == null && SpecificDomain)
+                throw new ArgumentException("If SpecificDomain is true, Domain must not be null.");
+            if (Domain != null && !Regex.IsMatch(Domain, @"^[-.a-z0-9]+$"))
+                throw new ArgumentException("Domain must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
+            if (Domain != null && (Domain.Contains(".-") || Domain.Contains("-.") || Domain.StartsWith("-") || Domain.EndsWith("-")))
+                throw new ArgumentException("Domain must not contain a Domain name beginning or ending with a hyphen (-).");
+            if (Domain != null && !SpecificDomain && Domain.StartsWith("."))
+                throw new ArgumentException(@"If SpecificDomain is false, Domain must not begin with a period (.). It will, however, be treated as a domain. For example, if you specify the Domain ""cream.net"", only domains ending in "".cream.net"" and the domain ""cream.net"" itself are matched. The domain ""scream.net"" would not be considered a match. If you wish to hook to every domain, set Domain to null.");
+            if (Domain != null && (Domain.StartsWith(".") || Domain.EndsWith(".")))
+                throw new ArgumentException(@"Domain must not begin or end with a period (.).");
+
+            if (Path == null && SpecificPath)
+                throw new ArgumentException("If SpecificPath is true, Path must not be null.");
+            if (Path != null && !Regex.IsMatch(Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]*$"))
+                throw new ArgumentException("Path must not contain any characters that are invalid in URLs, or the question mark (?) character, and it must begin with a slash (/).");
+            if (Path != null && !SpecificPath && Path.EndsWith("/"))
+                throw new ArgumentException(@"If SpecificPath is false, Path must not end with a slash (/). It will, however, be treated as a directory. For example, if you specify the path ""/files"", only URLs beginning with ""/files/"" and the URL ""/files"" itself are matched. The URL ""/fileshare"" would not be considered a match. If you wish to hook to the root directory of the domain, set Path to null.");
+
+            if (Path != null && !Path.StartsWith("/"))
+                throw new ArgumentException("Path must be null or begin with the slash character (\"/\").");
+            if (Port != null && (Port.Value < 1 || Port.Value > 65535))
+                throw new ArgumentException("Port must be null or contain an integer in the range 1 to 65535.");
+        }
+
+        // For Classify
+        private UrlHook() { }
 
         /// <summary>
         ///     Compares this hook to another one such that more specific hooks are sorted before a more generic hook that
@@ -162,5 +170,15 @@ namespace RT.Servers
                 + (Port == null ? "" : (":" + Port))
                 + (Path == null ? "/*" : (Path + (SpecificPath ? "" : "/*")));
         }
+
+        // Check validity after deserialization
+        void IXmlClassifyProcess.AfterXmlDeclassify() { checkValues(); }
+        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.AfterDeserialize(System.Xml.Linq.XElement element) { checkValues(); }
+
+        // These do nothing
+        void IXmlClassifyProcess.BeforeXmlClassify() { }
+        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.AfterSerialize(System.Xml.Linq.XElement element) { }
+        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.BeforeSerialize() { }
+        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.BeforeDeserialize(System.Xml.Linq.XElement element) { }
     }
 }
