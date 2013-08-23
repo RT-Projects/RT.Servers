@@ -638,16 +638,16 @@ namespace RT.Servers
                     // Special case: empty body
                     if (contentLengthKnown && contentLength == 0)
                     {
+                        response.Headers.ContentLength = 0;
+
                         // 304 Not Modified doesn’t need Content-Type. 
                         if (response.Status == HttpStatusCode._304_NotModified)
                         {
+                            response.Headers.ContentType = null;
                             // Also omit ContentLength if not using keep-alive
                             if (!useKeepAlive)
                                 response.Headers.ContentLength = null;
-                            response.Headers.ContentType = null;
                         }
-                        else
-                            response.Headers.ContentLength = 0;
                         sendHeaders(response);
                         return useKeepAlive;
                     }
