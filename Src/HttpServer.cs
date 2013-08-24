@@ -435,22 +435,22 @@ namespace RT.Servers
                 {
 #endif
 
-                KeepAliveActive = false;
-                Interlocked.Increment(ref _endedReceives);
+                    KeepAliveActive = false;
+                    Interlocked.Increment(ref _endedReceives);
 
-                try
-                {
-                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                }
-                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                    try
+                    {
+                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                    }
+                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                if (_bufferDataLength == 0)
-                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                else
-                    processHeaderData();
-                cleanupIfDone();
+                    if (_bufferDataLength == 0)
+                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    else
+                        processHeaderData();
+                    cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -592,10 +592,6 @@ namespace RT.Servers
 
                 try
                 {
-                    // If no Content-Type is given and there is no Location header, use default
-                    if (response.Headers.ContentType == null && response.Headers.Location == null)
-                        response.Headers.ContentType = _server.Options.DefaultContentType;
-
                     bool gzipRequested = false;
                     if (originalRequest.Headers.AcceptEncoding != null)
                         foreach (HttpContentEncoding hce in originalRequest.Headers.AcceptEncoding)
@@ -654,6 +650,9 @@ namespace RT.Servers
                         sendHeaders(response);
                         return useKeepAlive;
                     }
+
+                    // If no Content-Type is given, use default
+                    response.Headers.ContentType = response.Headers.ContentType ?? _server.Options.DefaultContentType;
 
                     // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 16 KB
                     if (originalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && response.Status == HttpStatusCode._200_OK && contentStream.CanSeek)

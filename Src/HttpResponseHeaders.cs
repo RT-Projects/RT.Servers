@@ -29,7 +29,7 @@ namespace RT.Servers
         public HttpContentDisposition? ContentDisposition;
         public string ContentMD5;
         public HttpContentRange? ContentRange;
-        public string ContentType = "text/html; charset=utf-8";
+        public string ContentType;
         public DateTime? Date;
         public WValue ETag;
         public DateTime? Expires;
