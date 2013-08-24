@@ -435,22 +435,22 @@ namespace RT.Servers
                 {
 #endif
 
-                    KeepAliveActive = false;
-                    Interlocked.Increment(ref _endedReceives);
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
 
-                    try
-                    {
-                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                    }
-                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                try
+                {
+                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                    if (_bufferDataLength == 0)
-                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                    else
-                        processHeaderData();
-                    cleanupIfDone();
+                if (_bufferDataLength == 0)
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                else
+                    processHeaderData();
+                cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -635,19 +635,22 @@ namespace RT.Servers
                     if (useKeepAlive)
                         response.Headers.Connection = HttpConnection.KeepAlive;
 
+                    // Special cases: status codes that may not have a body
+                    if (!response.Status.MayHaveBody())
+                    {
+                        if (contentStream != null)
+                            throw new InvalidOperationException("A response with the {0} status cannot have a body (GetContentStream must be null or return null).".Fmt(response.Status));
+                        if (response.Headers.ContentType != null)
+                            throw new InvalidOperationException("A response with the {0} status cannot have a Content-Type header.".Fmt(response.Status));
+                        response.Headers.ContentLength = null;
+                        sendHeaders(response);
+                        return useKeepAlive;
+                    }
+
                     // Special case: empty body
                     if (contentLengthKnown && contentLength == 0)
                     {
                         response.Headers.ContentLength = 0;
-
-                        // 304 Not Modified doesn’t need Content-Type. 
-                        if (response.Status == HttpStatusCode._304_NotModified)
-                        {
-                            response.Headers.ContentType = null;
-                            // Also omit ContentLength if not using keep-alive
-                            if (!useKeepAlive)
-                                response.Headers.ContentLength = null;
-                        }
                         sendHeaders(response);
                         return useKeepAlive;
                     }

@@ -1,9 +1,7 @@
 ﻿
 namespace RT.Servers
 {
-    /// <summary>
-    /// Contains definitions for all the HTTP status codes defined in HTTP/1.1.
-    /// </summary>
+    /// <summary>Contains definitions for all the HTTP status codes defined in HTTP/1.1.</summary>
     public enum HttpStatusCode
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
@@ -63,21 +61,37 @@ namespace RT.Servers
 
     }
 
-    /// <summary>
-    /// Extension methods for <see cref="HttpStatusCode"/>.
-    /// </summary>
+    /// <summary>Extension methods for <see cref="HttpStatusCode"/>.</summary>
     public static class HttpStatusCodeExtensions
     {
         /// <summary>
-        /// Returns a string representation of the specified HTTP status code.
-        /// </summary>
-        /// <param name="code">The status code to return a string representation for.</param>
-        /// <returns>A string representation of the specified HTTP status code.</returns>
+        ///     Returns a string representation of the specified HTTP status code.</summary>
+        /// <param name="code">
+        ///     The status code to return a string representation for.</param>
+        /// <returns>
+        ///     A string representation of the specified HTTP status code.</returns>
         public static string ToText(this HttpStatusCode code)
         {
             return HttpInternalObjects.StatusCodeNames.ContainsKey(code)
                 ? HttpInternalObjects.StatusCodeNames[code]
                 : "Unknown status code";
+        }
+
+        /// <summary>
+        ///     Determines whether an HTTP response with the specified <paramref name="statusCode"/> is allowed to have a body
+        ///     (i.e. a non-null content stream).</summary>
+        /// <param name="statusCode">
+        ///     The HTTP status code to examine.</param>
+        /// <returns>
+        ///     A boolean value that indicates whether an HTTP response with the specified <paramref name="statusCode"/> is
+        ///     allowed to have a body.</returns>
+        public static bool MayHaveBody(this HttpStatusCode statusCode)
+        {
+            // All 1xx status codes
+            if ((int) statusCode / 100 == 1)
+                return false;
+
+            return statusCode != HttpStatusCode._204_NoContent && statusCode != HttpStatusCode._304_NotModified;
         }
     }
 }
