@@ -157,4 +157,22 @@ namespace RT.Servers
         /// </summary>
         AlwaysUseGzip
     }
+
+    /// <summary>
+    /// Specifies possible protocols to hook to in a <see cref="UrlHook"/>.
+    /// </summary>
+    [Flags]
+    public enum Protocols
+    {
+        /// <summary>The hook will never match.</summary>
+        None = 0,
+
+        /// <summary>The hook responds to unencrypted HTTP.</summary>
+        Http = 1,
+        /// <summary>The hook responds to HTTP encrypted via an SSL transport layer.</summary>
+        Https = 2,
+
+        /// <summary>The hook responds to all supported protocols.</summary>
+        All = Http | Https
+    }
 }

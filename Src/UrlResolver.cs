@@ -37,7 +37,9 @@ namespace RT.Servers
             Func<HttpResponse>[] applicableHandlers;
             lock (_mappings)
             {
-                applicableHandlers = _mappings.Where(mp => (mp.Hook.Port == null || mp.Hook.Port.Value == req.Url.Port) &&
+                applicableHandlers = _mappings.Where(mp =>
+                        ((mp.Hook.Protocols.HasFlag(Protocols.Http) && !req.Url.Https) || (mp.Hook.Protocols.HasFlag(Protocols.Https) && req.Url.Https)) &&
+                        (mp.Hook.Port == null || mp.Hook.Port.Value == req.Url.Port) &&
                         (mp.Hook.Domain == null || mp.Hook.Domain == req.Url.Domain || (!mp.Hook.SpecificDomain && req.Url.Domain.EndsWith("." + mp.Hook.Domain))) &&
                         (mp.Hook.Path == null || mp.Hook.Path == req.Url.Path || (!mp.Hook.SpecificPath && req.Url.Path.StartsWith(mp.Hook.Path + "/"))))
                     .Select(mapping => Ut.Lambda(() =>

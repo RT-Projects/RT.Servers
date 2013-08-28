@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Linq;
 using System.Text.RegularExpressions;
+using RT.Util;
 using RT.Util.Serialization;
 using RT.Util.Xml;
 
@@ -35,6 +37,9 @@ namespace RT.Servers
         ///     (<c>false</c>) or to the specific path only (<c>true</c>).</summary>
         public bool SpecificPath { get; private set; }
 
+        /// <summary>Gets a value indicating the protocol(s) to which the hook applies.</summary>
+        public Protocols Protocols { get; private set; }
+
         /// <summary>
         ///     Initialises a new <see cref="UrlHook"/>.</summary>
         /// <param name="domain">
@@ -51,18 +56,23 @@ namespace RT.Servers
         /// <param name="specificPath">
         ///     If <c>false</c>, the hook applies to all subpaths of the path specified by <paramref name="path"/>. Otherwise
         ///     it applies to the specific path only.</param>
-        public UrlHook(string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false)
+        public UrlHook(string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false, Protocols protocols = Protocols.All)
         {
             Domain = domain;
             Port = port;
             Path = path;
             SpecificDomain = specificDomain;
             SpecificPath = specificPath;
+            Protocols = protocols;
             checkValues();
         }
 
         private void checkValues()
         {
+            if (Protocols == Protocols.None)
+                throw new ArgumentException("The Protocols parameter cannot be None.");
+            if ((Protocols & ~Protocols.All) != 0)
+                throw new ArgumentException("The Protocols parameter has an invalid value.");
             if (Domain == null && SpecificDomain)
                 throw new ArgumentException("If SpecificDomain is true, Domain must not be null.");
             if (Domain != null && !Regex.IsMatch(Domain, @"^[-.a-z0-9]+$"))
@@ -88,7 +98,11 @@ namespace RT.Servers
         }
 
         // For Classify
-        private UrlHook() { }
+        private UrlHook()
+        {
+            // Sensible default
+            Protocols = Protocols.All;
+        }
 
         /// <summary>
         ///     Compares this hook to another one such that more specific hooks are sorted before a more generic hook that
@@ -96,37 +110,59 @@ namespace RT.Servers
         public int CompareTo(UrlHook other)
         {
             int result;
+
             // "any port" hooks match last; other port hooks match in numeric port order
             result = (this.Port ?? int.MaxValue).CompareTo(other.Port ?? int.MaxValue);
             if (result != 0) return result;
+
             // specific single domains match first
             result = (this.SpecificDomain ? 0 : 1).CompareTo(other.SpecificDomain ? 0 : 1);
             if (result != 0) return result;
+
             // match more specified domains before less specified ones (e.g. blah.thingy.stuff matches before thingy.stuff)
             // match catch-all domain last
-            if (this.Domain != null || other.Domain != null)
+            if (this.Domain != null && other.Domain == null)
+                return -1;
+            else if (this.Domain == null && other.Domain != null)
+                return 1;
+            else if (this.Domain != other.Domain)
             {
-                if (this.Domain != null && other.Domain == null)
-                    return -1;
-                else if (this.Domain == null && other.Domain != null)
-                    return 1;
-                else if (this.Domain != other.Domain)
-                {
-                    result = -this.Domain.Length.CompareTo(other.Domain.Length);
-                    if (result != 0) return result;
-                }
+                result = -this.Domain.Length.CompareTo(other.Domain.Length);
+                if (result != 0) return result;
             }
+
             // specific single paths match first
             result = -this.SpecificPath.CompareTo(other.SpecificPath);
             if (result != 0) return result;
+
             // match more specific paths before less specific ones (e.g. /blah/thingy/stuff matches before /blah/thingy)
             // match catch-all path last
-            if (this.Path == null)
-                return other.Path == null ? 0 : 1;
-            else if (other.Path == null)
+            if (this.Path != null && other.Path == null)
                 return -1;
-            else
-                return -this.Path.Length.CompareTo(other.Path.Length);
+            else if (this.Path == null && other.Path != null)
+                return 1;
+            else if (this.Path != other.Path)
+            {
+                result = -this.Path.Length.CompareTo(other.Path.Length);
+                if (result != 0) return result;
+            }
+
+            // more restricted sets of protocols match first
+            return countBits((int) this.Protocols).CompareTo(countBits((int) other.Protocols));
+        }
+
+        /// <summary>Returns the number of 1-bits in the input integer.</summary>
+        private int countBits(int input)
+        {
+            if (input < 0)
+                throw new ArgumentException("Negative integers not supported.", "input");
+            var result = 0;
+            while (input != 0)
+            {
+                result++;
+                input &= input - 1; // removes exactly one 1-bit (the least significant one)
+            }
+            return result;
         }
 
         /// <summary>Compares mappings for equality.</summary>
@@ -138,6 +174,7 @@ namespace RT.Servers
                 if (!string.Equals(this.Domain, other.Domain, StringComparison.OrdinalIgnoreCase)) return false;
             if (this.SpecificDomain != other.SpecificDomain) return false;
             if (this.Port != other.Port) return false;
+            if (this.Protocols != other.Protocols) return false;
             return true;
         }
 
