@@ -335,6 +335,7 @@ namespace RT.Servers
             private Func<HttpRequest, HttpResponse> _handler;
             private int _requestId;
             private DateTime _requestStart;
+            private bool _secure;
 
             public connectionHandler(Socket socket, HttpServer server, bool secure)
             {
@@ -344,6 +345,7 @@ namespace RT.Servers
                 _requestStart = DateTime.UtcNow;
                 _server = server;
                 _handler = _server.Handler ?? (req => { throw new HttpNotFoundException(); });
+                _secure = secure;
 
                 _server.Log.Info(4, "{0:X8} Start".Fmt(_requestId));
 
@@ -357,7 +359,7 @@ namespace RT.Servers
                     server._activeConnectionHandlers.Add(this);
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
-                if (secure)
+                if (_secure)
                 {
                     var secureStream = new SslStream(stream);
                     _stream = secureStream;
@@ -1000,7 +1002,7 @@ namespace RT.Servers
                 else
                     return errorParsingRequest(req, HttpStatusCode._505_HttpVersionNotSupported);
 
-                req.Url.Https = false;
+                req.Url.Https = _secure;
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
                 try { req.Url.SetLocation(line.Substring(start, line.Length - start - 9)); }
