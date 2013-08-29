@@ -56,6 +56,8 @@ namespace RT.Servers
         /// <param name="specificPath">
         ///     If <c>false</c>, the hook applies to all subpaths of the path specified by <paramref name="path"/>. Otherwise
         ///     it applies to the specific path only.</param>
+        /// <param name="protocols">
+        ///     Specifies the protocol(s) to hook to. Default is all supported protocols.</param>
         public UrlHook(string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false, Protocols protocols = Protocols.All)
         {
             Domain = domain;

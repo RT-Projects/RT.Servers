@@ -369,10 +369,12 @@ namespace RT.Servers
                         {
                             secureStream.EndAuthenticateAsServer(ar);
                         }
-                        catch
+                        catch (Exception e)
                         {
                             Socket.Close();
                             cleanupIfDone();
+                            if (_server.ResponseExceptionHandler != null)
+                                _server.ResponseExceptionHandler(null, e, null);
                             return;
                         }
                         receiveMoreHeaderData();
