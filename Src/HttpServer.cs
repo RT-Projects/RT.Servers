@@ -347,7 +347,7 @@ namespace RT.Servers
                 _handler = _server.Handler ?? (req => { throw new HttpNotFoundException(); });
                 _secure = secure;
 
-                _server.Log.Info(4, "{0:X8} Start".Fmt(_requestId));
+                _server.Log.Info(4, "{0:X8} Incoming connection from {1}".Fmt(_requestId, socket.RemoteEndPoint));
 
                 _buffer = new byte[1024];
                 _bufferDataOffset = 0;
