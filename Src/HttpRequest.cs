@@ -13,6 +13,7 @@ namespace RT.Servers
     /// Encapsulates an HTTP request, including its method, URL and headers. <see cref="HttpServer"/> generates this when it receives an
     /// HTTP request and passes it to the relevant request handler.
     /// </summary>
+    [Serializable]
     public class HttpRequest
     {
         private NameValuesCollection<string> _postFields = new NameValuesCollection<string>();

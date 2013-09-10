@@ -19,6 +19,7 @@ namespace RT.Servers
     /// </code>
     /// </example>
     /// <typeparam name="TValue">The type of the values to be associated with each key.</typeparam>
+    [Serializable]
     public sealed class NameValuesCollection<TValue> : IDictionary<string, ValuesCollection<TValue>>
     {
         private Dictionary<string, List<TValue>> _items;

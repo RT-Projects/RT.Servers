@@ -7,6 +7,7 @@ namespace RT.Servers
     /// Encapsulates a value with a Q rating, where Q is between 0 and 1. Provides a comparer such
     /// that the values with Q = 1 are the smallest.
     /// </summary>
+    [Serializable]
     public struct QValue<T> : IComparable<QValue<T>>
     {
         private float _q;
@@ -45,6 +46,7 @@ namespace RT.Servers
     }
 
     /// <summary>Encapsulates a string value that can additionally be either weak or not.</summary>
+    [Serializable]
     public struct WValue
     {
         /// <summary>Gets or sets the value.</summary>

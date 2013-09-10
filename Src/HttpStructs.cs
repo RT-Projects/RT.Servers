@@ -8,6 +8,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates an HTTP cookie.
     /// </summary>
+    [Serializable]
     public sealed class Cookie
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
@@ -23,6 +24,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates the possible values of the Cache-Control HTTP request or response header.
     /// </summary>
+    [Serializable]
     public struct HttpCacheControl
     {
         /// <summary>Contains possible values of the Cache-Control header.</summary>
@@ -60,6 +62,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates the possible values of the Content-Disposition HTTP response header.
     /// </summary>
+    [Serializable]
     public struct HttpContentDisposition
     {
         /// <summary>Currently supports only one value (“Attachment”).</summary>
@@ -77,6 +80,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates the possible values of the Content-Range HTTP response header.
     /// </summary>
+    [Serializable]
     public struct HttpContentRange
     {
         /// <summary>First byte index of the range. The first byte in the file has index 0.</summary>
@@ -90,6 +94,7 @@ namespace RT.Servers
     /// <summary>
     /// Encapsulates one of the ranges specified in a Range HTTP request header.
     /// </summary>
+    [Serializable]
     public struct HttpRange
     {
         /// <summary>First byte index of the range. The first byte in the file has index 0.</summary>
@@ -101,6 +106,7 @@ namespace RT.Servers
     /// <summary>
     /// Represents a file upload contained in an HTTP POST request.
     /// </summary>
+    [Serializable]
     public sealed class FileUpload
     {
         /// <summary>The MIME type of the uploaded file.</summary>

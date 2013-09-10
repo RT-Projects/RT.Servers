@@ -205,9 +205,10 @@ namespace RT.Servers
         /// <summary>Returns a debugging-friendly representation of this hook's match specification.</summary>
         public override string ToString()
         {
-            return (Domain == null ? "http://*" : ((SpecificDomain ? "http://" : "http://*.") + Domain))
-                + (Port == null ? "" : (":" + Port))
-                + (Path == null ? "/*" : (Path + (SpecificPath ? "" : "/*")));
+            return (Protocols == Protocols.All ? "http[s]://" : Protocols == Protocols.Http ? "http://" : "https://")
+                + (Domain == null ? "*" : (SpecificDomain ? Domain : "*." + Domain))
+                + (Port == null ? null : (":" + Port))
+                + (Path == null ? "/*" : (SpecificPath ? Path : Path + "/*"));
         }
 
         // Check validity after deserialization

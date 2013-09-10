@@ -6,13 +6,11 @@ using RT.Util.ExtensionMethods;
 namespace RT.Servers
 {
     /// <summary>
-    /// Encapsulates all supported HTTP response headers. A request handler can set these
-    /// appropriately to cause the server to emit the required headers. See Remarks
-    /// for a list of headers which are set by default.
-    /// </summary>
+    ///     Encapsulates all supported HTTP response headers. A request handler can set these appropriately to cause the
+    ///     server to emit the required headers. See Remarks for a list of headers which are set by default.</summary>
     /// <remarks>
-    /// By default, ContentType is set to "text/html; charset=utf-8".
-    /// </remarks>
+    ///     By default, ContentType is set to "text/html; charset=utf-8".</remarks>
+    [Serializable]
     public sealed class HttpResponseHeaders
     {
 
@@ -43,9 +41,9 @@ namespace RT.Servers
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
         /// <summary>
-        /// Returns the HTTP-compliant ASCII representation of all response headers that have been set.
-        /// </summary>
-        /// <returns>The HTTP-compliant ASCII representation of all response headers that have been set.</returns>
+        ///     Returns the HTTP-compliant ASCII representation of all response headers that have been set.</summary>
+        /// <returns>
+        ///     The HTTP-compliant ASCII representation of all response headers that have been set.</returns>
         public override string ToString()
         {
             StringBuilder b = new StringBuilder();

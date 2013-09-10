@@ -13,7 +13,7 @@ namespace RT.Servers
     ///     Encapsulates an HTTP response, to be sent by <see cref="HttpServer"/> to the HTTP client that sent the original
     ///     request. A request handler must return an HttpResponse object to the <see cref="HttpServer"/> when handling a
     ///     request.</summary>
-    public sealed class HttpResponse
+    public sealed class HttpResponse : MarshalByRefObject
     {
         /// <summary>The HTTP status code. For example, 200 OK, 404 Not Found, 500 Internal Server Error. Default is 200 OK.</summary>
         public HttpStatusCode Status = HttpStatusCode._200_OK;
@@ -23,14 +23,13 @@ namespace RT.Servers
         ///     set or modified, will default to a standard set of headers - see <see cref="HttpResponseHeaders"/>.</summary>
         public HttpResponseHeaders Headers = new HttpResponseHeaders();
 
-        /// <summary>
-        ///     A delegate that generates a stream providing read access to the content to be returned. The delegate should
-        ///     create a new stream object each time it is called, as multiple requests running in parallel may call it.</summary>
-        /// <remarks>
-        ///     For static files, use <see cref="FileStream"/>. For objects cached in memory, use <see cref="MemoryStream"/>.
-        ///     For dynamic websites, consider using <see cref="RT.Util.Streams.DynamicContentStream"/>. A null delegate is
-        ///     acceptable and sends an empty response body (e.g. for redirects).</remarks>
-        public Func<Stream> GetContentStream;
+        private Func<Stream> _contentStreamDelegate;
+
+        /// <summary>Retrieves the stream object containing the response body.</summary>
+        public Stream GetContentStream()
+        {
+            return _contentStreamDelegate == null ? null : _contentStreamDelegate();
+        }
 
         /// <summary>Specifies whether gzip should be used.</summary>
         public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
@@ -76,17 +75,11 @@ namespace RT.Servers
                             }
                     }
 
-                return new HttpResponse
+                return create(getFileStream, contentType, HttpStatusCode._200_OK, new HttpResponseHeaders
                 {
-                    Status = HttpStatusCode._200_OK,
-                    GetContentStream = getFileStream,
-                    Headers = new HttpResponseHeaders
-                    {
-                        ContentType = contentType,
-                        LastModified = timestamp,
-                        CacheControl = maxAge == null ? null : new[] { new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = maxAge.Value } },
-                    }
-                };
+                    LastModified = timestamp,
+                    CacheControl = maxAge == null ? null : new[] { new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = maxAge.Value } },
+                });
             }
             catch (FileNotFoundException)
             {
@@ -477,7 +470,7 @@ namespace RT.Servers
             headers.ContentType = contentType ?? headers.ContentType;
             return new HttpResponse
             {
-                GetContentStream = getContentStream,
+                _contentStreamDelegate = getContentStream,
                 Status = status,
                 Headers = headers
             };

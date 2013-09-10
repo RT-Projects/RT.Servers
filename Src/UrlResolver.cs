@@ -24,6 +24,11 @@ namespace RT.Servers
         /// <summary>Initializes this <see cref="UrlResolver"/> with the specified collection of mappings.</summary>
         public UrlResolver(params UrlMapping[] mappings) { AddRange(mappings); }
 
+        private object _locker = new object();
+
+        /// <summary>Take a lock on this object to perform multiple add/remove/clear operations atomically.</summary>
+        public object Locker { get { return _locker; } }
+
         /// <summary>
         ///     Handles an HTTP request by delegating it to the appropriate handler according to the request’s URL.</summary>
         /// <param name="req">
@@ -35,7 +40,7 @@ namespace RT.Servers
         public HttpResponse Handle(HttpRequest req)
         {
             Func<HttpResponse>[] applicableHandlers;
-            lock (_mappings)
+            lock (_locker)
             {
                 applicableHandlers = _mappings.Where(mp =>
                         ((mp.Hook.Protocols.HasFlag(Protocols.Http) && !req.Url.Https) || (mp.Hook.Protocols.HasFlag(Protocols.Https) && req.Url.Https)) &&
@@ -85,7 +90,7 @@ namespace RT.Servers
         {
             get
             {
-                lock (this)
+                lock (_locker)
                     return _mappings.Count;
             }
         }
@@ -93,21 +98,21 @@ namespace RT.Servers
         /// <summary>Determines whether a mapping with the same match specification is present in this collection.</summary>
         public bool Contains(UrlMapping item)
         {
-            lock (this)
+            lock (_locker)
                 return _mappings.BinarySearch(item) >= 0;
         }
 
         /// <summary>
-        ///     Enumerates the mappings. To maintain thread safety, you must hold a lock on the instance until the enumeration
-        ///     is finished.</summary>
+        ///     Enumerates the mappings. To maintain thread safety, you must hold a lock on <see cref="Locker"/> until the
+        ///     enumeration is finished.</summary>
         public IEnumerator<UrlMapping> GetEnumerator() { return _mappings.GetEnumerator(); }
 
         /// <summary>
-        ///     Enumerates the mappings. To maintain thread safety, you must hold a lock on the instance until the enumeration
-        ///     is finished.</summary>
+        ///     Enumerates the mappings. To maintain thread safety, you must hold a lock on <see cref="Locker"/> until the
+        ///     enumeration is finished.</summary>
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
 
-        /// <summary>Throws a "not implemented" exception.</summary>
+        /// <summary>Throws NotImplementedException.</summary>
         public void CopyTo(UrlMapping[] array, int arrayIndex) { throw new NotImplementedException(); }
 
         /// <summary>Returns false.</summary>
@@ -116,14 +121,14 @@ namespace RT.Servers
         /// <summary>Removes all mappings from this collection.</summary>
         public void Clear()
         {
-            lock (this)
+            lock (_locker)
                 _mappings.Clear();
         }
 
         /// <summary>Adds the specified mapping to this collection.</summary>
         public void Add(UrlMapping item)
         {
-            lock (this)
+            lock (_locker)
             {
                 int i = _mappings.BinarySearch(item);
                 if (i >= 0 && !item.Skippable) // skippable hooks are never considered duplicates
@@ -159,7 +164,7 @@ namespace RT.Servers
         ///     once.</summary>
         public void AddRange(IEnumerable<UrlMapping> items)
         {
-            lock (this)
+            lock (_locker)
             {
                 var mappings = _mappings.Concat(items).ToList();
                 if (mappings.Count == _mappings.Count)
@@ -191,7 +196,7 @@ namespace RT.Servers
         ///     cref="UrlMapping.Equals(UrlMapping)"/>.</remarks>
         public bool Remove(UrlMapping item)
         {
-            lock (this)
+            lock (_locker)
                 return _mappings.Remove(item);
         }
 
@@ -201,7 +206,7 @@ namespace RT.Servers
         ///     The number of elements removed.</returns>
         public int Remove(UrlHook hook)
         {
-            lock (this)
+            lock (_locker)
                 return _mappings.RemoveAll(item => item.Hook.Equals(hook));
         }
     }

@@ -72,6 +72,7 @@ namespace RT.Servers
     }
 
     /// <summary>Encapsulates information about a URL that identifies a resource on an HTTP server.</summary>
+    [Serializable]
     public sealed class HttpUrl : IHttpUrl
     {
         /// <summary>Implements <see cref="IHttpUrl.Https"/>.</summary>

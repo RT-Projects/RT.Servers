@@ -71,5 +71,24 @@ namespace RT.Servers
 
         /// <summary>Content-Type to return when handler provides none. Default is "text/html; charset=utf-8".</summary>
         public string DefaultContentType = "text/html; charset=utf-8";
+
+        /// <summary>
+        ///     Throws an exception if the settings are invalid.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         Possible reasons for invalid settings include:</para>
+        ///     <list type="bullet">
+        ///         <item><description>
+        ///             Both <see cref="Port"/> and <see cref="SecurePort"/> are <c>null</c>.</description></item>
+        ///         <item><description>
+        ///             <see cref="SecurePort"/> is non-<c>null</c>, but <see cref="CertificatePath"/> is <c>null</c>.</description></item></list></remarks>
+        public void CheckValid()
+        {
+            if (Port == null && SecurePort == null)
+                throw new ArgumentException("In the server options, both 'Port' and 'SecurePort' are null. There is no port to listen on.");
+
+            if (SecurePort != null && CertificatePath == null)
+                throw new ArgumentException("Since 'SecurePort' is not null, a 'CertificatePath' must be specified in the options.");
+        }
     }
 }

@@ -9,8 +9,8 @@ using RT.Util.ExtensionMethods;
 namespace RT.Servers
 {
     /// <summary>
-    /// Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.
-    /// </summary>
+    ///     Encapsulates all supported HTTP request headers. These will be set by the server when it receives the request.</summary>
+    [Serializable]
     public sealed class HttpRequestHeaders : IDictionary<string, string>
     {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
@@ -35,10 +35,11 @@ namespace RT.Servers
         private Dictionary<string, string> _headers = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
         /// <summary>
-        /// Parses the specified header and stores it in this instance. Returns whether the header was recognised.
-        /// </summary>
-        /// <param name="name">Header name</param>
-        /// <param name="value">Header value</param>
+        ///     Parses the specified header and stores it in this instance. Returns whether the header was recognised.</summary>
+        /// <param name="name">
+        ///     Header name</param>
+        /// <param name="value">
+        ///     Header value</param>
         internal bool parseAndAddHeader(string name, string value)
         {
             string nameLower = name.ToLowerInvariant();
@@ -198,9 +199,7 @@ namespace RT.Servers
             return recognised;
         }
 
-        /// <summary>
-        /// Parses the cookie header and adds the cookies to the specified cookie dictionary.
-        /// </summary>
+        /// <summary>Parses the cookie header and adds the cookies to the specified cookie dictionary.</summary>
         private static void parseAndAddCookies(ref Dictionary<string, Cookie> cookies, string cookieHeaderValue)
         {
             Cookie prevCookie = null;
@@ -262,9 +261,7 @@ namespace RT.Servers
             }
         }
 
-        /// <summary>
-        /// Parses the specified Range header and adds the ranges to the specified ranges list.
-        /// </summary>
+        /// <summary>Parses the specified Range header and adds the ranges to the specified ranges list.</summary>
         private static void parseAndAddRange(ref List<HttpRange> ranges, string rangeHeaderValue)
         {
             foreach (var rangeStr in rangeHeaderValue.ToLowerInvariant().Split(','))

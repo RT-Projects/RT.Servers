@@ -30,8 +30,25 @@ namespace RT.Servers
             Stats = new Statistics(this);
         }
 
-        /// <summary>Returns the configuration settings currently in effect for this server.</summary>
-        public HttpServerOptions Options { get { return _opt; } }
+        /// <summary>
+        ///     Gets or sets the configuration settings currently in effect for this server.</summary>
+        /// <remarks>
+        ///     When set while the server is running, most of the new settings take effect immediately. The following do not:
+        ///     Port, SecurePort, BindAddress.</remarks>
+        public HttpServerOptions Options
+        {
+            get
+            {
+                return _opt;
+            }
+            set
+            {
+                if (value == null)
+                    throw new ArgumentNullException("value");
+                value.CheckValid();
+                _opt = value;
+            }
+        }
 
         /// <summary>Gets an object containing various server performance statistics.</summary>
         public Statistics Stats { get; private set; }
@@ -71,10 +88,11 @@ namespace RT.Servers
         /// <summary>
         ///     Specifies the HTTP request handler for this server.</summary>
         /// <remarks>
-        ///     Returning null from this handler is a bug, and will cause a generic "error 500". All exceptions leaving this
-        ///     handler will be handled by the server, unless <see cref="HttpServerOptions.OutputExceptionInformation"/> is
-        ///     configured to do otherwise. All exceptions are passed to the <see cref="ErrorHandler"/>, which may return an
-        ///     arbitrary response as a result. See Remarks on <see cref="ErrorHandler"/> for further information.</remarks>
+        ///     Returning null from this handler is a bug, and will cause a generic 500 Internal Server Error. All exceptions
+        ///     leaving this handler will be handled by the server, unless <see
+        ///     cref="HttpServerOptions.OutputExceptionInformation"/> is configured to do otherwise. All exceptions are passed
+        ///     to the <see cref="ErrorHandler"/>, which may return an arbitrary response as a result. See Remarks on <see
+        ///     cref="ErrorHandler"/> for further information.</remarks>
         public Func<HttpRequest, HttpResponse> Handler { get; set; }
 
         /// <summary>
@@ -144,6 +162,9 @@ namespace RT.Servers
                 if (_activeConnectionHandlers.Count == 0)
                     ShutdownComplete.Set();
             }
+
+            if (blocking)
+                ShutdownComplete.WaitOne();
         }
 
         /// <summary>
@@ -154,11 +175,7 @@ namespace RT.Servers
         ///     cref="StopListening"/>. This is equivalent to waiting for <see cref="ShutdownComplete"/> indefinitely.</param>
         public void StartListening(bool blocking = false)
         {
-            if (_opt.Port == null && _opt.SecurePort == null)
-                throw new ArgumentException("In the server options, both 'Port' and 'SecurePort' are null. There is no port to listen on.");
-
-            if (_opt.SecurePort != null && _opt.CertificatePath == null)
-                throw new ArgumentException("Since 'SecurePort' is not null, a 'CertificatePath' must be specified in the options.");
+            _opt.CheckValid();
 
             if (IsListening)
                 return;
@@ -439,22 +456,22 @@ namespace RT.Servers
                 {
 #endif
 
-                    KeepAliveActive = false;
-                    Interlocked.Increment(ref _endedReceives);
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
 
-                    try
-                    {
-                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                    }
-                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                try
+                {
+                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                    if (_bufferDataLength == 0)
-                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                    else
-                        processHeaderData();
-                    cleanupIfDone();
+                if (_bufferDataLength == 0)
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                else
+                    processHeaderData();
+                cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -530,12 +547,12 @@ namespace RT.Servers
                         try
                         {
                             response = handleRequestAfterHeaders(out originalRequest);
-                            contentStream = response.GetContentStream.NullOr(g => g());
+                            contentStream = response.GetContentStream();
                         }
                         catch (HttpException exInHandler)
                         {
                             response = exceptionToResponse(originalRequest, exInHandler);
-                            contentStream = response.GetContentStream.NullOr(g => g());
+                            contentStream = response.GetContentStream();
                         }
                     }
                     else
@@ -544,12 +561,12 @@ namespace RT.Servers
                         try
                         {
                             response = handleRequestAfterHeaders(out originalRequest);
-                            contentStream = response.GetContentStream.NullOr(g => g());
+                            contentStream = response.GetContentStream();
                         }
                         catch (Exception exInHandler)
                         {
                             response = exceptionToResponse(originalRequest, exInHandler);
-                            contentStream = response.GetContentStream.NullOr(g => g());
+                            contentStream = response.GetContentStream();
                         }
                     }
                 }
@@ -557,9 +574,10 @@ namespace RT.Servers
                 catch (IOException) { Socket.Close(); return; }
                 catch (ObjectDisposedException) { return; }
 
-                _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, response.Headers.ContentType));
+                var headers = response.Headers;
+                _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
 
-                try { connectionKeepAlive = outputResponse(response, contentStream, originalRequest); }
+                try { connectionKeepAlive = outputResponse(response, response.Status, headers, contentStream, response.UseGzip, originalRequest); }
                 catch (SocketException) { Socket.Close(); return; }
                 catch (IOException) { Socket.Close(); return; }
                 catch (ObjectDisposedException) { return; }
@@ -590,8 +608,16 @@ namespace RT.Servers
                     Socket.Close();
             }
 
-            private bool outputResponse(HttpResponse response, Stream contentStream, HttpRequest originalRequest)
+            private bool outputResponse(HttpResponse response, HttpStatusCode status, HttpResponseHeaders headers, Stream contentStream, UseGzipOption useGzipOption, HttpRequest originalRequest)
             {
+                // IMPORTANT:
+                // Since HttpResponse is a MarshalByRefObject so that .NET Remoting can be used to proxy HttpResponse
+                // objects across AppDomain boundaries, but HttpResponseHeaders is serialized instead of proxied, it is
+                // moderately important that response.Headers is retrieved only once (as doing so retrieves a serialized copy).
+                // Consequently, the headers are passed into this method separately from the response object. The response
+                // object is ONLY used to pass it to _server.ResponseExceptionHandler(). Everything else in this method
+                // must use the other parameters, which contain a copy of all the necessary information.
+
                 Socket.NoDelay = false;
 
                 try
@@ -609,9 +635,9 @@ namespace RT.Servers
                         contentLength = 0;
                         contentLengthKnown = true;
                     }
-                    else if (response.Headers.ContentLength != null)
+                    else if (headers.ContentLength != null)
                     {
-                        contentLength = response.Headers.ContentLength.Value;
+                        contentLength = headers.ContentLength.Value;
                         contentLengthKnown = true;
                     }
                     else
@@ -631,40 +657,40 @@ namespace RT.Servers
                     bool useKeepAlive =
                         originalRequest.HttpVersion == HttpProtocolVersion.Http11 &&
                         originalRequest.Headers.Connection == HttpConnection.KeepAlive &&
-                        response.Headers.Connection != HttpConnection.Close;
+                        headers.Connection != HttpConnection.Close;
                     if (useKeepAlive)
-                        response.Headers.Connection = HttpConnection.KeepAlive;
+                        headers.Connection = HttpConnection.KeepAlive;
 
                     // Special cases: status codes that may not have a body
-                    if (!response.Status.MayHaveBody())
+                    if (!status.MayHaveBody())
                     {
                         if (contentStream != null)
-                            throw new InvalidOperationException("A response with the {0} status cannot have a body (GetContentStream must be null or return null).".Fmt(response.Status));
-                        if (response.Headers.ContentType != null)
-                            throw new InvalidOperationException("A response with the {0} status cannot have a Content-Type header.".Fmt(response.Status));
-                        response.Headers.ContentLength = null;
-                        sendHeaders(response);
+                            throw new InvalidOperationException("A response with the {0} status cannot have a body (GetContentStream must be null or return null).".Fmt(status));
+                        if (headers.ContentType != null)
+                            throw new InvalidOperationException("A response with the {0} status cannot have a Content-Type header.".Fmt(status));
+                        headers.ContentLength = null;
+                        sendHeaders(status, headers);
                         return useKeepAlive;
                     }
 
                     // Special case: empty body
                     if (contentLengthKnown && contentLength == 0)
                     {
-                        response.Headers.ContentLength = 0;
-                        sendHeaders(response);
+                        headers.ContentLength = 0;
+                        sendHeaders(status, headers);
                         return useKeepAlive;
                     }
 
                     // If no Content-Type is given, use default
-                    response.Headers.ContentType = response.Headers.ContentType ?? _server.Options.DefaultContentType;
+                    headers.ContentType = headers.ContentType ?? _server.Options.DefaultContentType;
 
                     // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 16 KB
-                    if (originalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && response.Status == HttpStatusCode._200_OK && contentStream.CanSeek)
+                    if (originalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && status == HttpStatusCode._200_OK && contentStream.CanSeek)
                     {
-                        response.Headers.AcceptRanges = HttpAcceptRanges.Bytes;
+                        headers.AcceptRanges = HttpAcceptRanges.Bytes;
 
                         // If the client requested a range, then serve it
-                        if (response.Status == HttpStatusCode._200_OK && originalRequest.Headers.Range != null)
+                        if (status == HttpStatusCode._200_OK && originalRequest.Headers.Range != null)
                         {
                             // Construct a canonical set of satisfiable ranges
                             var ranges = new SortedList<long, long>();
@@ -708,21 +734,21 @@ namespace RT.Servers
                                 if (ranges.Count == 1)
                                 {
                                     var range = ranges.First();
-                                    serveSingleRange(response, contentStream, originalRequest, range.Key, range.Value, contentLength);
+                                    serveSingleRange(headers, contentStream, originalRequest, range.Key, range.Value, contentLength);
                                     return useKeepAlive;
                                 }
                                 else if (ranges.Count > 1)
                                 {
-                                    serveRanges(response, contentStream, originalRequest, ranges, contentLength);
+                                    serveRanges(headers, contentStream, originalRequest, ranges, contentLength);
                                     return useKeepAlive;
                                 }
                             }
                         }
                     }
 
-                    bool useGzip = response.UseGzip != UseGzipOption.DontUseGzip && gzipRequested && !(contentLengthKnown && contentLength <= 1024) && originalRequest.HttpVersion == HttpProtocolVersion.Http11;
+                    bool useGzip = useGzipOption != UseGzipOption.DontUseGzip && gzipRequested && !(contentLengthKnown && contentLength <= 1024) && originalRequest.HttpVersion == HttpProtocolVersion.Http11;
 
-                    if (useGzip && response.UseGzip == UseGzipOption.AutoDetect && contentLengthKnown && contentLength >= _server.Options.GzipAutodetectThreshold && contentStream.CanSeek)
+                    if (useGzip && useGzipOption == UseGzipOption.AutoDetect && contentLengthKnown && contentLength >= _server.Options.GzipAutodetectThreshold && contentStream.CanSeek)
                     {
                         try
                         {
@@ -745,7 +771,7 @@ namespace RT.Servers
                     }
 
                     if (useGzip)
-                        response.Headers.ContentEncoding = HttpContentEncoding.Gzip;
+                        headers.ContentEncoding = HttpContentEncoding.Gzip;
 
                     // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
                     if (useGzip && contentLengthKnown && contentLength < _server.Options.GzipInMemoryUpToSize)
@@ -764,8 +790,8 @@ namespace RT.Servers
                         }
                         gz.Close();
                         byte[] resultBuffer = ms.ToArray();
-                        response.Headers.ContentLength = resultBuffer.Length;
-                        sendHeaders(response);
+                        headers.ContentLength = resultBuffer.Length;
+                        sendHeaders(status, headers);
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
                         _stream.Write(resultBuffer);
@@ -780,7 +806,7 @@ namespace RT.Servers
                         // Otherwise we run the risk that the GzipStream might write to the socket before the headers are sent.
                         // Also note that we are not sending a Content-Length header; even if we know the content length
                         // of the uncompressed file, we cannot predict the length of the compressed output yet
-                        sendHeaders(response);
+                        sendHeaders(status, headers);
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
                         var str = new GZipOutputStream(new DoNotCloseStream(_stream));
@@ -790,8 +816,8 @@ namespace RT.Servers
                     else if (useGzip)
                     {
                         // In this case, combine Gzip with chunked Transfer-Encoding. No Content-Length header
-                        response.Headers.TransferEncoding = HttpTransferEncoding.Chunked;
-                        sendHeaders(response);
+                        headers.TransferEncoding = HttpTransferEncoding.Chunked;
+                        sendHeaders(status, headers);
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
                         var str = new GZipOutputStream(new ChunkedEncodingStream(_stream, leaveInnerOpen: true));
@@ -801,8 +827,8 @@ namespace RT.Servers
                     else if (useKeepAlive && !contentLengthKnown)
                     {
                         // Use chunked encoding without Gzip
-                        response.Headers.TransferEncoding = HttpTransferEncoding.Chunked;
-                        sendHeaders(response);
+                        headers.TransferEncoding = HttpTransferEncoding.Chunked;
+                        sendHeaders(status, headers);
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
                         output = new ChunkedEncodingStream(_stream, leaveInnerOpen: true);
@@ -812,9 +838,9 @@ namespace RT.Servers
                         // No Gzip, no chunked, but if we know the content length, supply it
                         // (if we don't, then we're not using keep-alive here)
                         if (contentLengthKnown)
-                            response.Headers.ContentLength = contentLength;
+                            headers.ContentLength = contentLength;
 
-                        sendHeaders(response);
+                        sendHeaders(status, headers);
 
                         if (originalRequest.Method == HttpMethod.Head)
                             return useKeepAlive;
@@ -840,7 +866,7 @@ namespace RT.Servers
                             catch (Exception e)
                             {
                                 if (!(e is SocketException) && _server.Options.OutputExceptionInformation)
-                                    output.Write((response.Headers.ContentType.StartsWith("text/html") ? exceptionToHtml(e) : exceptionToPlaintext(e)).ToUtf8());
+                                    output.Write((headers.ContentType.StartsWith("text/html") ? exceptionToHtml(e) : exceptionToPlaintext(e)).ToUtf8());
                                 var handler = _server.ResponseExceptionHandler;
                                 if (handler != null)
                                     handler(originalRequest, e, response);
@@ -884,20 +910,19 @@ namespace RT.Servers
                 }
             }
 
-            private void sendHeaders(HttpResponse response)
+            private void sendHeaders(HttpStatusCode status, HttpResponseHeaders headers)
             {
-                string headersStr = "HTTP/1.1 " + ((int) response.Status) + " " + response.Status.ToText() + "\r\n" +
-                    response.Headers.ToString() + "\r\n";
+                string headersStr = "HTTP/1.1 " + ((int) status) + " " + status.ToText() + "\r\n" +
+                    headers.ToString() + "\r\n";
                 _stream.Write(Encoding.UTF8.GetBytes(headersStr));
             }
 
-            private void serveSingleRange(HttpResponse response, Stream contentStream, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
+            private void serveSingleRange(HttpResponseHeaders headers, Stream contentStream, HttpRequest originalRequest, long rangeFrom, long rangeTo, long totalFileSize)
             {
-                response.Status = HttpStatusCode._206_PartialContent;
                 // Note: this is the length of just the range, not the complete file (that's totalFileSize)
-                response.Headers.ContentLength = rangeTo - rangeFrom + 1;
-                response.Headers.ContentRange = new HttpContentRange { From = rangeFrom, To = rangeTo, Total = totalFileSize };
-                sendHeaders(response);
+                headers.ContentLength = rangeTo - rangeFrom + 1;
+                headers.ContentRange = new HttpContentRange { From = rangeFrom, To = rangeTo, Total = totalFileSize };
+                sendHeaders(HttpStatusCode._206_PartialContent, headers);
                 if (originalRequest.Method == HttpMethod.Head)
                     return;
                 byte[] buffer = new byte[65536];
@@ -913,10 +938,8 @@ namespace RT.Servers
                 }
             }
 
-            private void serveRanges(HttpResponse response, Stream contentStream, HttpRequest originalRequest, SortedList<long, long> ranges, long totalFileSize)
+            private void serveRanges(HttpResponseHeaders headers, Stream contentStream, HttpRequest originalRequest, SortedList<long, long> ranges, long totalFileSize)
             {
-                response.Status = HttpStatusCode._206_PartialContent;
-
                 // Generate a random boundary token
                 byte[] boundary = new byte[64];
 
@@ -938,9 +961,9 @@ namespace RT.Servers
                 }
                 cLength += 70;                      // "--{boundary}--\r\n"
 
-                response.Headers.ContentLength = cLength;
-                response.Headers.ContentType = "multipart/byteranges; boundary=" + Encoding.UTF8.GetString(boundary);
-                sendHeaders(response);
+                headers.ContentLength = cLength;
+                headers.ContentType = "multipart/byteranges; boundary=" + Encoding.UTF8.GetString(boundary);
+                sendHeaders(HttpStatusCode._206_PartialContent, headers);
                 if (originalRequest.Method == HttpMethod.Head)
                     return;
 
