@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Runtime.Serialization;
 
 namespace RT.Servers
 {
     /// <summary>Provides an exception that carries an HTTP status code.</summary>
+    [Serializable]
     public class HttpException : Exception
     {
         /// <summary>The status code associated with this exception.</summary>
@@ -21,9 +23,24 @@ namespace RT.Servers
             StatusCode = statusCode;
             UserMessage = userMessage ?? statusCode.ToText();
         }
+
+        protected HttpException(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            StatusCode = (HttpStatusCode) info.GetInt32("StatusCode");
+            UserMessage = info.GetString("UserMessage");
+        }
+
+        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+            info.AddValue("StatusCode", (int) StatusCode);
+            info.AddValue("UserMessage", UserMessage);
+        }
     }
 
     /// <summary>Provides an exception that indicates that a resource was not found.</summary>
+    [Serializable]
     public class HttpNotFoundException : HttpException
     {
         /// <summary>A string describing the resource that was not found. May be null.</summary>
@@ -36,13 +53,31 @@ namespace RT.Servers
         {
             Location = location;
         }
+
+        protected HttpNotFoundException(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+            Location = info.GetString("Location");
+        }
+
+        public override void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            base.GetObjectData(info, context);
+            info.AddValue("Location", Location);
+        }
     }
 
     /// <summary>Indicates that an error has occurred while parsing a request. This usually indicates that the request was malformed in some way.</summary>
+    [Serializable]
     public class HttpRequestParseException : HttpException
     {
         /// <summary>Constructor.</summary>
         internal HttpRequestParseException(HttpStatusCode statusCode, string userMessage = null)
             : base(statusCode, null, userMessage) { }
+
+        protected HttpRequestParseException(SerializationInfo info, StreamingContext context)
+            : base(info, context)
+        {
+        }
     }
 }
