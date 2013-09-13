@@ -104,6 +104,7 @@ Content-Type: text/html
             {
                 HttpRequest r = new HttpRequest
                 {
+                    Url = new HttpUrl("example.com", "/"),
                     Headers = new HttpRequestHeaders
                     {
                         ContentLength = inputStr.Length,
@@ -112,8 +113,6 @@ Content-Type: text/html
                     },
                     Method = HttpMethod.Post
                 };
-                r.Url.SetLocation("/");
-                r.Url.SetHost("example.com");
 
                 using (Stream f = new SlowStream(new MemoryStream(testCase), cs))
                 {
