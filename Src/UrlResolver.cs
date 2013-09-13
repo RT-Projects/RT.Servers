@@ -42,29 +42,32 @@ namespace RT.Servers
             Func<HttpResponse>[] applicableHandlers;
             lock (_locker)
             {
-                applicableHandlers = _mappings.Where(mp =>
+                applicableHandlers = _mappings
+                    .Where(mp =>
                         ((mp.Hook.Protocols.HasFlag(Protocols.Http) && !req.Url.Https) || (mp.Hook.Protocols.HasFlag(Protocols.Https) && req.Url.Https)) &&
                         (mp.Hook.Port == null || mp.Hook.Port.Value == req.Url.Port) &&
                         (mp.Hook.Domain == null || mp.Hook.Domain == req.Url.Domain || (!mp.Hook.SpecificDomain && req.Url.Domain.EndsWith("." + mp.Hook.Domain))) &&
                         (mp.Hook.Path == null || mp.Hook.Path == req.Url.Path || (!mp.Hook.SpecificPath && req.Url.Path.StartsWith(mp.Hook.Path + "/"))))
                     .Select(mapping => Ut.Lambda(() =>
                     {
+                        var url = req.Url.ToUrl();
                         if (mapping.Hook.Domain != null)
                         {
-                            var parents = req.Url.ParentDomains;
-                            req.Url.ParentDomains = new string[parents.Length + 1];
-                            Array.Copy(parents, req.Url.ParentDomains, parents.Length);
-                            req.Url.ParentDomains[parents.Length] = mapping.Hook.Domain;
-                            req.Url.Domain = req.Url.Domain.Remove(req.Url.Domain.Length - mapping.Hook.Domain.Length);
+                            var parents = url.ParentDomains;
+                            url.ParentDomains = new string[parents.Length + 1];
+                            Array.Copy(parents, url.ParentDomains, parents.Length);
+                            url.ParentDomains[parents.Length] = mapping.Hook.Domain;
+                            url.Domain = url.Domain.Remove(url.Domain.Length - mapping.Hook.Domain.Length);
                         }
                         if (mapping.Hook.Path != null)
                         {
-                            var parents = req.Url.ParentPaths;
-                            req.Url.ParentPaths = new string[parents.Length + 1];
-                            Array.Copy(parents, req.Url.ParentPaths, parents.Length);
-                            req.Url.ParentPaths[parents.Length] = mapping.Hook.Path;
-                            req.Url.Path = req.Url.Path.Substring(mapping.Hook.Path.Length);
+                            var parents = url.ParentPaths;
+                            url.ParentPaths = new string[parents.Length + 1];
+                            Array.Copy(parents, url.ParentPaths, parents.Length);
+                            url.ParentPaths[parents.Length] = mapping.Hook.Path;
+                            url.Path = url.Path.Substring(mapping.Hook.Path.Length);
                         }
+                        req.Url = url;
                         var response = mapping.Handler(req);
                         if (response == null && !mapping.Skippable)
                             throw new InvalidOperationException("The handler of a non-skippable mapping returned null. Mapping: {0}".Fmt(mapping));
@@ -72,15 +75,16 @@ namespace RT.Servers
                     }))
                     .ToArray();
             }
-            var url = req.Url.ToUrl();
+
+            var originalUrl = req.Url;
             foreach (var handler in applicableHandlers)
             {
                 var response = handler();
                 if (response != null)
                     return response;
-                req.Url = url.ToUrl();
+                req.Url = originalUrl;
             }
-            throw new HttpNotFoundException(url.ToFull());
+            throw new HttpNotFoundException(originalUrl.ToFull());
         }
 
         private List<UrlMapping> _mappings = new List<UrlMapping>();

@@ -20,7 +20,7 @@ namespace RT.Servers
         private Dictionary<string, FileUpload> _fileUploads = new Dictionary<string, FileUpload>();
 
         /// <summary>Specifies the URL requested, including information about how this location is resolved by the handlers (if any).</summary>
-        public HttpUrl Url { get; internal set; }
+        public IHttpUrl Url { get; internal set; }
 
         /// <summary>Specifies the HTTP protocol version that was used for this request.</summary>
         public HttpProtocolVersion HttpVersion { get; internal set; }
@@ -50,7 +50,6 @@ namespace RT.Servers
         internal HttpRequest()
         {
             Headers = new HttpRequestHeaders();
-            Url = new HttpUrl();
         }
 
         /// <summary>Initialises this HTTP request from the specified HTTP request.</summary>

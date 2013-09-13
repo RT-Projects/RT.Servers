@@ -8,13 +8,22 @@ using RT.Util;
 
 namespace RT.Servers
 {
-    static class HttpHelper
+    /// <summary>Contains helper methods to deal with various things in HTTP.</summary>
+    public static class HttpHelper
     {
-        public static readonly string[] EmptyStrings = new string[0];
+        internal static readonly string[] EmptyStrings = new string[0];
 
-        public static List<KeyValuePair<string, string>> ParseQueryString(string s)
+        /// <summary>
+        ///     Parses the specified string as a URL query string. The string is expected to be either empty or start with a <c>'?'</c>.</summary>
+        /// <param name="input">
+        ///     The string to parse.</param>
+        /// <returns>
+        ///     A list containing the key/value pairs extracted from the string.</returns>
+        public static List<KeyValuePair<string, string>> ParseQueryString(string input)
         {
-            using (var rdr = new StringReader(s))
+            if (input == null)
+                throw new ArgumentNullException("input");
+            using (var rdr = new StringReader(input))
             {
                 var c = rdr.Read();
                 if (c == -1)
@@ -26,10 +35,10 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Decodes a URL-encoded stream of UTF-8 characters into key-value pairs.
-        /// </summary>
-        /// <param name="s">Stream to read from.</param>
-        public static List<KeyValuePair<string, string>> ParseQueryValueParameters(TextReader s)
+        ///     Decodes a URL-encoded stream of UTF-8 characters into key-value pairs.</summary>
+        /// <param name="s">
+        ///     Stream to read from.</param>
+        internal static List<KeyValuePair<string, string>> ParseQueryValueParameters(TextReader s)
         {
             if (s == null)
                 return new List<KeyValuePair<string, string>>(0);
@@ -94,14 +103,14 @@ namespace RT.Servers
             return result;
         }
 
-        public static string MakeQueryString(bool? hasQuery, IEnumerable<KeyValuePair<string, string>> query)
+        internal static string MakeQueryString(bool? hasQuery, IEnumerable<KeyValuePair<string, string>> query)
         {
             var sb = new StringBuilder(128);
             AppendQueryString(sb, hasQuery, query, true);
             return sb.ToString();
         }
 
-        public static void AppendQueryString(StringBuilder sb, bool? hasQuery, IEnumerable<KeyValuePair<string, string>> query, bool first)
+        internal static void AppendQueryString(StringBuilder sb, bool? hasQuery, IEnumerable<KeyValuePair<string, string>> query, bool first)
         {
             if (first && hasQuery == true)
             {
@@ -132,7 +141,7 @@ namespace RT.Servers
             }
         }
 
-        public static void AppendQueryString(StringBuilder sb, string queryStringFirst, bool first)
+        internal static void AppendQueryString(StringBuilder sb, string queryStringFirst, bool first)
         {
             if (first)
                 sb.Append(queryStringFirst);

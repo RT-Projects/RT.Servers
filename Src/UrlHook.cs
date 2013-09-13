@@ -11,7 +11,7 @@ namespace RT.Servers
     ///     Encapsulates properties of a URL that can be mapped to a request handler using <see cref="UrlMapping"/>. This
     ///     class is immutable.</summary>
     [ClassifyIgnoreIfDefault, XmlIgnoreIfDefault]
-    public sealed class UrlHook : IEquatable<UrlHook>, IComparable<UrlHook>, IXmlClassifyProcess, IClassifyXmlObjectProcessor
+    public sealed class UrlHook : IEquatable<UrlHook>, IComparable<UrlHook>, IXmlClassifyProcess, IClassifyObjectProcessor
     {
         /// <summary>
         ///     Gets a value indicating what domain name the hook applies to. Returns <c>null</c> if it applies to all
@@ -213,12 +213,10 @@ namespace RT.Servers
 
         // Check validity after deserialization
         void IXmlClassifyProcess.AfterXmlDeclassify() { checkValues(); }
-        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.AfterDeserialize(System.Xml.Linq.XElement element) { checkValues(); }
+        void IClassifyObjectProcessor.AfterDeserialize() { checkValues(); }
 
         // These do nothing
         void IXmlClassifyProcess.BeforeXmlClassify() { }
-        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.AfterSerialize(System.Xml.Linq.XElement element) { }
-        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.BeforeSerialize() { }
-        void IClassifyObjectProcessor<System.Xml.Linq.XElement>.BeforeDeserialize(System.Xml.Linq.XElement element) { }
+        void IClassifyObjectProcessor.BeforeSerialize() { }
     }
 }

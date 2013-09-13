@@ -188,7 +188,7 @@ namespace RT.Servers
                 if (value == null)
                     throw new ArgumentNullException("value");
                 _query = value;
-                _hasQuery = true;
+                _hasQuery = value.Any();
                 _queryString = null;
             }
         }

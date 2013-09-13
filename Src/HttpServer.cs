@@ -1004,7 +1004,7 @@ namespace RT.Servers
             private HttpResponse handleRequestAfterHeaders(out HttpRequest req)
             {
                 string[] lines = _headersSoFar.Split(new string[] { "\r\n" }, StringSplitOptions.None);
-                req = new HttpRequest() { SourceIP = Socket.RemoteEndPoint as IPEndPoint };
+                req = new HttpRequest { SourceIP = Socket.RemoteEndPoint as IPEndPoint };
                 req.ClientIPAddress = req.SourceIP.Address;
                 if (lines.Length < 2)
                     return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
@@ -1027,10 +1027,10 @@ namespace RT.Servers
                 else
                     return errorParsingRequest(req, HttpStatusCode._505_HttpVersionNotSupported);
 
-                req.Url.Https = _secure;
+                var url = new HttpUrl { Https = _secure };
 
                 int start = req.Method == HttpMethod.Get ? 4 : 5;
-                try { req.Url.SetLocation(line.Substring(start, line.Length - start - 9)); }
+                try { url.SetLocation(line.Substring(start, line.Length - start - 9)); }
                 catch { return errorParsingRequest(req, HttpStatusCode._400_BadRequest); }
 
                 // Parse the request headers
@@ -1058,12 +1058,12 @@ namespace RT.Servers
 
                 if (req.Headers.Host == null)
                     return errorParsingRequest(req, HttpStatusCode._400_BadRequest);
-                try { req.Url.SetHost(req.Headers.Host); }
+                try { url.SetHost(req.Headers.Host); }
                 catch { return errorParsingRequest(req, HttpStatusCode._400_BadRequest); }
 
-                req.Url.AssertComplete();
-
-                _server.Log.Info(1, "{0:X8} Request: {1} {2}".Fmt(_requestId, req.Method, req.Url.ToFull()));
+                url.AssertComplete();
+                _server.Log.Info(1, "{0:X8} Request: {1} {2}".Fmt(_requestId, req.Method, url.ToFull()));
+                req.Url = url;
 
                 if (req.Method == HttpMethod.Post)
                 {
