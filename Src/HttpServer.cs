@@ -349,7 +349,6 @@ namespace RT.Servers
             private HttpServer _server;
             private int _begunReceives = 0;
             private int _endedReceives = 0;
-            private Func<HttpRequest, HttpResponse> _handler;
             private int _requestId;
             private DateTime _requestStart;
             private bool _secure;
@@ -361,7 +360,6 @@ namespace RT.Servers
                 _requestId = Rnd.Next();
                 _requestStart = DateTime.UtcNow;
                 _server = server;
-                _handler = _server.Handler ?? (req => { throw new HttpNotFoundException(); });
                 _secure = secure;
 
                 _server.Log.Info(4, "{0:X8} Incoming connection from {1}".Fmt(_requestId, socket.RemoteEndPoint));
@@ -456,22 +454,22 @@ namespace RT.Servers
                 {
 #endif
 
-                KeepAliveActive = false;
-                Interlocked.Increment(ref _endedReceives);
+                    KeepAliveActive = false;
+                    Interlocked.Increment(ref _endedReceives);
 
-                try
-                {
-                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                }
-                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                    try
+                    {
+                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                    }
+                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                if (_bufferDataLength == 0)
-                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                else
-                    processHeaderData();
-                cleanupIfDone();
+                    if (_bufferDataLength == 0)
+                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    else
+                        processHeaderData();
+                    cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -541,51 +539,56 @@ namespace RT.Servers
 
                 try
                 {
-                    if (_server.PropagateExceptions)
+                    try
                     {
-                        // Catch only *HTTP*Exception
-                        try
+                        if (_server.PropagateExceptions)
                         {
-                            response = handleRequestAfterHeaders(out originalRequest);
-                            contentStream = response.GetContentStream();
+                            // Catch only *HTTP*Exception
+                            try
+                            {
+                                response = handleRequestAfterHeaders(out originalRequest);
+                                contentStream = response.GetContentStream();
+                            }
+                            catch (HttpException exInHandler)
+                            {
+                                response = exceptionToResponse(originalRequest, exInHandler);
+                                contentStream = response.GetContentStream();
+                            }
                         }
-                        catch (HttpException exInHandler)
+                        else
                         {
-                            response = exceptionToResponse(originalRequest, exInHandler);
-                            contentStream = response.GetContentStream();
+                            // Catch all exceptions
+                            try
+                            {
+                                response = handleRequestAfterHeaders(out originalRequest);
+                                contentStream = response.GetContentStream();
+                            }
+                            catch (Exception exInHandler)
+                            {
+                                response = exceptionToResponse(originalRequest, exInHandler);
+                                contentStream = response.GetContentStream();
+                            }
                         }
                     }
-                    else
+                    catch (SocketException) { Socket.Close(); return; }
+                    catch (IOException) { Socket.Close(); return; }
+                    catch (ObjectDisposedException) { return; }
+
+                    var headers = response.Headers;
+                    _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
+
+                    try { connectionKeepAlive = outputResponse(response, response.Status, headers, contentStream, response.UseGzip, originalRequest); }
+                    catch (SocketException) { Socket.Close(); return; }
+                    catch (IOException) { Socket.Close(); return; }
+                    catch (ObjectDisposedException) { return; }
+                    finally
                     {
-                        // Catch all exceptions
-                        try
-                        {
-                            response = handleRequestAfterHeaders(out originalRequest);
-                            contentStream = response.GetContentStream();
-                        }
-                        catch (Exception exInHandler)
-                        {
-                            response = exceptionToResponse(originalRequest, exInHandler);
-                            contentStream = response.GetContentStream();
-                        }
+                        if (contentStream != null)
+                            contentStream.Close();
                     }
                 }
-                catch (SocketException) { Socket.Close(); return; }
-                catch (IOException) { Socket.Close(); return; }
-                catch (ObjectDisposedException) { return; }
-
-                var headers = response.Headers;
-                _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
-
-                try { connectionKeepAlive = outputResponse(response, response.Status, headers, contentStream, response.UseGzip, originalRequest); }
-                catch (SocketException) { Socket.Close(); return; }
-                catch (IOException) { Socket.Close(); return; }
-                catch (ObjectDisposedException) { return; }
                 finally
                 {
-                    if (contentStream != null)
-                        contentStream.Close();
-
                     if (originalRequest != null && originalRequest.CleanUpCallback != null)
                         originalRequest.CleanUpCallback();
                 }
@@ -1078,7 +1081,10 @@ namespace RT.Servers
 
             private HttpResponse requestToResponse(HttpRequest req)
             {
-                var response = _handler(req);
+                var handler = _server.Handler;
+                if (handler == null)
+                    throw new InvalidOperationException("The handler is null.");
+                var response = handler(req);
                 if (response == null)
                     throw new InvalidOperationException("The response is null.");
                 return response;
