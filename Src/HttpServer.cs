@@ -1083,7 +1083,7 @@ namespace RT.Servers
             {
                 var handler = _server.Handler;
                 if (handler == null)
-                    throw new InvalidOperationException("The handler is null.");
+                    throw new HttpNotFoundException();
                 var response = handler(req);
                 if (response == null)
                     throw new InvalidOperationException("The response is null.");
