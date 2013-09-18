@@ -44,8 +44,13 @@ namespace RT.Servers
                     for (int i = 0; i < parameters.Length; i++)
                     {
                         var paramName = parameters[i].Name;
-                        try { arr[i] = ClassifyJson.Deserialize(parameters[i].ParameterType, json[paramName]); }
-                        catch (Exception e) { throw new AjaxInvalidParameterException(paramName, e); }
+                        if (parameters[i].IsOptional && !json.ContainsKey(paramName))
+                            arr[i] = parameters[i].DefaultValue;
+                        else
+                        {
+                            try { arr[i] = ClassifyJson.Deserialize(parameters[i].ParameterType, json[paramName]); }
+                            catch (Exception e) { throw new AjaxInvalidParameterException(paramName, e); }
+                        }
                     }
 
                     object result;
