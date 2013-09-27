@@ -245,8 +245,29 @@ namespace RT.Servers
                     catch (NullReferenceException) { if (_listeningSockets[socketIndex] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
                 // Handle this connection
-                if (socket != null)
+                if (socket == null)
+                    return;
+
+                if (PropagateExceptions)
                     HandleConnection(socket, secure);
+                else
+                {
+                    try
+                    {
+                        HandleConnection(socket, secure);
+                    }
+                    catch (Exception e)
+                    {
+                        try { socket.Close(); }
+                        catch { }
+                        try
+                        {
+                            _log.Error("{0} ({1})".Fmt(e.Message, e.GetType().FullName));
+                            _log.Error(e.StackTrace);
+                        }
+                        catch { }
+                    }
+                }
             }
 #if DEBUG
 ).Start();
