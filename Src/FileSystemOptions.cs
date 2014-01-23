@@ -18,11 +18,12 @@ namespace RT.Servers
         {
             switch (extension)
             {
-                // Plain text
+                // Plain text and data formats
                 case "txt": return "text/plain; charset=utf-8";
                 case "csv": return "text/csv; charset=utf-8";
+                case "json": return "application/json; charset=utf-8";
 
-                // HTML and dependancies
+                // HTML and dependencies
                 case "htm": return "text/html; charset=utf-8";
                 case "html": return "text/html; charset=utf-8";
                 case "css": return "text/css; charset=utf-8";

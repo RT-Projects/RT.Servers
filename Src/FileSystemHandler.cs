@@ -75,38 +75,44 @@ namespace RT.Servers
                 string piece = urlPieces[i].UrlUnescape();
                 if (piece == "..")
                     throw new HttpException(HttpStatusCode._403_Forbidden);
-                string nextSoFar = soFar + Path.DirectorySeparatorChar + piece;
-                string curPath = p + nextSoFar;
 
-                if (File.Exists(curPath))
+                var candidateFiles = new List<string> { piece };
+                if (piece.EndsWith(".htm"))
+                    candidateFiles.Add(piece + "l");
+                else if (piece.EndsWith(".html"))
+                    candidateFiles.Add(piece.Substring(0, piece.Length - 1));
+                else if (piece.EndsWith(".jpg"))
+                    candidateFiles.Add(piece.Substring(0, piece.Length - 1) + "eg");
+                else if (piece.EndsWith(".jpeg"))
+                    candidateFiles.Add(piece.Substring(0, piece.Length - 2) + "g");
+
+                foreach (var suitablePiece in candidateFiles)
                 {
-                    DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
-                    foreach (var fileInf in parentDir.GetFiles(piece))
+                    string nextSoFar = soFar + Path.DirectorySeparatorChar + suitablePiece;
+                    string curPath = p + nextSoFar;
+
+                    if (File.Exists(curPath))
                     {
-                        soFarUrl += "/" + fileInf.Name.UrlEscape();
-                        break;
+                        soFarUrl += "/" + new DirectoryInfo(p + soFar).GetFiles(suitablePiece)[0].Name.UrlEscape();
+
+                        if (request.Url.Path != soFarUrl)
+                            return HttpResponse.Redirect(request.Url.WithPath(soFarUrl));
+
+                        var opts = Options ?? DefaultOptions;
+                        return HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince);
                     }
-
-                    if (request.Url.Path != soFarUrl)
-                        return HttpResponse.Redirect(request.Url.WithPath(soFarUrl));
-
-                    var opts = Options ?? DefaultOptions;
-                    return HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince);
-                }
-                else if (Directory.Exists(curPath))
-                {
-                    DirectoryInfo parentDir = new DirectoryInfo(p + soFar);
-                    foreach (var dirInfo in parentDir.GetDirectories(piece))
+                    else if (Directory.Exists(curPath))
                     {
-                        soFarUrl += "/" + dirInfo.Name.UrlEscape();
-                        break;
+                        soFarUrl += "/" + new DirectoryInfo(p + soFar).GetDirectories(suitablePiece)[0].Name.UrlEscape();
+                        soFar = nextSoFar;
+                        goto foundOne;
                     }
                 }
-                else
-                {
-                    throw new HttpNotFoundException(request.Url.WithPathOnly(soFarUrl + "/" + piece).ToHref());
-                }
-                soFar = nextSoFar;
+
+                // The specified piece is neither a file nor a directory.
+                throw new HttpNotFoundException(request.Url.WithPathOnly(soFarUrl + "/" + piece).ToHref());
+
+                foundOne: ;
             }
 
             // If this point is reached, it’s a directory
