@@ -92,7 +92,7 @@ namespace RT.Servers
 
         private HttpResponse callApiFunction(HttpRequest req, TApi api)
         {
-            var apiFunctionName = req.Post["apiFunction"].Value;
+            var apiFunctionName = req.Url.Path.SubstringSafe(1);
             if (apiFunctionName == null || !_apiFunctions.ContainsKey(apiFunctionName))
                 throw new AjaxMethodNotFoundException(apiFunctionName);
             var result = _apiFunctions[apiFunctionName](req, api);
