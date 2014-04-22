@@ -44,6 +44,11 @@ namespace RT.Servers
                 case "svg": return "image/svg+xml";
                 case "ico": return "image/x-icon";
 
+                // Etc.
+                case "pdf": return "application/pdf";
+                case "mp3": return "audio/mpeg3";
+                case "ogg": return "audio/ogg";
+
                 default: return null;
             }
         }
