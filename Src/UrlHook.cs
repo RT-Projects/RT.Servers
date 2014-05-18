@@ -77,7 +77,7 @@ namespace RT.Servers
                 throw new ArgumentException("The Protocols parameter has an invalid value.");
             if (Domain == null && SpecificDomain)
                 throw new ArgumentException("If SpecificDomain is true, Domain must not be null.");
-            if (Domain != null && !Regex.IsMatch(Domain, @"^[-.a-z0-9]+$"))
+            if (Domain != null && !Regex.IsMatch(Domain, @"^[-.a-z0-9]*$"))
                 throw new ArgumentException("Domain must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
             if (Domain != null && (Domain.Contains(".-") || Domain.Contains("-.") || Domain.StartsWith("-") || Domain.EndsWith("-")))
                 throw new ArgumentException("Domain must not contain a Domain name beginning or ending with a hyphen (-).");
