@@ -78,13 +78,11 @@ namespace RT.Servers
             if (Domain == null && SpecificDomain)
                 throw new ArgumentException("If SpecificDomain is true, Domain must not be null.");
             if (Domain != null && !Regex.IsMatch(Domain, @"^[-.a-z0-9]*$"))
-                throw new ArgumentException("Domain must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.).");
+                throw new ArgumentException("Domain must not contain any characters other than lower-case a-z, 0-9, hypen (-) or period (.). If you wish to hook to every domain, set Domain to null.");
             if (Domain != null && (Domain.Contains(".-") || Domain.Contains("-.") || Domain.StartsWith("-") || Domain.EndsWith("-")))
-                throw new ArgumentException("Domain must not contain a Domain name beginning or ending with a hyphen (-).");
-            if (Domain != null && !SpecificDomain && Domain.StartsWith("."))
-                throw new ArgumentException(@"If SpecificDomain is false, Domain must not begin with a period (.). It will, however, be treated as a domain. For example, if you specify the Domain ""cream.net"", only domains ending in "".cream.net"" and the domain ""cream.net"" itself are matched. The domain ""scream.net"" would not be considered a match. If you wish to hook to every domain, set Domain to null.");
-            if (Domain != null && (Domain.StartsWith(".") || Domain.EndsWith(".")))
-                throw new ArgumentException(@"Domain must not begin or end with a period (.).");
+                throw new ArgumentException("Domain must not contain a subdomain name beginning or ending with a hyphen (-).");
+            if (Domain != null && Domain.StartsWith("."))
+                throw new ArgumentException(@"Domain must not begin with a period (.). If SpecificDomain is false, it will nonetheless be treated as a domain. For example, if you specify the Domain ""cream.net"", only domains ending in "".cream.net"" and the domain ""cream.net"" itself are matched. The domain ""scream.net"" would not be considered a match.");
 
             if (Path == null && SpecificPath)
                 throw new ArgumentException("If SpecificPath is true, Path must not be null.");
