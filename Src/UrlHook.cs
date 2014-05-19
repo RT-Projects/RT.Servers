@@ -41,7 +41,7 @@ namespace RT.Servers
         public Protocols Protocols { get; private set; }
 
         /// <summary>
-        ///     Initialises a new <see cref="UrlHook"/>.</summary>
+        ///     Initializes a new <see cref="UrlHook"/>.</summary>
         /// <param name="domain">
         ///     If <c>null</c>, the hook applies to all domain names. Otherwise, the hook applies to this domain and all
         ///     subdomains or to this domain only, depending on the value of <paramref name="specificDomain"/>.</param>
@@ -69,6 +69,28 @@ namespace RT.Servers
             checkValues();
         }
 
+        /// <summary>
+        ///     Initializes a new <see cref="UrlHook"/>.</summary>
+        /// <param name="pathOrDomain">
+        ///     Specifies the path or the domain this hook shall apply to.</param>
+        /// <param name="useDomain">
+        ///     Specifies whether <paramref name="pathOrDomain"/> is a path or a domain.</param>
+        /// <param name="specific">
+        ///     If <c>false</c>, the hook applies to all subpaths/subdomains of the path/domain specified by <paramref
+        ///     name="pathOrDomain"/>. Otherwise it applies to the specific path/domain only.</param>
+        /// <param name="protocols">
+        ///     Specifies the protocol(s) to hook to. Default is all supported protocols.</param>
+        public UrlHook(string pathOrDomain, bool useDomain, bool specific = false, Protocols protocols = Protocols.All)
+            : this(
+                domain: useDomain ? (pathOrDomain.Length == 0 ? "" : pathOrDomain + ".") : null,
+                path: useDomain ? null : (pathOrDomain.Length == 0 ? "" : "/" + pathOrDomain),
+                specificDomain: useDomain && specific,
+                specificPath: !useDomain && specific,
+                protocols: protocols
+            )
+        {
+        }
+
         private void checkValues()
         {
             if (Protocols == Protocols.None)
@@ -86,13 +108,11 @@ namespace RT.Servers
 
             if (Path == null && SpecificPath)
                 throw new ArgumentException("If SpecificPath is true, Path must not be null.");
-            if (Path != null && !Regex.IsMatch(Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]*$"))
-                throw new ArgumentException("Path must not contain any characters that are invalid in URLs, or the question mark (?) character, and it must begin with a slash (/).");
+            if (Path != null && Path != "" && !Regex.IsMatch(Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]*$"))
+                throw new ArgumentException("Path must be empty or begin with a slash (/) and must not contain any characters that are invalid in URLs or the question mark (?) character.");
             if (Path != null && !SpecificPath && Path.EndsWith("/"))
                 throw new ArgumentException(@"If SpecificPath is false, Path must not end with a slash (/). It will, however, be treated as a directory. For example, if you specify the path ""/files"", only URLs beginning with ""/files/"" and the URL ""/files"" itself are matched. The URL ""/fileshare"" would not be considered a match. If you wish to hook to the root directory of the domain, set Path to null.");
 
-            if (Path != null && !Path.StartsWith("/"))
-                throw new ArgumentException("Path must be null or begin with the slash character (\"/\").");
             if (Port != null && (Port.Value < 1 || Port.Value > 65535))
                 throw new ArgumentException("Port must be null or contain an integer in the range 1 to 65535.");
         }

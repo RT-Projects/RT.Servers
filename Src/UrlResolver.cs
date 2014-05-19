@@ -47,7 +47,7 @@ namespace RT.Servers
                         ((mp.Hook.Protocols.HasFlag(Protocols.Http) && !req.Url.Https) || (mp.Hook.Protocols.HasFlag(Protocols.Https) && req.Url.Https)) &&
                         (mp.Hook.Port == null || mp.Hook.Port.Value == req.Url.Port) &&
                         (mp.Hook.Domain == null || mp.Hook.Domain == req.Url.Domain || (!mp.Hook.SpecificDomain && req.Url.Domain.EndsWith("." + mp.Hook.Domain))) &&
-                        (mp.Hook.Path == null || mp.Hook.Path == req.Url.Path || (!mp.Hook.SpecificPath && req.Url.Path.StartsWith(mp.Hook.Path + "/"))))
+                        (mp.Hook.Path == null || mp.Hook.Path == req.Url.Path || (mp.Hook.Path == "" && req.Url.Path == "/") || (!mp.Hook.SpecificPath && req.Url.Path.StartsWith(mp.Hook.Path + "/"))))
                     .Select(mapping => Ut.Lambda(() =>
                     {
                         var url = req.Url.ToUrl();
@@ -57,7 +57,7 @@ namespace RT.Servers
                             url.ParentDomains = new string[parents.Length + 1];
                             Array.Copy(parents, url.ParentDomains, parents.Length);
                             url.ParentDomains[parents.Length] = mapping.Hook.Domain;
-                            url.Domain = url.Domain.Remove(url.Domain.Length - mapping.Hook.Domain.Length);
+                            url.Domain = url.Domain.Substring(0, url.Domain.Length - mapping.Hook.Domain.Length);
                         }
                         if (mapping.Hook.Path != null)
                         {

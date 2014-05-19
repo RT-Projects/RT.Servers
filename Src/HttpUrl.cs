@@ -13,61 +13,76 @@ namespace RT.Servers
         /// <summary>Specifies whether the protocol used is HTTPS (secure) or not.</summary>
         bool Https { get; }
 
-        /// <summary>Specifies the port.</summary>
-        /// <remarks>The default for HTTP is 80. The default for HTTPS is 443.</remarks>
+        /// <summary>
+        ///     Specifies the port.</summary>
+        /// <remarks>
+        ///     The default for HTTP is 80. The default for HTTPS is 443.</remarks>
         int Port { get; }
 
         /// <summary>
-        /// Specifies parts of the domain which were resolved via a compatible URL resolver. Must not be modified directly. Do not use this
-        /// member directly; instead use a relevant extension method to manipulate the URL (such as <see cref="IHttpUrlExtensions.WithDomainParent"/>).
-        /// </summary>
+        ///     Specifies parts of the domain which were resolved via a compatible URL resolver. Must not be modified
+        ///     directly. Do not use this member directly; instead use a relevant extension method to manipulate the URL (such
+        ///     as <see cref="IHttpUrlExtensions.WithDomainParent"/>).</summary>
         string[] ParentDomains { get; }
 
         /// <summary>
-        /// Specifies the domain part of the URL – that is, the part that comes before the first slash (or, if a URL resolver is used, the part that comes
-        /// before the hook domain). The protocol is excluded. Whenever not empty, Domain always ends with a dot unless it contains the full domain
-        /// up to the TLD. Manipulate this part using <see cref="IHttpUrlExtensions.WithDomain"/>.
-        /// </summary>
+        ///     Specifies the domain part of the URL – that is, the part that comes before the first slash (or, if a URL
+        ///     resolver is used, the part that comes before the hook domain). The protocol is excluded. Whenever not empty,
+        ///     Domain always ends with a dot unless it contains the full domain up to the TLD. Manipulate this part using
+        ///     <see cref="IHttpUrlExtensions.WithDomain"/>.</summary>
         string Domain { get; }
 
         /// <summary>
-        /// Specifies parts of the URL path which were resolved via a compatible URL resolver. Must not be modified directly. Do not use this
-        /// member directly; instead use a relevant extension method to manipulate the URL (such as <see cref="IHttpUrlExtensions.WithPathParent"/>).
-        /// </summary>
+        ///     Specifies parts of the URL path which were resolved via a compatible URL resolver. Must not be modified
+        ///     directly. Do not use this member directly; instead use a relevant extension method to manipulate the URL (such
+        ///     as <see cref="IHttpUrlExtensions.WithPathParent"/>).</summary>
         string[] ParentPaths { get; }
 
         /// <summary>
-        /// Specifies the path part of the URL – that is, the part that comes after the domain (or, if a URL resolver is used, the part that comes
-        /// after the hook path). The query string is excluded. Whenever not empty, Path always begins with a forward slash. Manipulate this
-        /// part using <see cref="IHttpUrlExtensions.WithPath"/> or <see cref="IHttpUrlExtensions.WithPathOnly"/>.
-        /// </summary>
+        ///     Specifies the path part of the URL – that is, the part that comes after the domain (or, if a URL resolver is
+        ///     used, the part that comes after the hook path). The query string is excluded. Whenever not empty, Path always
+        ///     begins with a forward slash. Manipulate this part using <see cref="IHttpUrlExtensions.WithPath"/> or <see
+        ///     cref="IHttpUrlExtensions.WithPathOnly"/>.</summary>
         string Path { get; }
 
-        /// <summary>Specifies whether the path is followed by a query string (the part that begins with a <c>?</c> character).</summary>
+        /// <summary>
+        ///     Specifies whether the path is followed by a query string (the part that begins with a <c>?</c> character).</summary>
         bool HasQuery { get; }
 
-        /// <summary>Enumerates the query parameters as name/value pairs. Implementors must return an
-        /// empty sequence if no query string is present, not null.</summary>
+        /// <summary>
+        ///     Enumerates the query parameters as name/value pairs. Implementors must return an empty sequence if no query
+        ///     string is present, not null.</summary>
         IEnumerable<KeyValuePair<string, string>> Query { get; }
 
-        /// <summary>Gets the query string including the question mark character (<c>?</c>).
-        /// Implementors must return an empty string if no query string is present, not null.</summary>
+        /// <summary>
+        ///     Gets the query string including the question mark character (<c>?</c>). Implementors must return an empty
+        ///     string if no query string is present, not null.</summary>
         string QueryString { get; }
 
-        /// <summary>Gets the first query-string value with the specified name, or null if no query parameter uses the specified name.</summary>
-        /// <param name="name">The name (key) by which a query parameter is identified.</param>
-        /// <returns>The value of the first matching query parameter or null.</returns>
+        /// <summary>
+        ///     Gets the first query-string value with the specified name, or null if no query parameter uses the specified
+        ///     name.</summary>
+        /// <param name="name">
+        ///     The name (key) by which a query parameter is identified.</param>
+        /// <returns>
+        ///     The value of the first matching query parameter or null.</returns>
         string this[string name] { get; }
 
-        /// <summary>Enumerates the values of the query-string parameters with the specified name (key).
-        /// Implementors must return an empty sequence (rather than null) if no parameter has the specified name.</summary>
-        /// <param name="name">The name (key) by which query parameters are identified.</param>
-        /// <returns>A collection containing the values of the matching query-string parameters.</returns>
+        /// <summary>
+        ///     Enumerates the values of the query-string parameters with the specified name (key). Implementors must return
+        ///     an empty sequence (rather than null) if no parameter has the specified name.</summary>
+        /// <param name="name">
+        ///     The name (key) by which query parameters are identified.</param>
+        /// <returns>
+        ///     A collection containing the values of the matching query-string parameters.</returns>
         IEnumerable<string> QueryValues(string name);
 
-        /// <summary>Adds the query string to the specified <c>StringBuilder</c> instance.</summary>
-        /// <param name="sb">An instance of <c>StringBuilder</c> to which the query string is added.</param>
-        /// <param name="first">True to begin with a question mark (<c>?</c>), false to begin with an ampersand (<c>&amp;</c>).</param>
+        /// <summary>
+        ///     Adds the query string to the specified <c>StringBuilder</c> instance.</summary>
+        /// <param name="sb">
+        ///     An instance of <c>StringBuilder</c> to which the query string is added.</param>
+        /// <param name="first">
+        ///     True to begin with a question mark (<c>?</c>), false to begin with an ampersand (<c>&amp;</c>).</param>
         void AppendQueryString(StringBuilder sb, bool first);
     }
 
@@ -95,19 +110,26 @@ namespace RT.Servers
         /// <summary>Constructor.</summary>
         internal HttpUrl() { }
 
-        /// <summary>Constructor.</summary>
-        /// <param name="httpHost">The value of the HTTP "Host" header.</param>
-        /// <param name="httpLocation">The value of the HTTP resource location field.</param>
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="httpHost">
+        ///     The value of the HTTP "Host" header.</param>
+        /// <param name="httpLocation">
+        ///     The value of the HTTP resource location field.</param>
         public HttpUrl(string httpHost, string httpLocation)
         {
             SetHost(httpHost);
             SetLocation(httpLocation);
         }
 
-        /// <summary>Constructor.</summary>
-        /// <param name="https">Whether this is an HTTPS URL.</param>
-        /// <param name="httpHost">The value of the HTTP "Host" header.</param>
-        /// <param name="httpLocation">The value of the HTTP resource location field.</param>
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="https">
+        ///     Whether this is an HTTPS URL.</param>
+        /// <param name="httpHost">
+        ///     The value of the HTTP "Host" header.</param>
+        /// <param name="httpLocation">
+        ///     The value of the HTTP resource location field.</param>
         public HttpUrl(bool https, string httpHost, string httpLocation)
         {
             Https = https;
@@ -115,8 +137,10 @@ namespace RT.Servers
             SetLocation(httpLocation);
         }
 
-        /// <summary>Creates a new instance based on the specified other URL.</summary>
-        /// <param name="source">URL to copy information from.</param>
+        /// <summary>
+        ///     Creates a new instance based on the specified other URL.</summary>
+        /// <param name="source">
+        ///     URL to copy information from.</param>
         public HttpUrl(IHttpUrl source)
         {
             if (source == null)
@@ -294,9 +318,11 @@ namespace RT.Servers
             return new HttpUrl(url);
         }
 
-        /// <summary>Returns the full path and query string of the specified URL (the part that follows the domain).</summary>
-        /// <remarks>This is intended to be used as <c>href</c> attribute values in <c>&lt;a&gt;</c> tags
-        /// as it works well for an absolute path within the same domain.</remarks>
+        /// <summary>
+        ///     Returns the full path and query string of the specified URL (the part that follows the domain).</summary>
+        /// <remarks>
+        ///     This is intended to be used as <c>href</c> attribute values in <c>&lt;a&gt;</c> tags as it works well for an
+        ///     absolute path within the same domain.</remarks>
         public static string ToHref(this IHttpUrl url)
         {
             var sb = new StringBuilder(128);
@@ -329,19 +355,32 @@ namespace RT.Servers
             return sb.ToString();
         }
 
-        /// <summary>Returns a new URL consisting of the specified URL but with the protocol changed.</summary>
-        /// <param name="url">Source URL.</param>
-        /// <param name="https">True to change the protocol to https; otherwise http.</param>
+        /// <summary>
+        ///     Returns a new URL consisting of the specified URL but with the protocol changed.</summary>
+        /// <param name="url">
+        ///     Source URL.</param>
+        /// <param name="https">
+        ///     True to change the protocol to https; otherwise http.</param>
         public static IHttpUrl WithHttps(this IHttpUrl url, bool https) { return new UrlWithHttps(url, https); }
-        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Domain"/> changed. The domain must be empty or end with a dot, unless it is at the TLD level, in which case it must be non-empty and not end with a dot.</summary>
+        /// <summary>
+        ///     Returns a new URL with the <see cref="IHttpUrl.Domain"/> changed. The domain must be empty or end with a dot,
+        ///     unless it is at the TLD level, in which case it must be non-empty and not end with a dot.</summary>
         public static IHttpUrl WithDomain(this IHttpUrl url, string domain) { return new UrlWithDomain(url, domain); }
-        /// <summary>Returns a new URL such that the <see cref="IHttpUrl.Domain"/> includes the part matched by the most recent URL resolver.</summary>
+        /// <summary>
+        ///     Returns a new URL such that the <see cref="IHttpUrl.Domain"/> includes the part matched by the most recent URL
+        ///     resolver.</summary>
         public static IHttpUrl WithDomainParent(this IHttpUrl url) { return new UrlWithDomainParent(url); }
-        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path"/> changed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
+        /// <summary>
+        ///     Returns a new URL with the <see cref="IHttpUrl.Path"/> changed. The path must be empty or begin with a forward
+        ///     slash, and must not contain a query string.</summary>
         public static IHttpUrl WithPath(this IHttpUrl url, string path) { return new UrlWithPath(url, path); }
-        /// <summary>Returns a new URL with the <see cref="IHttpUrl.Path"/> changed and the query string removed. The path must be empty or begin with a forward slash, and must not contain a query string.</summary>
+        /// <summary>
+        ///     Returns a new URL with the <see cref="IHttpUrl.Path"/> changed and the query string removed. The path must be
+        ///     empty or begin with a forward slash, and must not contain a query string.</summary>
         public static IHttpUrl WithPathOnly(this IHttpUrl url, string path) { return new UrlWithPathOnly(url, path); }
-        /// <summary>Returns a new URL such that the <see cref="IHttpUrl.Path"/> includes the part matched by the most recent URL resolver.</summary>
+        /// <summary>
+        ///     Returns a new URL such that the <see cref="IHttpUrl.Path"/> includes the part matched by the most recent URL
+        ///     resolver.</summary>
         public static IHttpUrl WithPathParent(this IHttpUrl url) { return new UrlWithPathParent(url); }
         /// <summary>Returns a new URL consisting of the specified URL without the query string.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url) { return new UrlWithoutQueryAll(url); }
@@ -353,16 +392,89 @@ namespace RT.Servers
         public static IHttpUrl WithoutQuery(this IHttpUrl url, IEnumerable<string> names) { return new UrlWithoutQueryMultiple(url, names); }
         /// <summary>Returns a new URL consisting of the specified URL with the specified query parameters removed.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url, HashSet<string> names) { return new UrlWithoutQueryMultiple(url, names); }
-        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter replaced with the specified value.</summary>
+        /// <summary>
+        ///     Returns a new URL consisting of the specified URL with the specified query parameter replaced with the
+        ///     specified value.</summary>
         public static IHttpUrl WithQuery(this IHttpUrl url, string name, string value) { return new UrlWithQuerySingle(url, name, value); }
-        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter replaced with the specified set of values.</summary>
+        /// <summary>
+        ///     Returns a new URL consisting of the specified URL with the specified query parameter replaced with the
+        ///     specified set of values.</summary>
         public static IHttpUrl WithQuery(this IHttpUrl url, string name, IEnumerable<string> values) { return new UrlWithQueryMultiple(url, name, values); }
-        /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter replaced with the specified set of values.</summary>
+        /// <summary>
+        ///     Returns a new URL consisting of the specified URL with the specified query parameter replaced with the
+        ///     specified set of values.</summary>
         public static IHttpUrl WithQuery(this IHttpUrl url, string name, params string[] values) { return new UrlWithQueryMultiple(url, name, values); }
-        /// <summary>Returns a new URL consisting of the specified URL but containing only those query parameters whose name matches the specified predicate.</summary>
+        /// <summary>
+        ///     Returns a new URL consisting of the specified URL but containing only those query parameters whose name
+        ///     matches the specified predicate.</summary>
         public static IHttpUrl Where(this IHttpUrl url, Func<string, bool> predicate) { return new UrlWithQueryWhere(url, predicate); }
-        /// <summary>Returns a new URL consisting of the specified URL but containing only those query parameters whose name/value pair matches the specified predicate.</summary>
+        /// <summary>
+        ///     Returns a new URL consisting of the specified URL but containing only those query parameters whose name/value
+        ///     pair matches the specified predicate.</summary>
         public static IHttpUrl Where(this IHttpUrl url, Func<string, string, bool> nameValuePredicate) { return new UrlWithQueryWhereValues(url, nameValuePredicate); }
+
+        /// <summary>
+        ///     Changes a URL’s subpath or subdomain.</summary>
+        /// <param name="url">
+        ///     The URL to modify.</param>
+        /// <param name="pathOrSubdomain">
+        ///     The new subpath or subdomain, without any slashes or dots.</param>
+        /// <param name="useSubdomain">
+        ///     If <c>true</c>, the subdomain is changed; if <c>false</c> (default), the path is changed.</param>
+        /// <param name="retainQueryParams">
+        ///     If <c>true</c>, the query parameters are retained; if <c>false</c> (default), they are removed.</param>
+        /// <returns>
+        ///     The new URL.</returns>
+        public static IHttpUrl With(this IHttpUrl url, string pathOrSubdomain, bool useSubdomain = false, bool retainQueryParams = false)
+        {
+            return WithParents(url, 0, pathOrSubdomain, useSubdomain, retainQueryParams);
+        }
+
+        /// <summary>
+        ///     Changes a URL’s subpath or subdomain relative to the most recent URL resolver.</summary>
+        /// <param name="url">
+        ///     The URL to modify.</param>
+        /// <param name="pathOrSubdomain">
+        ///     The new subpath or subdomain, without any slashes or dots.</param>
+        /// <param name="useSubdomain">
+        ///     If <c>true</c>, the subdomain is changed; if <c>false</c> (default), the path is changed.</param>
+        /// <param name="retainQueryParams">
+        ///     If <c>true</c>, the query parameters are retained; if <c>false</c> (default), they are removed.</param>
+        /// <returns>
+        ///     The new URL.</returns>
+        public static IHttpUrl WithParent(this IHttpUrl url, string pathOrSubdomain, bool useSubdomain = false, bool retainQueryParams = false)
+        {
+            return WithParents(url, 1, pathOrSubdomain, useSubdomain, retainQueryParams);
+        }
+
+        /// <summary>
+        ///     Changes a URL’s subpath or subdomain relative to the specified number of URL resolvers.</summary>
+        /// <param name="url">
+        ///     The URL to modify.</param>
+        /// <param name="levels">
+        ///     The number of URL resolvers to rewind.</param>
+        /// <param name="pathOrSubdomain">
+        ///     The new subpath or subdomain, without any slashes or dots.</param>
+        /// <param name="useSubdomain">
+        ///     If <c>true</c>, the subdomain is changed; if <c>false</c> (default), the path is changed.</param>
+        /// <param name="retainQueryParams">
+        ///     If <c>true</c>, the query parameters are retained; if <c>false</c> (default), they are removed.</param>
+        /// <returns>
+        ///     The new URL.</returns>
+        public static IHttpUrl WithParents(this IHttpUrl url, int levels, string pathOrSubdomain, bool useSubdomain = false, bool retainQueryParams = false)
+        {
+            pathOrSubdomain = pathOrSubdomain.Length == 0 ? "" : useSubdomain ? pathOrSubdomain + "." : "/" + pathOrSubdomain;
+            for (int i = 0; i < levels; i++)
+                url = useSubdomain ? url.WithDomainParent() : url.WithPathParent();
+            return
+                useSubdomain
+                    ? retainQueryParams
+                        ? url.WithDomain(pathOrSubdomain)
+                        : url.WithDomain(pathOrSubdomain).WithoutQuery()
+                : retainQueryParams
+                    ? url.WithPath(pathOrSubdomain)
+                    : url.WithPathOnly(pathOrSubdomain);
+        }
     }
 
     #region IHttpUrl manipulator classes
@@ -735,4 +847,3 @@ namespace RT.Servers
 
     #endregion
 }
-
