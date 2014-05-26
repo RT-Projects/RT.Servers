@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using RT.TagSoup;
 using RT.Util.ExtensionMethods;
-using RT.Util.Xml;
+using RT.Util.Serialization;
 
 namespace RT.Servers
 {
@@ -73,7 +73,7 @@ namespace RT.Servers
             {
                 AuthUsers users;
                 lock (_lock)
-                    users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath);
+                    users = ClassifyXml.DeserializeFile<AuthUsers>(_usersPath);
                 var user = users.Users.FirstOrDefault(u => u.Username == username && verifyHash(password, u.PasswordHash));
                 if (user != null)
                 {
@@ -84,7 +84,7 @@ namespace RT.Servers
             }
             else
                 lock (_lock)
-                    XmlClassify.SaveObjectToXmlFile<AuthUsers>(new AuthUsers(), _usersPath);
+                    ClassifyXml.SerializeToFile<AuthUsers>(new AuthUsers(), _usersPath);
 
             // Login failed.
             return loginForm(returnTo, true, username, password, req.Url);
@@ -163,7 +163,7 @@ namespace RT.Servers
             lock (_lock)
             {
                 AuthUsers users;
-                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
+                try { users = ClassifyXml.DeserializeFile<AuthUsers>(_usersPath); }
                 catch { users = null; }
                 if (users == null)
                     users = new AuthUsers();
@@ -176,7 +176,7 @@ namespace RT.Servers
                     return changePasswordForm(loggedInUser, returnTo, false, true, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
 
                 user.PasswordHash = createHash(newpassword);
-                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
+                ClassifyXml.SerializeToFile<AuthUsers>(users, _usersPath);
                 return HttpResponse.Redirect(returnTo ?? _defaultReturnTo(req.Url));
             }
         }
@@ -215,7 +215,7 @@ namespace RT.Servers
             AuthUsers users;
             lock (_lock)
             {
-                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
+                try { users = ClassifyXml.DeserializeFile<AuthUsers>(_usersPath); }
                 catch { users = null; }
                 if (users == null)
                     users = new AuthUsers();
@@ -244,7 +244,7 @@ namespace RT.Servers
                     return createUserForm(returnTo, false, true, username, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
 
                 users.Users.Add(new AuthUser { Username = username, PasswordHash = createHash(newpassword) });
-                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
+                ClassifyXml.SerializeToFile<AuthUsers>(users, _usersPath);
                 return HttpResponse.Redirect(returnTo ?? _defaultReturnTo(req.Url));
             }
         }
@@ -263,7 +263,7 @@ namespace RT.Servers
             lock (_lock)
             {
                 AuthUsers users;
-                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
+                try { users = ClassifyXml.DeserializeFile<AuthUsers>(_usersPath); }
                 catch { users = null; }
                 if (users == null)
                     users = new AuthUsers();
@@ -273,7 +273,7 @@ namespace RT.Servers
                     throw new InvalidOperationException("The specified user already exists.");
 
                 users.Users.Add(new AuthUser { Username = username, PasswordHash = createHash(password) });
-                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
+                ClassifyXml.SerializeToFile<AuthUsers>(users, _usersPath);
             }
         }
 
@@ -310,7 +310,7 @@ namespace RT.Servers
             lock (_lock)
             {
                 AuthUsers users;
-                try { users = XmlClassify.LoadObjectFromXmlFile<AuthUsers>(_usersPath); }
+                try { users = ClassifyXml.DeserializeFile<AuthUsers>(_usersPath); }
                 catch (FileNotFoundException) { users = new AuthUsers(); }
 
                 bool created = false;
@@ -323,7 +323,7 @@ namespace RT.Servers
                 }
                 user.PasswordHash = createHash(password);
 
-                XmlClassify.SaveObjectToXmlFile<AuthUsers>(users, _usersPath);
+                ClassifyXml.SerializeToFile<AuthUsers>(users, _usersPath);
                 return created;
             }
         }

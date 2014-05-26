@@ -10,8 +10,8 @@ namespace RT.Servers
     /// <summary>
     ///     Encapsulates properties of a URL that can be mapped to a request handler using <see cref="UrlMapping"/>. This
     ///     class is immutable.</summary>
-    [ClassifyIgnoreIfDefault, XmlIgnoreIfDefault]
-    public sealed class UrlHook : IEquatable<UrlHook>, IComparable<UrlHook>, IXmlClassifyProcess, IClassifyObjectProcessor
+    [ClassifyIgnoreIfDefault]
+    public sealed class UrlHook : IEquatable<UrlHook>, IComparable<UrlHook>, IClassifyObjectProcessor
     {
         /// <summary>
         ///     Gets a value indicating what domain name the hook applies to. Returns <c>null</c> if it applies to all
@@ -230,11 +230,9 @@ namespace RT.Servers
         }
 
         // Check validity after deserialization
-        void IXmlClassifyProcess.AfterXmlDeclassify() { checkValues(); }
         void IClassifyObjectProcessor.AfterDeserialize() { checkValues(); }
 
         // These do nothing
-        void IXmlClassifyProcess.BeforeXmlClassify() { }
         void IClassifyObjectProcessor.BeforeSerialize() { }
     }
 }

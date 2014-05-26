@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using RT.Util;
 using RT.Util.ExtensionMethods;
+using RT.Util.Serialization;
 using RT.Util.Xml;
 
 namespace RT.Servers
@@ -54,24 +55,24 @@ namespace RT.Servers
         ///     True if a new session was created, or any of the session variables were modified. Derived classes should set this
         ///     to true whenever a session variable is modified. Set this to false to discard all session changes (otherwise they
         ///     will be saved upon session <see cref="CleanUp"/>).</summary>
-        [XmlIgnore]
+        [ClassifyIgnore]
         public bool SessionModified { get; set; }
 
         /// <summary>
         ///     True if a new session was created, or any of the cookie parameters were modified (such as <see
         ///     cref="CookieExpires"/>).</summary>
-        [XmlIgnore]
+        [ClassifyIgnore]
         public bool CookieModified { get; set; }
 
         /// <summary>Controls what happens to the session data when the request handler returns.</summary>
-        [XmlIgnore]
+        [ClassifyIgnore]
         public SessionAction Action { get; set; }
 
-        [XmlIgnore]
+        [ClassifyIgnore]
         private bool _hadSession, _hadCookie;
 
         /// <summary>Contains the session ID, which is also the cookie value.</summary>
-        [XmlIgnore]
+        [ClassifyIgnore]
         public string SessionID { get; private set; }
 
         /// <summary>
