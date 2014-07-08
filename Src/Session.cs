@@ -9,8 +9,7 @@ using RT.Util.Xml;
 namespace RT.Servers
 {
     /// <summary>
-    ///     Provides functionality to track user sessions in HTTP requests using cookies. See remarks for usage
-    ///     guidelines.</summary>
+    ///     Provides functionality to track user sessions in HTTP requests using cookies. See remarks for usage guidelines.</summary>
     /// <remarks>
     ///     <para>
     ///         Intended use is as follows:</para>
@@ -39,22 +38,21 @@ namespace RT.Servers
     ///             Within your request handler, you can make arbitrary changes to the session object, which will be persisted
     ///             automatically.</description></item>
     ///         <item><description>
-    ///             If you use <see cref="EnableManual"/>, <see cref="SessionModified"/> must be set to <c>true</c> whenever any
-    ///             value in the session object is changed.</description></item>
+    ///             If you use <see cref="EnableManual"/>, <see cref="SessionModified"/> must be set to <c>true</c> whenever
+    ///             any value in the session object is changed.</description></item>
     ///         <item><description>
     ///             If you use <see cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>, the session
-    ///             object must implement <see cref="ISessionEquatable{TSession}"/>. In this case, modifications to the session
-    ///             object are detected by taking a clone of the session object, then running the request handler, and then
-    ///             comparing the two.</description></item>
+    ///             object must implement <see cref="ISessionEquatable{TSession}"/>. In this case, modifications to the
+    ///             session object are detected by taking a clone of the session object, then running the request handler, and
+    ///             then comparing the two.</description></item>
     ///         <item><description>
-    ///             You can set <see cref="Action"/> if you want the session reverted or
-    ///             deleted.</description></item></list></remarks>
+    ///             You can set <see cref="Action"/> if you want the session reverted or deleted.</description></item></list></remarks>
     public abstract class Session
     {
         /// <summary>
-        ///     True if a new session was created, or any of the session variables were modified. Derived classes should set this
-        ///     to true whenever a session variable is modified. Set this to false to discard all session changes (otherwise they
-        ///     will be saved upon session <see cref="CleanUp"/>).</summary>
+        ///     True if a new session was created, or any of the session variables were modified. Derived classes should set
+        ///     this to true whenever a session variable is modified. Set this to false to discard all session changes
+        ///     (otherwise they will be saved upon session <see cref="CleanUp"/>).</summary>
         [ClassifyIgnore]
         public bool SessionModified { get; set; }
 
@@ -95,8 +93,8 @@ namespace RT.Servers
         ///     ID.</summary>
         /// <remarks>
         ///     <para>
-        ///         If the property value is variable, ensure that <see cref="CookieModified"/> is set to true before the request
-        ///         handler returns.</para>
+        ///         If the property value is variable, ensure that <see cref="CookieModified"/> is set to true before the
+        ///         request handler returns.</para>
         ///     <para>
         ///         The default implementation returns <c>DateTime.MaxValue</c>.</para></remarks>
         protected virtual DateTime CookieExpires { get { return DateTime.MaxValue; } }
@@ -113,16 +111,16 @@ namespace RT.Servers
         ///     session as identified by <see cref="SessionID"/> is found in the session store, returns false.</summary>
         protected abstract bool ReadSession();
         /// <summary>
-        ///     Initialises a new session whenever an existing one couldn't be read. Must not save the session; only initialise
-        ///     any session variables. The default implementation does nothing, so derived classes don't need to call
-        ///     it.</summary>
+        ///     Initialises a new session whenever an existing one couldn't be read. Must not save the session; only
+        ///     initialise any session variables. The default implementation does nothing, so derived classes don't need to
+        ///     call it.</summary>
         protected virtual void NewSession() { }
         /// <summary>When overridden in a derived class, saves this instance to the session store.</summary>
         protected abstract void SaveSession();
         /// <summary>
-        ///     When overridden in a derived class, deletes this session (identified by <see cref="SessionID"/>) from the session
-        ///     store. This method is not called if <see cref="ReadSession"/> returned false, indicating that no session was
-        ///     available.</summary>
+        ///     When overridden in a derived class, deletes this session (identified by <see cref="SessionID"/>) from the
+        ///     session store. This method is not called if <see cref="ReadSession"/> returned false, indicating that no
+        ///     session was available.</summary>
         protected abstract void DeleteSession();
 
         /// <summary>
@@ -168,8 +166,8 @@ namespace RT.Servers
         }
 
         /// <summary>
-        ///     Saves/deletes the session and/or sets the session cookie, as appropriate. Only call this if you are not using <see
-        ///     cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>, <see
+        ///     Saves/deletes the session and/or sets the session cookie, as appropriate. Only call this if you are not using
+        ///     <see cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>, <see
         ///     cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse}, Func{TSession})"/> or <see
         ///     cref="EnableManual"/>, as that already calls it.</summary>
         /// <param name="response">
@@ -232,9 +230,9 @@ namespace RT.Servers
         /// <param name="handler">
         ///     HTTP request handler code that can make free use of a session variable.</param>
         /// <param name="constructor">
-        ///     A delegate that can be used to create an instance of the session class. (If your session class has a parameterless
-        ///     constructor, consider using <see cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
-        ///     instead.)</param>
+        ///     A delegate that can be used to create an instance of the session class. (If your session class has a
+        ///     parameterless constructor, consider using <see cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession,
+        ///     HttpResponse})"/> instead.)</param>
         /// <remarks>
         ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
         /// <seealso cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
@@ -277,15 +275,20 @@ namespace RT.Servers
         /// <summary>Causes changes to the session to be saved.</summary>
         Save,
 
-        /// <summary>Cause any changes to the session to be ignored. The next request will receive the previous state of the session.</summary>
+        /// <summary>
+        ///     Cause any changes to the session to be ignored. The next request will receive the previous state of the
+        ///     session.</summary>
         DoNothing,
 
-        /// <summary>Cause the session and the associated cookie to be deleted. The deletion occurs in <see cref="Session.CleanUp"/>.</summary>
+        /// <summary>
+        ///     Cause the session and the associated cookie to be deleted. The deletion occurs in <see
+        ///     cref="Session.CleanUp"/>.</summary>
         Delete
     }
 
     /// <summary>
-    ///     Provides functionality required by <see cref="Session.EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>.</summary>
+    ///     Provides functionality required by <see cref="Session.EnableAutomatic{TSession}(HttpRequest, Func{TSession,
+    ///     HttpResponse})"/>.</summary>
     /// <typeparam name="TSession">
     ///     The type of the session object.</typeparam>
     public interface ISessionEquatable<TSession> : IEquatable<TSession> where TSession : Session
@@ -295,8 +298,8 @@ namespace RT.Servers
     }
 
     /// <summary>
-    ///     Provides functionality to track user sessions in HTTP requests using cookies and to store such user sessions in the
-    ///     local file system.</summary>
+    ///     Provides functionality to track user sessions in HTTP requests using cookies and to store such user sessions in
+    ///     the local file system.</summary>
     /// <remarks>
     ///     In order to use this class, you must create a class that derives from it. See the remarks section in the <see
     ///     cref="Session"/> documentation for usage guidelines.</remarks>
@@ -319,7 +322,7 @@ namespace RT.Servers
             {
                 if (!File.Exists(file))
                     return false;
-                XmlClassify.ReadXmlFileIntoObject(file, this);
+                ClassifyXml.DeserializeFileIntoObject(file, this);
             }
             return true;
         }
@@ -331,7 +334,7 @@ namespace RT.Servers
             // Directory.CreateDirectory() does nothing if the directory already exists.
             Directory.CreateDirectory(sessionPath);
             lock (_lock)
-                XmlClassify.SaveObjectToXmlFile(this, Path.Combine(sessionPath, SessionID));
+                ClassifyXml.SerializeToFile(this, Path.Combine(sessionPath, SessionID));
         }
 
         /// <summary>Deletes the file containing the data for this session from the file system.</summary>
