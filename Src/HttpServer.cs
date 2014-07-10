@@ -5,6 +5,8 @@ using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -98,9 +100,10 @@ namespace RT.Servers
         /// <summary>
         ///     Specifies a request handler that is invoked whenever <see cref="Handler"/> throws an exception.</summary>
         /// <remarks>
-        ///     If null, a default handler will be used. This default handler is also used if the error handler returns null
-        ///     or throws an exception. The default error handler will use HTTP status 500 except if the <see cref="Handler"/>
-        ///     threw an <see cref="HttpException"/>, in which case the exception's HTTP status is used instead.</remarks>
+        ///     If <c>null</c>, a default handler will be used. This default handler is also used if the error handler returns
+        ///     null or throws an exception. The default error handler will use HTTP status 500 except if the <see
+        ///     cref="Handler"/> threw an <see cref="HttpException"/>, in which case the exception's HTTP status is used
+        ///     instead.</remarks>
         public Func<HttpRequest, Exception, HttpResponse> ErrorHandler { get; set; }
 
         /// <summary>
@@ -399,7 +402,7 @@ namespace RT.Servers
                 {
                     var secureStream = new SslStream(stream);
                     _stream = secureStream;
-                    secureStream.BeginAuthenticateAsServer(new X509Certificate2(server.Options.CertificatePath, server.Options.CertificatePassword), ar =>
+                    secureStream.BeginAuthenticateAsServer(new X509Certificate2(server.Options.CertificatePath, server.Options.CertificatePassword), false, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, true, ar =>
                     {
                         try
                         {
@@ -598,7 +601,44 @@ namespace RT.Servers
                     var headers = response.Headers;
                     _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
 
-                    try { connectionKeepAlive = outputResponse(response, response.Status, headers, contentStream, response.UseGzip, originalRequest); }
+                    string webSocketKey;
+                    if (response is HttpResponseWebSocket)
+                    {
+                        if (!"websocket".EqualsNoCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out webSocketKey))
+                        {
+                            response = HttpResponse.Html("<h1>Websocket expected</h1><p>The server expected a WebSocket upgrade request.</p>", HttpStatusCode._400_BadRequest);
+                            goto notWebsocket;
+                        }
+
+                        var responseWebsocket = (HttpResponseWebSocket) response;
+                        WebSocket websocket;
+                        try { websocket = responseWebsocket.GetWebsocket(); }
+                        catch (Exception e)
+                        {
+                            response = exceptionToResponse(originalRequest, e);
+                            goto notWebsocket;
+                        }
+
+                        headers.Connection = HttpConnection.Upgrade;
+                        headers.Upgrade = "websocket";
+                        headers.AdditionalHeaders = (headers.AdditionalHeaders ?? new Dictionary<string, string>());
+                        headers.AdditionalHeaders.Add("Sec-WebSocket-Accept", Convert.ToBase64String(SHA1.Create().ComputeHash((webSocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").ToUtf8())));
+                        var subprotocol = responseWebsocket.Subprotocol;
+                        if (subprotocol != null)
+                            headers.AdditionalHeaders.Add("Sec-WebSocket-Protocol", subprotocol);
+                        sendHeaders(HttpStatusCode._101_SwitchingProtocols, headers);
+
+                        // Hand the socket to the WebSocket implementation
+                        websocket.takeSocket(_stream);
+
+                        // Leave the socket open, but stop reading from it
+                        _server.Log.Info(3, "{0:X8} Switching to WebSocket: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
+                        return;
+                    }
+
+                    notWebsocket:
+                    var responseContent = (HttpResponseContent) response;
+                    try { connectionKeepAlive = outputResponse(responseContent, responseContent.Status, headers, contentStream, responseContent.UseGzip, originalRequest); }
                     catch (SocketException) { Socket.Close(); return; }
                     catch (IOException) { Socket.Close(); return; }
                     catch (ObjectDisposedException) { return; }
@@ -616,20 +656,26 @@ namespace RT.Servers
 
                 _server.Log.Info(3, "{0:X8} Finished: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
 
-                // Reuse connection if allowed; close it otherwise
-                bool connected;
-                try { connected = Socket.Connected; }
-                catch (SocketException) { Socket.Close(); return; }
-                catch (ObjectDisposedException) { return; }
-                if (connectionKeepAlive && connected && !DisallowKeepAlive)
+                // Reuse connection if allowed
+                if (connectionKeepAlive && !DisallowKeepAlive)
                 {
-                    _headersSoFar = "";
-                    KeepAliveActive = true;
-                    _requestStart = DateTime.UtcNow;
-                    processHeaderData();
+                    bool connected;
+                    try { connected = Socket.Connected; }
+                    catch (SocketException) { Socket.Close(); return; }
+                    catch (ObjectDisposedException) { return; }
+
+                    if (connected)
+                    {
+                        _headersSoFar = "";
+                        KeepAliveActive = true;
+                        _requestStart = DateTime.UtcNow;
+                        processHeaderData();
+                    }
+                    return;
                 }
-                else
-                    Socket.Close();
+
+                // Otherwise, we are done with this socket
+                Socket.Close();
             }
 
             private bool outputResponse(HttpResponse response, HttpStatusCode status, HttpResponseHeaders headers, Stream contentStream, UseGzipOption useGzipOption, HttpRequest originalRequest)

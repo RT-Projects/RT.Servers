@@ -34,7 +34,8 @@ namespace RT.Servers
     public enum HttpConnection
     {
         Close,
-        KeepAlive
+        KeepAlive,
+        Upgrade
     }
 
     /// <summary>Contains values for the Cache-Control HTTP request or response header. None of these currently have any effect.</summary>
@@ -104,19 +105,14 @@ namespace RT.Servers
     /// </summary>
     public static class HttpEnumsParser
     {
-        private static bool eq(string s1, string s2)
-        {
-            return string.Equals(s1, s2, StringComparison.OrdinalIgnoreCase);
-        }
-
         /// <summary>
         /// Parses the Content-Encoding header. Throws an exception if the value is not valid.
         /// </summary>
         public static HttpContentEncoding ParseHttpContentEncoding(string value)
         {
-            if (eq(value, "gzip")) return HttpContentEncoding.Gzip;
-            else if (eq(value, "compress")) return HttpContentEncoding.Compress;
-            else if (eq(value, "deflate")) return HttpContentEncoding.Deflate;
+            if (value.EqualsNoCase("gzip")) return HttpContentEncoding.Gzip;
+            else if (value.EqualsNoCase("compress")) return HttpContentEncoding.Compress;
+            else if (value.EqualsNoCase("deflate")) return HttpContentEncoding.Deflate;
             else throw new ArgumentException(@"""Content-Encoding"" value ""{0}"" is not valid. Valid values: ""gzip"", ""compress"", ""deflate"".".Fmt(value));
         }
 
@@ -127,20 +123,31 @@ namespace RT.Servers
         /// </summary>
         public static HttpConnection ParseHttpConnection(string value)
         {
-            bool hasClose = false, hasKeepalive = false;
+            HttpConnection? result = null;
             foreach (var str in Regex.Split(value.Trim(), @"\s*,\s*"))
             {
-                hasClose |= eq(str, "close");
-                hasKeepalive |= eq(str, "keep-alive");
+                HttpConnection? res = null;
+                if (str.EqualsNoCase("close"))
+                    res = HttpConnection.Close;
+                else if (str.EqualsNoCase("keep-alive"))
+                    res = HttpConnection.KeepAlive;
+                else if (str.EqualsNoCase("upgrade"))
+                    res = HttpConnection.Upgrade;
+                if (res != null)
+                {
+                    if (result != null)
+                        throw new ArgumentException(@"""Connection"" value ""{0}"" could not be parsed.".Fmt(value));
+                    result = res;
+                }
             }
-            if (hasClose == hasKeepalive)
+            if (result == null)
                 throw new ArgumentException(@"""Connection"" value ""{0}"" could not be parsed.".Fmt(value));
-            return hasClose ? HttpConnection.Close : HttpConnection.KeepAlive;
+            return result.Value;
         }
     }
 
     /// <summary>
-    /// Contains possible values for the <see cref="HttpResponse.UseGzip"/> options.
+    /// Contains possible values for the <see cref="HttpResponseContent.UseGzip"/> option.
     /// </summary>
     public enum UseGzipOption
     {

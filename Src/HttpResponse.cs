@@ -10,31 +10,22 @@ using RT.Util.Streams;
 namespace RT.Servers
 {
     /// <summary>
-    ///     Encapsulates an HTTP response, to be sent by <see cref="HttpServer"/> to the HTTP client that sent the original
-    ///     request. A request handler must return an HttpResponse object to the <see cref="HttpServer"/> when handling a
-    ///     request.</summary>
-    public sealed class HttpResponse : MarshalByRefObject
+    ///     Encapsulates a response to an HTTP request. Concrete classes implementing this are <see
+    ///     cref="HttpResponseContent"/> and <see cref="HttpResponseWebSocket"/>.</summary>
+    public abstract class HttpResponse : MarshalByRefObject
     {
+        /// <summary>Constructor.</summary>
+        protected HttpResponse(HttpResponseHeaders headers) { _headers = headers; }
+
         /// <summary>The HTTP status code. For example, 200 OK, 404 Not Found, 500 Internal Server Error. Default is 200 OK.</summary>
-        public HttpStatusCode Status = HttpStatusCode._200_OK;
+        public abstract HttpStatusCode Status { get; }
 
-        /// <summary>
-        ///     The HTTP response headers which are to be sent back to the HTTP client as part of this HTTP response. If not
-        ///     set or modified, will default to a standard set of headers - see <see cref="HttpResponseHeaders"/>.</summary>
-        public HttpResponseHeaders Headers = new HttpResponseHeaders();
+        /// <summary>The HTTP response headers which are to be sent back to the HTTP client as part of this HTTP response.</summary>
+        public HttpResponseHeaders Headers { get { return _headers; } }
+        private HttpResponseHeaders _headers;
 
-        private Func<Stream> _contentStreamDelegate;
-
-        /// <summary>Retrieves the stream object containing the response body.</summary>
-        public Stream GetContentStream()
-        {
-            return _contentStreamDelegate == null ? null : _contentStreamDelegate();
-        }
-
-        /// <summary>Specifies whether gzip should be used.</summary>
-        public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
-
-        private HttpResponse() { }
+        /// <summary>Returns <c>null</c>. Overridden only by <see cref="HttpResponseContent"/>.</summary>
+        public virtual Stream GetContentStream() { return null; }
 
         /// <summary>
         ///     Returns the specified file from the local file system using the specified MIME content type to the client.</summary>
@@ -49,7 +40,7 @@ namespace RT.Servers
         /// <param name="ifModifiedSince">
         ///     If specified, a 304 Not Modified will be served if the file's last modified timestamp is at or before this
         ///     time.</param>
-        public static HttpResponse File(string filePath, string contentType, int? maxAge = 3600, DateTime? ifModifiedSince = null)
+        public static HttpResponseContent File(string filePath, string contentType, int? maxAge = 3600, DateTime? ifModifiedSince = null)
         {
             try
             {
@@ -95,32 +86,30 @@ namespace RT.Servers
         ///     Redirects the client to a new URL, using the HTTP status code 302 Found and making the response uncacheable.</summary>
         /// <param name="newUrl">
         ///     URL to redirect the client to.</param>
-        public static HttpResponse Redirect(string newUrl)
+        public static HttpResponseContent Redirect(string newUrl)
         {
-            return new HttpResponse
-            {
-                Headers = new HttpResponseHeaders
+            return new HttpResponseContent(
+                HttpStatusCode._302_Found,
+                new HttpResponseHeaders
                 {
                     Location = newUrl,
                     CacheControl = new[] { new HttpCacheControl { State = HttpCacheControlState.Private }, new HttpCacheControl { State = HttpCacheControlState.MaxAge, IntParameter = 0 } },
-                },
-                Status = HttpStatusCode._302_Found,
-            };
+                });
         }
 
         /// <summary>
         ///     Redirects the client to a new URL, using the HTTP status code 302 Found and making the response uncacheable.</summary>
         /// <param name="newUrl">
         ///     URL to redirect the client to.</param>
-        public static HttpResponse Redirect(IHttpUrl newUrl)
+        public static HttpResponseContent Redirect(IHttpUrl newUrl)
         {
             return Redirect(newUrl.ToFull());
         }
 
         /// <summary>Generates a 304 Not Modified response.</summary>
-        public static HttpResponse NotModified()
+        public static HttpResponseContent NotModified()
         {
-            return new HttpResponse { Status = HttpStatusCode._304_NotModified };
+            return new HttpResponseContent(HttpStatusCode._304_NotModified, new HttpResponseHeaders());
         }
 
         /// <summary>
@@ -129,9 +118,9 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Empty(HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Empty(HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
-            return new HttpResponse { Status = status, Headers = headers ?? new HttpResponseHeaders() };
+            return new HttpResponseContent(status, headers ?? new HttpResponseHeaders());
         }
 
         /// <summary>
@@ -145,7 +134,7 @@ namespace RT.Servers
         /// <param name="buffered">
         ///     If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as
         ///     possible.</param>
-        public static HttpResponse Html(Tag content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        public static HttpResponseContent Html(Tag content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
             return create(() => new DynamicContentStream(content.ToEnumerable(), buffered), "text/html; charset=utf-8", status, headers);
         }
@@ -158,7 +147,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Html(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Html(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/html; charset=utf-8", status, headers);
         }
@@ -175,7 +164,7 @@ namespace RT.Servers
         /// <param name="buffered">
         ///     If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as
         ///     possible.</param>
-        public static HttpResponse Html(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        public static HttpResponseContent Html(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
             return create(() => new DynamicContentStream(content, buffered), "text/html; charset=utf-8", status, headers);
         }
@@ -188,7 +177,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Html(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Html(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return create(() => new MemoryStream(content), "text/html; charset=utf-8", status, headers);
         }
@@ -201,7 +190,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Html(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Html(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/html; charset=utf-8", status, headers);
         }
@@ -214,7 +203,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse PlainText(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent PlainText(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/plain; charset=utf-8", status, headers);
         }
@@ -231,7 +220,7 @@ namespace RT.Servers
         /// <param name="buffered">
         ///     If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as
         ///     possible.</param>
-        public static HttpResponse PlainText(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        public static HttpResponseContent PlainText(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
             return create(() => new DynamicContentStream(content, buffered), "text/plain; charset=utf-8", status, headers);
         }
@@ -244,7 +233,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse PlainText(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent PlainText(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return create(() => new MemoryStream(content), "text/plain; charset=utf-8", status, headers);
         }
@@ -257,7 +246,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse PlainText(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent PlainText(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/plain; charset=utf-8", status, headers);
         }
@@ -270,7 +259,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse JavaScript(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent JavaScript(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/javascript; charset=utf-8", status, headers);
         }
@@ -287,7 +276,7 @@ namespace RT.Servers
         /// <param name="buffered">
         ///     If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as
         ///     possible.</param>
-        public static HttpResponse JavaScript(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        public static HttpResponseContent JavaScript(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
             return create(() => new DynamicContentStream(content, buffered), "text/javascript; charset=utf-8", status, headers);
         }
@@ -300,7 +289,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse JavaScript(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent JavaScript(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return create(() => new MemoryStream(content), "text/javascript; charset=utf-8", status, headers);
         }
@@ -313,7 +302,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse JavaScript(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent JavaScript(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/javascript; charset=utf-8", status, headers);
         }
@@ -326,7 +315,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Json(JsonValue content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Json(JsonValue content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(JsonValue.ToEnumerable(content), "application/json; charset=utf-8", status, headers);
         }
@@ -339,7 +328,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Css(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Css(string content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/css; charset=utf-8", status, headers);
         }
@@ -356,7 +345,7 @@ namespace RT.Servers
         /// <param name="buffered">
         ///     If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as
         ///     possible.</param>
-        public static HttpResponse Css(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        public static HttpResponseContent Css(IEnumerable<string> content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
             return create(() => new DynamicContentStream(content, buffered), "text/css; charset=utf-8", status, headers);
         }
@@ -369,7 +358,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Css(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Css(byte[] content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return create(() => new MemoryStream(content), "text/css; charset=utf-8", status, headers);
         }
@@ -382,7 +371,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Css(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Css(Stream content, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return Create(content, "text/css; charset=utf-8", status, headers);
         }
@@ -397,7 +386,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Create(string content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Create(string content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             var utf8 = content.ToUtf8();
             return create(() => new MemoryStream(utf8), contentType, status, headers);
@@ -417,7 +406,7 @@ namespace RT.Servers
         /// <param name="buffered">
         ///     If true (default), the output is buffered for performance; otherwise, all text is transmitted as soon as
         ///     possible.</param>
-        public static HttpResponse Create(IEnumerable<string> content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
+        public static HttpResponseContent Create(IEnumerable<string> content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null, bool buffered = true)
         {
             return create(() => new DynamicContentStream(content, buffered), contentType, status, headers);
         }
@@ -432,7 +421,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Create(byte[] content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Create(byte[] content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             return create(() => new MemoryStream(content), contentType, status, headers);
         }
@@ -447,7 +436,7 @@ namespace RT.Servers
         ///     HTTP status code to use in the response.</param>
         /// <param name="headers">
         ///     Headers to use in the response, or null to use default values.</param>
-        public static HttpResponse Create(Stream content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
+        public static HttpResponseContent Create(Stream content, string contentType, HttpStatusCode status = HttpStatusCode._200_OK, HttpResponseHeaders headers = null)
         {
             var used = false;
             return create(content == null ? null : new Func<Stream>(() =>
@@ -459,7 +448,7 @@ namespace RT.Servers
             }), contentType, status, headers);
         }
 
-        private static HttpResponse create(Func<Stream> getContentStream, string contentType, HttpStatusCode status, HttpResponseHeaders headers)
+        private static HttpResponseContent create(Func<Stream> getContentStream, string contentType, HttpStatusCode status, HttpResponseHeaders headers)
         {
             if (!status.MayHaveBody() && getContentStream != null)
                 throw new InvalidOperationException("A response with the {0} status cannot have a body.".Fmt(status));
@@ -468,22 +457,14 @@ namespace RT.Servers
 
             headers = headers ?? new HttpResponseHeaders();
             headers.ContentType = contentType ?? headers.ContentType;
-            return new HttpResponse
-            {
-                _contentStreamDelegate = getContentStream,
-                Status = status,
-                Headers = headers
-            };
+            return new HttpResponseContent(status, headers, getContentStream);
         }
 
-        /// <summary>
-        ///     Modifies the <see cref="UseGzip"/> option in this response object and returns the same object.</summary>
-        /// <param name="option">
-        ///     The new value for the <see cref="UseGzip"/> option.</param>
-        public HttpResponse Set(UseGzipOption option)
+        public static HttpResponseWebSocket WebSocket(Func<WebSocket> getWebsocket, string subprotocol = null, HttpResponseHeaders headers = null)
         {
-            UseGzip = option;
-            return this;
+            if (getWebsocket == null)
+                throw new ArgumentNullException("getWebsocket");
+            return new HttpResponseWebSocket(getWebsocket, subprotocol, headers);
         }
     }
 }

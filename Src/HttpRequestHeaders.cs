@@ -28,6 +28,7 @@ namespace RT.Servers
         public DateTime? IfModifiedSince;
         public List<WValue> IfNoneMatch;
         public List<HttpRange> Range;
+        public string Upgrade;
         public string UserAgent;
         public List<IPAddress> XForwardedFor;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
@@ -177,6 +178,11 @@ namespace RT.Servers
                 else if (nameLower == "user-agent" && UserAgent == null)
                 {
                     UserAgent = value;
+                    recognised = true;
+                }
+                else if (nameLower == "upgrade" && Upgrade == null)
+                {
+                    Upgrade = value;
                     recognised = true;
                 }
                 else if (nameLower == "x-forwarded-for" && XForwardedFor == null)

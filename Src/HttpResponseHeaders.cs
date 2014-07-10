@@ -37,8 +37,12 @@ namespace RT.Servers
         public string Server;
         public List<Cookie> SetCookie;
         public HttpTransferEncoding? TransferEncoding;
+        public string Upgrade;
 
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
+
+        /// <summary>Provides a means to specify HTTP headers that are not defined in this class.</summary>
+        public Dictionary<string, string> AdditionalHeaders;
 
         /// <summary>
         ///     Returns the HTTP-compliant ASCII representation of all response headers that have been set.</summary>
@@ -75,6 +79,9 @@ namespace RT.Servers
                     break;
                 case HttpConnection.KeepAlive:
                     b.Append("Connection: keep-alive\r\n");
+                    break;
+                case HttpConnection.Upgrade:
+                    b.Append("Connection: upgrade\r\n");
                     break;
             }
             if (ContentEncoding != HttpContentEncoding.Identity)
@@ -133,6 +140,11 @@ namespace RT.Servers
                     b.Append("Transfer-Encoding: chunked\r\n");
                     break;
             }
+            if (Upgrade != null)
+                b.Append("Upgrade: " + Upgrade + "\r\n");
+            if (AdditionalHeaders != null)
+                foreach (var kvp in AdditionalHeaders)
+                    b.Append("{0}: {1}\r\n".Fmt(kvp.Key, kvp.Value));
             return b.ToString();
         }
     }
