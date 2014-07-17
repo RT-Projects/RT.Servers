@@ -20,7 +20,7 @@ namespace RT.Servers
         public int? Age; // in seconds
         public string[] Allow;  // usually: { "GET", "HEAD", "POST" }
         public HttpCacheControl[] CacheControl;
-        public HttpConnection? Connection;
+        public HttpConnection Connection;
         public HttpContentEncoding ContentEncoding = HttpContentEncoding.Identity;
         public string ContentLanguage;
         public long? ContentLength;
@@ -72,17 +72,16 @@ namespace RT.Servers
                 }
                 b.Append("\r\n");
             }
-            switch (Connection)
+            if (Connection != 0)
             {
-                case HttpConnection.Close:
-                    b.Append("Connection: close\r\n");
-                    break;
-                case HttpConnection.KeepAlive:
-                    b.Append("Connection: keep-alive\r\n");
-                    break;
-                case HttpConnection.Upgrade:
-                    b.Append("Connection: upgrade\r\n");
-                    break;
+                var list = new List<string>();
+                if (Connection.HasFlag(HttpConnection.Close))
+                    list.Add("close");
+                if (Connection.HasFlag(HttpConnection.KeepAlive))
+                    list.Add("keep-alive");
+                if (Connection.HasFlag(HttpConnection.Upgrade))
+                    list.Add("upgrade");
+                b.Append("Connection: {0}\r\n".Fmt(list.JoinString(", ")));
             }
             if (ContentEncoding != HttpContentEncoding.Identity)
                 b.Append("Content-Encoding: " + ContentEncoding.ToString().ToLowerInvariant() + "\r\n");

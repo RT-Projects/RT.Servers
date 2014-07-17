@@ -214,7 +214,13 @@ namespace RT.Servers
                 }
 
                 // BeginAccept might complete synchronously as per MSDN, so call it on a pool thread
-                ThreadPool.QueueUserWorkItem(delegate { _listeningSockets[index].BeginAccept(r => acceptSocket(r, secure), null); });
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    // If someone calls StopListening() immediately after StartListening(),
+                    // this could be null or a disposed object, and we really don’t care about that.
+                    try { _listeningSockets[index].BeginAccept(r => acceptSocket(r, secure), null); }
+                    catch { }
+                });
             }
 
             if (blocking)
@@ -604,7 +610,7 @@ namespace RT.Servers
                     string webSocketKey;
                     if (response is HttpResponseWebSocket)
                     {
-                        if (!"websocket".EqualsNoCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out webSocketKey))
+                        if (!originalRequest.Headers.Connection.HasFlag(HttpConnection.Upgrade) || !"websocket".EqualsNoCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out webSocketKey))
                         {
                             response = HttpResponse.Html("<h1>Websocket expected</h1><p>The server expected a WebSocket upgrade request.</p>", HttpStatusCode._400_BadRequest);
                             goto notWebsocket;
@@ -726,8 +732,8 @@ namespace RT.Servers
 
                     bool useKeepAlive =
                         originalRequest.HttpVersion == HttpProtocolVersion.Http11 &&
-                        originalRequest.Headers.Connection == HttpConnection.KeepAlive &&
-                        headers.Connection != HttpConnection.Close;
+                        originalRequest.Headers.Connection.HasFlag(HttpConnection.KeepAlive) &&
+                        !headers.Connection.HasFlag(HttpConnection.Close);
                     if (useKeepAlive)
                         headers.Connection = HttpConnection.KeepAlive;
 

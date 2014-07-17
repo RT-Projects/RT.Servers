@@ -27,15 +27,28 @@ namespace RT.Servers
             _currentFrameBuffer = new byte[256];
             _currentFrameBufferCount = 0;
             _currentMessage = null;
-            BeginConnection();
+            OnBeginConnection();
             beginRead();
         }
 
         private void beginRead()
         {
-            if (_currentFrameBufferCount == _currentFrameBuffer.Length)
-                Array.Resize(ref _currentFrameBuffer, _currentFrameBufferCount * 2);
-            _socketStream.BeginRead(_currentFrameBuffer, _currentFrameBufferCount, _currentFrameBuffer.Length - _currentFrameBufferCount, receiveData, null);
+            {
+                if (_currentFrameBufferCount == _currentFrameBuffer.Length)
+                    Array.Resize(ref _currentFrameBuffer, _currentFrameBufferCount * 2);
+                try { _socketStream.BeginRead(_currentFrameBuffer, _currentFrameBufferCount, _currentFrameBuffer.Length - _currentFrameBufferCount, receiveData, null); }
+                catch (SocketException) { goto error; }
+                catch (IOException) { goto error; }
+                catch (ObjectDisposedException) { goto error; }
+            }
+            return;
+
+            error:
+            {
+                try { _socketStream.Close(); }
+                catch { }
+                OnEndConnection();
+            }
         }
 
         private void receiveData(IAsyncResult ar)
@@ -45,7 +58,7 @@ namespace RT.Servers
                 var bytesRead = _socketStream.EndRead(ar);
                 if (bytesRead == 0)
                 {
-                    EndConnection();
+                    OnEndConnection();
                     return;
                 }
 
@@ -57,7 +70,7 @@ namespace RT.Servers
                 if ((_currentFrameBuffer[1] & 0x80) == 0)
                 {
                     _socketStream.Close();
-                    EndConnection();
+                    OnEndConnection();
                     return;
                 }
 
@@ -71,7 +84,6 @@ namespace RT.Servers
                     payloadLenRaw == 126 ? (int) Ut.BytesToUShort(_currentFrameBuffer, 2, true) :
                     payloadLenRaw == 127 ? (int) Ut.BytesToULong(_currentFrameBuffer, 2, true) :
                     payloadLenRaw;
-                Console.WriteLine("payloadLen = " + payloadLen);
                 var i =
                     payloadLenRaw == 126 ? 4 :
                     payloadLenRaw == 127 ? 10 : 2;
@@ -99,28 +111,26 @@ namespace RT.Servers
                     Array.Resize(ref _currentMessage, _currentMessage.Length + payloadLen);
                 }
                 Buffer.BlockCopy(_currentFrameBuffer, payloadIndex, _currentMessage, dest, payloadLen);
-                Console.WriteLine("Message now " + _currentMessage.Length);
 
                 // Check if the message is complete
                 if ((_currentFrameBuffer[0] & 0x80) == 0x80)
                 {
-                    Console.WriteLine("Message complete");
-                    switch (_currentMessageOpcode)
+#if DEBUG
+                    // In DEBUG mode, propagate exceptions so that the debugger will trigger.
+                    if (processMessage())
+                        return;
+#else
+                    // In RELEASE mode, catch exceptions and ignore them.
+                    // It is recommended that you catch and log all exceptions in your handler.
+                    try
                     {
-                        case 0x01:  // text
-                            TextMessageReceived(_currentMessage.FromUtf8());
-                            break;
-                        case 0x02:  // binary
-                            BinaryMessageReceived(_currentMessage);
-                            break;
-                        case 0x08:  // close
-                            _socketStream.Close();
-                            EndConnection();
+                        if (processMessage())
                             return;
-                        case 0x09:  // ping
-                            sendMessage(0x0a /* pong */, new byte[] { });
-                            break;
                     }
+                    catch (Exception e)
+                    {
+                    }
+#endif
 
                     // We’ve used the message, start a new one
                     _currentMessage = null;
@@ -134,24 +144,85 @@ namespace RT.Servers
                 readMore:
                 beginRead();
             }
+            catch (ObjectDisposedException)
+            {
+                // If this happens, the socket has already been closed and OnEndConnection() has already been called.
+            }
             catch (SocketException)
             {
                 _socketStream.Close();
-                EndConnection();
+                OnEndConnection();
             }
         }
 
-        public virtual void BeginConnection() { }
-        public virtual void EndConnection() { }
+        private bool processMessage()
+        {
+            switch (_currentMessageOpcode)
+            {
+                case 0x01:  // text
+                    OnTextMessageReceived(_currentMessage.FromUtf8());
+                    return false;
 
-        public virtual void TextMessageReceived(string msg) { }
-        public virtual void BinaryMessageReceived(byte[] msg) { }
+                case 0x02:  // binary
+                    OnBinaryMessageReceived(_currentMessage);
+                    return false;
 
+                case 0x08:  // close
+                    _socketStream.Close();
+                    OnEndConnection();
+                    return true;
+
+                case 0x09:  // ping
+                    SendMessage(0x0a /* pong */, new byte[] { });
+                    return false;
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        ///     When overridden in a derived class, handles an incoming WebSocket connection from a client.</summary>
+        /// <remarks>
+        ///     <list type="bullet">
+        ///         <item><description>
+        ///             This method is called only once per instance, and it is called when the socket has switched from the
+        ///             HTTP handshake to the WebSocket protocol.</description></item>
+        ///         <item><description>
+        ///             All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order
+        ///             to handle or log your exceptions.</description></item></list></remarks>
+        public virtual void OnBeginConnection() { }
+
+        /// <summary>
+        ///     When overridden in a derived class, handles the event when the current WebSocket connection is closed.</summary>
+        /// <remarks>
+        ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to
+        ///     handle or log your exceptions.</remarks>
+        public virtual void OnEndConnection() { }
+
+        /// <summary>
+        ///     When overridden in a derived class, handles an incoming text message from the client.</summary>
+        /// <remarks>
+        ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to
+        ///     handle or log your exceptions.</remarks>
+        public virtual void OnTextMessageReceived(string msg) { }
+
+        /// <summary>
+        ///     When overridden in a derived class, handles an incoming binary message from the client.</summary>
+        /// <remarks>
+        ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to
+        ///     handle or log your exceptions.</remarks>
+        public virtual void OnBinaryMessageReceived(byte[] msg) { }
+
+        /// <summary>
+        ///     Sends a binary message to the client.</summary>
+        /// <param name="binaryMessage">
+        ///     The binary message to send.</param>
         public void SendMessage(byte[] binaryMessage)
         {
             if (binaryMessage == null)
                 throw new ArgumentNullException("binaryMessage");
-            sendMessage(opcode: 2, payload: binaryMessage);
+            SendMessage(opcode: 2, payload: binaryMessage);
         }
 
         public void SendMessage(IEnumerable<byte[]> fragmentedBinaryMessage)
@@ -165,7 +236,7 @@ namespace RT.Servers
         {
             if (textMessage == null)
                 throw new ArgumentNullException("textMessage");
-            sendMessage(opcode: 1, payload: textMessage.ToUtf8());
+            SendMessage(opcode: 1, payload: textMessage.ToUtf8());
         }
 
         public void SendMessage(IEnumerable<string> fragmentedTextMessage)
@@ -177,12 +248,12 @@ namespace RT.Servers
 
         public void SendMessage(JsonValue json)
         {
-            sendMessage(opcode: 1, payload: JsonValue.ToString(json).ToUtf8());
+            SendMessage(opcode: 1, payload: JsonValue.ToString(json).ToUtf8());
         }
 
         private byte[] finalFrameZeroPayload = new byte[] { 0x80, 0 };
 
-        private void sendMessage(byte opcode, byte[] payload)
+        public void SendMessage(byte opcode, byte[] payload)
         {
             var lengthLength = payload.Length < 126 ? 1 : payload.Length < 65536 ? 2 : 8;
             var frame = new byte[1 + lengthLength + payload.Length];
@@ -212,15 +283,12 @@ namespace RT.Servers
 
         private void sendMessage(bool isText, IEnumerable<byte[]> payload)
         {
-            byte[] frame = null;
             var first = true;
             foreach (var piece in payload)
             {
                 var i = 0;
                 while (i < piece.Length)
                 {
-                    if (frame == null)
-                        frame = new byte[2];
                     var framePayloadLength = Math.Min(125, piece.Length - i);
                     _socketStream.WriteByte((byte) (first ? (isText ? 1 : 2) : 0));
                     _socketStream.WriteByte((byte) framePayloadLength);
@@ -230,6 +298,12 @@ namespace RT.Servers
                 }
             }
             _socketStream.Write(finalFrameZeroPayload);
+        }
+
+        public void Close()
+        {
+            _socketStream.Close();
+            OnEndConnection();
         }
     }
 }

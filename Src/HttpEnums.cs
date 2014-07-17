@@ -31,11 +31,12 @@ namespace RT.Servers
     }
 
     /// <summary>Contains values for the supported values of the Connection HTTP request or response header.</summary>
+    [Flags]
     public enum HttpConnection
     {
-        Close,
-        KeepAlive,
-        Upgrade
+        Close = 1 << 0,
+        KeepAlive = 1 << 1,
+        Upgrade = 1 << 2
     }
 
     /// <summary>Contains values for the Cache-Control HTTP request or response header. None of these currently have any effect.</summary>
@@ -123,26 +124,17 @@ namespace RT.Servers
         /// </summary>
         public static HttpConnection ParseHttpConnection(string value)
         {
-            HttpConnection? result = null;
+            HttpConnection result = 0;
             foreach (var str in Regex.Split(value.Trim(), @"\s*,\s*"))
             {
-                HttpConnection? res = null;
                 if (str.EqualsNoCase("close"))
-                    res = HttpConnection.Close;
+                    result |= HttpConnection.Close;
                 else if (str.EqualsNoCase("keep-alive"))
-                    res = HttpConnection.KeepAlive;
+                    result |= HttpConnection.KeepAlive;
                 else if (str.EqualsNoCase("upgrade"))
-                    res = HttpConnection.Upgrade;
-                if (res != null)
-                {
-                    if (result != null)
-                        throw new ArgumentException(@"""Connection"" value ""{0}"" could not be parsed.".Fmt(value));
-                    result = res;
-                }
+                    result |= HttpConnection.Upgrade;
             }
-            if (result == null)
-                throw new ArgumentException(@"""Connection"" value ""{0}"" could not be parsed.".Fmt(value));
-            return result.Value;
+            return result;
         }
     }
 
