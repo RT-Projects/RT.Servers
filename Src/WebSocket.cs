@@ -127,7 +127,7 @@ namespace RT.Servers
                         if (processMessage())
                             return;
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                     }
 #endif

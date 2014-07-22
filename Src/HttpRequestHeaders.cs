@@ -290,25 +290,20 @@ namespace RT.Servers
 
         private static void splitAndAddByQ(ref ListSorted<QValue<string>> parsedList, string headerValue)
         {
-            if (parsedList == null)
-                parsedList = new ListSorted<QValue<string>>();
-            var split = Regex.Split(headerValue, @"\s*,\s*");
-            foreach (string item in split)
-            {
-                float q = 0;
-                string nItem = item;
-                if (item.Contains(";"))
-                {
-                    var match = Regex.Match(item, @";\s*q=(\d+(\.\d+)?)");
-                    if (match.Success)
-                        q = 1 - float.Parse(match.Groups[1].Value);
-                    nItem = item.Remove(item.IndexOf(';'));
-                }
-                parsedList.Add(new QValue<string>(q, nItem));
-            }
+            splitAndAddByQ(ref parsedList, headerValue, (val, q, lst) => { lst.Add(new QValue<string>(q, val)); });
         }
 
-        private static void splitAndAddByQ<T>(ref ListSorted<QValue<T>> parsedList, string headerValue, Func<string, T> converter)
+        private static void splitAndAddByQ<T>(ref ListSorted<QValue<T>> parsedList, string headerValue, Func<string, T?> converter) where T : struct
+        {
+            splitAndAddByQ(ref parsedList, headerValue, (val, q, lst) =>
+            {
+                var conv = converter(val);
+                if (conv != null)
+                    lst.Add(new QValue<T>(q, conv.Value));
+            });
+        }
+
+        private static void splitAndAddByQ<T>(ref ListSorted<QValue<T>> parsedList, string headerValue, Action<string, float, ListSorted<QValue<T>>> add)
         {
             if (parsedList == null)
                 parsedList = new ListSorted<QValue<T>>();
@@ -324,7 +319,7 @@ namespace RT.Servers
                         q = 1 - float.Parse(match.Groups[1].Value);
                     nItem = item.Remove(item.IndexOf(';'));
                 }
-                parsedList.Add(new QValue<T>(q, converter(nItem)));
+                add(nItem, q, parsedList);
             }
         }
 

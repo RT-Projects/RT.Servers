@@ -107,14 +107,14 @@ namespace RT.Servers
     public static class HttpEnumsParser
     {
         /// <summary>
-        /// Parses the Content-Encoding header. Throws an exception if the value is not valid.
+        /// Parses the Content-Encoding header. Returns null if the value is not valid.
         /// </summary>
-        public static HttpContentEncoding ParseHttpContentEncoding(string value)
+        public static HttpContentEncoding? ParseHttpContentEncoding(string value)
         {
             if (value.EqualsNoCase("gzip")) return HttpContentEncoding.Gzip;
             else if (value.EqualsNoCase("compress")) return HttpContentEncoding.Compress;
             else if (value.EqualsNoCase("deflate")) return HttpContentEncoding.Deflate;
-            else throw new ArgumentException(@"""Content-Encoding"" value ""{0}"" is not valid. Valid values: ""gzip"", ""compress"", ""deflate"".".Fmt(value));
+            else return null;
         }
 
         /// <summary>
