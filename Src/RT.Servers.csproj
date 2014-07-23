@@ -96,6 +96,7 @@
     <Compile Include="UrlHook.cs" />
     <Compile Include="UrlResolver.cs" />
     <Compile Include="HttpResponseWebSocket.cs" />
+    <Compile Include="WebSocketServerSide.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="icons\bmp-16.blob" />

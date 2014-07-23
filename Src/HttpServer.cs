@@ -618,7 +618,7 @@ namespace RT.Servers
 
                         var responseWebsocket = (HttpResponseWebSocket) response;
                         WebSocket websocket;
-                        try { websocket = responseWebsocket.GetWebsocket(); }
+                        try { websocket = responseWebsocket.Websocket; }
                         catch (Exception e)
                         {
                             response = exceptionToResponse(originalRequest, e);
@@ -635,7 +635,7 @@ namespace RT.Servers
                         sendHeaders(HttpStatusCode._101_SwitchingProtocols, headers);
 
                         // Hand the socket to the WebSocket implementation
-                        websocket.takeSocket(_stream);
+                        websocket.takeSocket(new WebSocketServerSide(_stream, websocket));
 
                         // Leave the socket open, but stop reading from it
                         _server.Log.Info(3, "{0:X8} Switching to WebSocket: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));

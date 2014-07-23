@@ -460,11 +460,13 @@ namespace RT.Servers
             return new HttpResponseContent(status, headers, getContentStream);
         }
 
-        public static HttpResponseWebSocket WebSocket(Func<WebSocket> getWebsocket, string subprotocol = null, HttpResponseHeaders headers = null)
+        public static HttpResponseWebSocket WebSocket(WebSocket websocket, string subprotocol = null, HttpResponseHeaders headers = null)
         {
-            if (getWebsocket == null)
-                throw new ArgumentNullException("getWebsocket");
-            return new HttpResponseWebSocket(getWebsocket, subprotocol, headers);
+            if (websocket == null)
+                throw new ArgumentNullException("websocket");
+            return new HttpResponseWebSocket(websocket, subprotocol, headers);
         }
+
+        public static implicit operator HttpResponse(WebSocket websocket) { return websocket == null ? null : WebSocket(websocket); }
     }
 }

@@ -12,14 +12,14 @@ namespace RT.Servers
         /// <summary>The HTTP status code. For example, 200 OK, 404 Not Found, 500 Internal Server Error. Default is 200 OK.</summary>
         public override HttpStatusCode Status { get { return HttpStatusCode._101_SwitchingProtocols; } }
 
-        public HttpResponseWebSocket(Func<WebSocket> getWebsocket, string subprotocol = null, HttpResponseHeaders headers = null)
+        public HttpResponseWebSocket(WebSocket websocket, string subprotocol = null, HttpResponseHeaders headers = null)
             : base(headers ?? new HttpResponseHeaders())
         {
             Subprotocol = subprotocol;
-            GetWebsocket = getWebsocket;
+            Websocket = websocket;
         }
 
         public string Subprotocol { get; private set; }
-        public Func<WebSocket> GetWebsocket { get; private set; }
+        public WebSocket Websocket { get; private set; }
     }
 }
