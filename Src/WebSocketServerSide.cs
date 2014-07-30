@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.Remoting;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 
@@ -14,30 +15,88 @@ namespace RT.Servers
         private byte[] _currentMessage;
         private byte _currentMessageOpcode;
         private WebSocket _client;
+        private HttpServer _server;
 
-        internal WebSocketServerSide(Stream socketStream, WebSocket client)
+        internal WebSocketServerSide(Stream socketStream, WebSocket client, HttpServer server)
         {
             _socketStream = socketStream;
             _currentFrameBuffer = new byte[256];
             _currentFrameBufferCount = 0;
             _currentMessage = null;
             _client = client;
+            _server = server;
             beginRead();
         }
 
         private void beginRead()
         {
+            try
             {
                 if (_currentFrameBufferCount == _currentFrameBuffer.Length)
                     Array.Resize(ref _currentFrameBuffer, _currentFrameBufferCount * 2);
-                try { _socketStream.BeginRead(_currentFrameBuffer, _currentFrameBufferCount, _currentFrameBuffer.Length - _currentFrameBufferCount, receiveData, null); }
-                catch (SocketException) { goto error; }
-                catch (IOException) { goto error; }
-                catch (ObjectDisposedException) { goto error; }
-            }
-            return;
+                try
+                {
+                    _socketStream.BeginRead(_currentFrameBuffer, _currentFrameBufferCount, _currentFrameBuffer.Length - _currentFrameBufferCount, receiveData, null);
+                    return;
+                }
+                catch (SocketException) { }
+                catch (IOException) { }
+                catch (ObjectDisposedException) { }
 
-            error:
+                try
+                {
+                    _socketStream.Close();
+                    _client.OnEndConnection();
+                }
+                catch (SocketException) { }
+                catch (IOException) { }
+                catch (ObjectDisposedException) { }
+            }
+            catch (Exception e)
+            {
+                try { _socketStream.Close(); }
+                catch { }
+                _server.Log.Exception(e);
+            }
+        }
+
+        private void withExceptionHandling(Action action)
+        {
+#if DEBUG
+            // In DEBUG mode, propagate exceptions so that the debugger will trigger.
+            withExceptionHandlingInner(action);
+#else
+            // In RELEASE mode, catch exceptions and log them.
+            try
+            {
+                withExceptionHandlingInner(action);
+            }
+            catch (Exception e)
+            {
+                try { _socketStream.Close(); }
+                catch { }
+                _server.Log.Exception(e);
+            }
+#endif
+        }
+
+        private void withExceptionHandlingInner(Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (ObjectDisposedException)
+            {
+                // If this happens, the socket has already been closed and OnEndConnection() has already been called.
+            }
+            catch (SocketException)
+            {
+                try { _socketStream.Close(); }
+                catch { }
+                _client.OnEndConnection();
+            }
+            catch (IOException)
             {
                 try { _socketStream.Close(); }
                 catch { }
@@ -47,7 +106,7 @@ namespace RT.Servers
 
         private void receiveData(IAsyncResult ar)
         {
-            try
+            withExceptionHandling(() =>
             {
                 var bytesRead = _socketStream.EndRead(ar);
                 if (bytesRead == 0)
@@ -109,24 +168,13 @@ namespace RT.Servers
                 // Check if the message is complete
                 if ((_currentFrameBuffer[0] & 0x80) == 0x80)
                 {
-#if DEBUG
-                    // In DEBUG mode, propagate exceptions so that the debugger will trigger.
                     if (processMessage())
+                    {
+                        try { _socketStream.Close(); }
+                        catch { }
+                        _client.OnEndConnection();
                         return;
-#else
-                    // In RELEASE mode, catch exceptions and ignore them.
-                    // It is recommended that you catch and log all exceptions in your handler.
-                    try
-                    {
-                        if (processMessage())
-                            return;
                     }
-                    catch (Exception)
-                    {
-                    }
-#endif
-
-                    // We’ve used the message, start a new one
                     _currentMessage = null;
                 }
 
@@ -137,21 +185,7 @@ namespace RT.Servers
 
                 readMore:
                 beginRead();
-            }
-            catch (ObjectDisposedException)
-            {
-                // If this happens, the socket has already been closed and OnEndConnection() has already been called.
-            }
-            catch (SocketException)
-            {
-                _socketStream.Close();
-                _client.OnEndConnection();
-            }
-            catch (IOException)
-            {
-                _socketStream.Close();
-                _client.OnEndConnection();
-            }
+            });
         }
 
         private bool processMessage()
@@ -185,55 +219,63 @@ namespace RT.Servers
 
         public void SendMessage(byte opcode, byte[] payload)
         {
-            var lengthLength = payload.Length < 126 ? 1 : payload.Length < 65536 ? 2 : 8;
-            var frame = new byte[1 + lengthLength + payload.Length];
-            frame[0] = (byte) (opcode | 0x80);
-            var i = 1;
-            if (payload.Length < 126)
-                frame[i++] = (byte) payload.Length;
-            else if (payload.Length < 65536)
+            withExceptionHandling(() =>
             {
-                frame[i++] = 126;
-                frame[i++] = (byte) (payload.Length & 0xFF);
-                frame[i++] = (byte) (payload.Length >> 8);
-            }
-            else
-            {
-                frame[i++] = 127;
-                frame[i++] = (byte) (payload.Length & 0xFF);
-                frame[i++] = (byte) ((payload.Length >> 8) & 0xFF);
-                frame[i++] = (byte) ((payload.Length >> 16) & 0xFF);
-                frame[i++] = (byte) ((payload.Length >> 24) & 0xFF);
-                i += 4;
-            }
+                var lengthLength = payload.Length < 126 ? 1 : payload.Length < 65536 ? 3 : 5;
+                var frame = new byte[1 + lengthLength + payload.Length];
+                frame[0] = (byte) (opcode | 0x80);
+                var i = 1;
+                if (payload.Length < 126)
+                    frame[i++] = (byte) payload.Length;
+                else if (payload.Length < 65536)
+                {
+                    frame[i++] = 126;
+                    frame[i++] = (byte) (payload.Length >> 8);
+                    frame[i++] = (byte) (payload.Length & 0xFF);
+                }
+                else
+                {
+                    frame[i++] = 127;
+                    frame[i++] = (byte) (payload.Length & 0xFF);
+                    frame[i++] = (byte) ((payload.Length >> 8) & 0xFF);
+                    frame[i++] = (byte) ((payload.Length >> 16) & 0xFF);
+                    frame[i++] = (byte) ((payload.Length >> 24) & 0xFF);
+                }
 
-            Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
-            _socketStream.Write(frame, 0, frame.Length);
+                Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
+                _socketStream.Write(frame, 0, frame.Length);
+            });
         }
 
         public void SendMessageFragment(byte opcode, byte[] fragment)
         {
-            var first = true;
-            var i = 0;
-            while (i < fragment.Length)
+            withExceptionHandling(() =>
             {
-                var framePayloadLength = Math.Min(125, fragment.Length - i);
-                _socketStream.WriteByte((byte) (first ? opcode : 0));
-                _socketStream.WriteByte((byte) framePayloadLength);
-                _socketStream.Write(fragment, i, framePayloadLength);
-                i += framePayloadLength;
-                first = false;
-            }
+                var first = true;
+                var i = 0;
+                while (i < fragment.Length)
+                {
+                    var framePayloadLength = Math.Min(125, fragment.Length - i);
+                    _socketStream.WriteByte((byte) (first ? opcode : 0));
+                    _socketStream.WriteByte((byte) framePayloadLength);
+                    _socketStream.Write(fragment, i, framePayloadLength);
+                    i += framePayloadLength;
+                    first = false;
+                }
+            });
         }
 
         public void SendMessageFragmentEnd(byte opcode)
         {
-            _socketStream.Write(opcode == 0 ? _finalFrameZeroPayload : new byte[] { (byte) (0x80 | opcode), 0 });
+            withExceptionHandling(() =>
+            {
+                _socketStream.Write(opcode == 0 ? _finalFrameZeroPayload : new byte[] { (byte) (0x80 | opcode), 0 });
+            });
         }
 
         public void Close()
         {
-            _socketStream.Close();
+            withExceptionHandling(() => { _socketStream.Close(); });
         }
     }
 }

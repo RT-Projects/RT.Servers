@@ -484,22 +484,22 @@ namespace RT.Servers
                 {
 #endif
 
-                    KeepAliveActive = false;
-                    Interlocked.Increment(ref _endedReceives);
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
 
-                    try
-                    {
-                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                    }
-                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                try
+                {
+                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                    if (_bufferDataLength == 0)
-                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                    else
-                        processHeaderData();
-                    cleanupIfDone();
+                if (_bufferDataLength == 0)
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                else
+                    processHeaderData();
+                cleanupIfDone();
 
 #if DEBUG
                 }).Start();
@@ -634,11 +634,19 @@ namespace RT.Servers
                             headers.AdditionalHeaders.Add("Sec-WebSocket-Protocol", subprotocol);
                         sendHeaders(HttpStatusCode._101_SwitchingProtocols, headers);
 
+                        _server.Log.Info(3, "{0:X8} Switching to WebSocket: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
+
                         // Hand the socket to the WebSocket implementation
-                        websocket.takeSocket(new WebSocketServerSide(_stream, websocket));
+                        try
+                        {
+                            websocket.takeSocket(new WebSocketServerSide(_stream, websocket, _server));
+                        }
+                        catch (Exception e)
+                        {
+                            _server.Log.Exception(e);
+                        }
 
                         // Leave the socket open, but stop reading from it
-                        _server.Log.Info(3, "{0:X8} Switching to WebSocket: {1:0.##} ms".Fmt(_requestId, (DateTime.UtcNow - _requestStart).TotalMilliseconds));
                         return;
                     }
 
