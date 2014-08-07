@@ -221,7 +221,7 @@ namespace RT.Servers
         {
             withExceptionHandling(() =>
             {
-                var lengthLength = payload.Length < 126 ? 1 : payload.Length < 65536 ? 3 : 5;
+                var lengthLength = payload.Length < 126 ? 1 : payload.Length < 65536 ? 3 : 9;
                 var frame = new byte[1 + lengthLength + payload.Length];
                 frame[0] = (byte) (opcode | 0x80);
                 var i = 1;
@@ -236,10 +236,14 @@ namespace RT.Servers
                 else
                 {
                     frame[i++] = 127;
-                    frame[i++] = (byte) (payload.Length & 0xFF);
-                    frame[i++] = (byte) ((payload.Length >> 8) & 0xFF);
-                    frame[i++] = (byte) ((payload.Length >> 16) & 0xFF);
+                    frame[i++] = 0;
+                    frame[i++] = 0;
+                    frame[i++] = 0;
+                    frame[i++] = 0;
                     frame[i++] = (byte) ((payload.Length >> 24) & 0xFF);
+                    frame[i++] = (byte) ((payload.Length >> 16) & 0xFF);
+                    frame[i++] = (byte) ((payload.Length >> 8) & 0xFF);
+                    frame[i++] = (byte) (payload.Length & 0xFF);
                 }
 
                 Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
