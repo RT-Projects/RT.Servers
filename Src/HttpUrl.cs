@@ -27,9 +27,9 @@ namespace RT.Servers
 
         /// <summary>
         ///     Specifies the domain part of the URL – that is, the part that comes before the first slash (or, if a URL
-        ///     resolver is used, the part that comes before the hook domain). The protocol is excluded. Whenever not empty,
-        ///     Domain always ends with a dot unless it contains the full domain up to the TLD. Manipulate this part using
-        ///     <see cref="IHttpUrlExtensions.WithDomain"/>.</summary>
+        ///     resolver is used, the part that comes before the hook domain). The protocol is not included. Whenever not
+        ///     empty, Domain always ends with a dot unless it contains the full domain up to the TLD. Manipulate this part
+        ///     using <see cref="IHttpUrlExtensions.WithDomain"/>.</summary>
         string Domain { get; }
 
         /// <summary>
@@ -40,9 +40,9 @@ namespace RT.Servers
 
         /// <summary>
         ///     Specifies the path part of the URL – that is, the part that comes after the domain (or, if a URL resolver is
-        ///     used, the part that comes after the hook path). The query string is excluded. Whenever not empty, Path always
-        ///     begins with a forward slash. Manipulate this part using <see cref="IHttpUrlExtensions.WithPath"/> or <see
-        ///     cref="IHttpUrlExtensions.WithPathOnly"/>.</summary>
+        ///     used, the part that comes after the hook path). The query string is not included. Whenever not empty, Path
+        ///     always begins with a forward slash. Manipulate this part using <see cref="IHttpUrlExtensions.WithPath"/> or
+        ///     <see cref="IHttpUrlExtensions.WithPathOnly"/>.</summary>
         string Path { get; }
 
         /// <summary>
@@ -352,6 +352,32 @@ namespace RT.Servers
                     sb.Append(url.ParentPaths[i]);
             sb.Append(url.Path);
             url.AppendQueryString(sb, first: true);
+            return sb.ToString();
+        }
+
+        /// <summary>
+        ///     Returns the full path (the part that comes after the domain) regardless of any URL resolvers in use. The query
+        ///     string is not included.</summary>
+        public static string GetFullPath(this IHttpUrl url)
+        {
+            var sb = new StringBuilder();
+            if (url.ParentPaths != null)
+                for (int i = 0; i < url.ParentPaths.Length; i++)
+                    sb.Append(url.ParentPaths[i]);
+            sb.Append(url.Path);
+            return sb.ToString();
+        }
+
+        /// <summary>
+        ///     Returns the full domain name (the part that comes before the first slash) regardless of any URL resolvers in
+        ///     use. The protocol and the port number is not included.</summary>
+        public static string GetFullDomain(this IHttpUrl url)
+        {
+            var sb = new StringBuilder();
+            sb.Append(url.Domain);
+            if (url.ParentDomains != null)
+                for (int i = url.ParentDomains.Length - 1; i >= 0; i--)
+                    sb.Append(url.ParentDomains[i]);
             return sb.ToString();
         }
 
