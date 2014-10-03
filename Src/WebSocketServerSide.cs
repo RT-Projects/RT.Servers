@@ -2,6 +2,7 @@
 using System.IO;
 using System.Net.Sockets;
 using System.Runtime.Remoting;
+using System.Security.Permissions;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 
@@ -28,6 +29,12 @@ namespace RT.Servers
             beginRead();
         }
 
+        [SecurityPermissionAttribute(SecurityAction.Demand, Flags = SecurityPermissionFlag.Infrastructure)]
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
+
         private void beginRead()
         {
             try
@@ -42,20 +49,11 @@ namespace RT.Servers
                 catch (SocketException) { }
                 catch (IOException) { }
                 catch (ObjectDisposedException) { }
-
-                try
-                {
-                    _socketStream.Close();
-                    _client.OnEndConnection();
-                }
-                catch (SocketException) { }
-                catch (IOException) { }
-                catch (ObjectDisposedException) { }
+                end();
             }
             catch (Exception e)
             {
-                try { _socketStream.Close(); }
-                catch { }
+                end();
                 _server.Log.Exception(e);
             }
         }
@@ -73,8 +71,7 @@ namespace RT.Servers
             }
             catch (Exception e)
             {
-                try { _socketStream.Close(); }
-                catch { }
+                end();
                 _server.Log.Exception(e);
             }
 #endif
@@ -90,18 +87,8 @@ namespace RT.Servers
             {
                 // If this happens, the socket has already been closed and OnEndConnection() has already been called.
             }
-            catch (SocketException)
-            {
-                try { _socketStream.Close(); }
-                catch { }
-                _client.OnEndConnection();
-            }
-            catch (IOException)
-            {
-                try { _socketStream.Close(); }
-                catch { }
-                _client.OnEndConnection();
-            }
+            catch (SocketException) { end(); }
+            catch (IOException) { end(); }
         }
 
         private void receiveData(IAsyncResult ar)
@@ -122,8 +109,7 @@ namespace RT.Servers
                 // Frames coming from a client must be masked.
                 if ((_currentFrameBuffer[1] & 0x80) == 0)
                 {
-                    _socketStream.Close();
-                    _client.OnEndConnection();
+                    end();
                     return;
                 }
 
@@ -170,9 +156,7 @@ namespace RT.Servers
                 {
                     if (processMessage())
                     {
-                        try { _socketStream.Close(); }
-                        catch { }
-                        _client.OnEndConnection();
+                        end();
                         return;
                     }
                     _currentMessage = null;
@@ -201,8 +185,7 @@ namespace RT.Servers
                     return false;
 
                 case 0x08:  // close
-                    _socketStream.Close();
-                    _client.OnEndConnection();
+                    end();
                     return true;
 
                 case 0x09:  // ping
@@ -279,7 +262,24 @@ namespace RT.Servers
 
         public void Close()
         {
-            withExceptionHandling(() => { _socketStream.Close(); });
+            end();
+        }
+
+        private void end()
+        {
+            try
+            {
+                try { _socketStream.Close(); }
+                catch (SocketException) { }
+                catch (IOException) { }
+                catch (ObjectDisposedException) { }
+
+                _client.OnEndConnection();
+            }
+            finally
+            {
+                RemotingServices.Disconnect(this);
+            }
         }
     }
 }

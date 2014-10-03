@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Linq;
 using System.Collections.Generic;
-using System.IO;
-using System.Net.Sockets;
-using System.Security.Cryptography;
+using System.Runtime.Remoting;
+using System.Security.Permissions;
 using RT.Util.ExtensionMethods;
 using RT.Util.Json;
-using RT.Util;
 
 namespace RT.Servers
 {
@@ -23,6 +20,12 @@ namespace RT.Servers
             OnBeginConnection();
         }
 
+        [SecurityPermissionAttribute(SecurityAction.Demand, Flags = SecurityPermissionFlag.Infrastructure)]
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
+
         /// <summary>
         ///     When overridden in a derived class, handles an incoming WebSocket connection from a client.</summary>
         /// <remarks>
@@ -33,28 +36,36 @@ namespace RT.Servers
         ///         <item><description>
         ///             All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order
         ///             to handle or log your exceptions.</description></item></list></remarks>
-        public virtual void OnBeginConnection() { }
+        public void OnBeginConnection() { onBeginConnection(); }
+        protected virtual void onBeginConnection() { }
 
         /// <summary>
         ///     When overridden in a derived class, handles the event when the current WebSocket connection is closed.</summary>
         /// <remarks>
         ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to
         ///     handle or log your exceptions.</remarks>
-        public virtual void OnEndConnection() { }
+        public void OnEndConnection()
+        {
+            RemotingServices.Disconnect(this);
+            onEndConnection();
+        }
+        protected virtual void onEndConnection() { }
 
         /// <summary>
         ///     When overridden in a derived class, handles an incoming text message from the client.</summary>
         /// <remarks>
         ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to
         ///     handle or log your exceptions.</remarks>
-        public virtual void OnTextMessageReceived(string msg) { }
+        public void OnTextMessageReceived(string msg) { onTextMessageReceived(msg); }
+        protected virtual void onTextMessageReceived(string msg) { }
 
         /// <summary>
         ///     When overridden in a derived class, handles an incoming binary message from the client.</summary>
         /// <remarks>
         ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to
         ///     handle or log your exceptions.</remarks>
-        public virtual void OnBinaryMessageReceived(byte[] msg) { }
+        public void OnBinaryMessageReceived(byte[] msg) { onBinaryMessageReceived(msg); }
+        protected virtual void onBinaryMessageReceived(byte[] msg) { }
 
         /// <summary>
         ///     Sends a binary message to the client.</summary>
