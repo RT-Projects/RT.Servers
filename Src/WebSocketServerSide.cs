@@ -274,7 +274,8 @@ namespace RT.Servers
                 catch (IOException) { }
                 catch (ObjectDisposedException) { }
 
-                _client.OnEndConnection();
+                try { _client.OnEndConnection(); }
+                catch (RemotingException) { }
             }
             finally
             {
