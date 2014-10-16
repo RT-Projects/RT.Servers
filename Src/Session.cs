@@ -111,8 +111,8 @@ namespace RT.Servers
         ///     session as identified by <see cref="SessionID"/> is found in the session store, returns false.</summary>
         protected abstract bool ReadSession();
         /// <summary>
-        ///     Initialises a new session whenever an existing one couldn't be read. Must not save the session; only
-        ///     initialise any session variables. The default implementation does nothing, so derived classes don't need to
+        ///     Initializes a new session whenever an existing one couldn’t be read. Must not save the session; only
+        ///     initialize any session variables. The default implementation does nothing, so derived classes don’t need to
         ///     call it.</summary>
         protected virtual void NewSession() { }
         /// <summary>When overridden in a derived class, saves this instance to the session store.</summary>

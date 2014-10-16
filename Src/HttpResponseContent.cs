@@ -34,6 +34,15 @@ namespace RT.Servers
         /// <summary>Specifies whether gzip should be used.</summary>
         public UseGzipOption UseGzip = UseGzipOption.AutoDetect;
 
+        /// <summary>
+        ///     Initializes an HTTP response.</summary>
+        /// <param name="status">
+        ///     The HTTP status code to return.</param>
+        /// <param name="headers">
+        ///     HTTP response headers to include in the response.</param>
+        /// <param name="contentStreamDelegate">
+        ///     A delegate that generates or returns a Stream, which in turn provides the content to return as part of this
+        ///     response. Can be <c>null</c> for empty responses.</param>
         public HttpResponseContent(HttpStatusCode status, HttpResponseHeaders headers, Func<Stream> contentStreamDelegate = null)
             : base(headers)
         {

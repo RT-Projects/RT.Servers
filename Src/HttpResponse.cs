@@ -460,6 +460,15 @@ namespace RT.Servers
             return new HttpResponseContent(status, headers, getContentStream);
         }
 
+        /// <summary>
+        ///     Returns an <see cref="HttpResponseWebSocket"/> which indicates to the client that the HTTP connection should
+        ///     switch to the WebSocket protocol.</summary>
+        /// <param name="websocket">
+        ///     The <see cref="WebSocket"/> implementation to use for the remainder of the connection.</param>
+        /// <param name="subprotocol">
+        ///     The server’s selection of a subprotocol, if the client specified any subprotocols in the request.</param>
+        /// <param name="headers">
+        ///     Optional HTTP response headers.</param>
         public static HttpResponseWebSocket WebSocket(WebSocket websocket, string subprotocol = null, HttpResponseHeaders headers = null)
         {
             if (websocket == null)
@@ -467,6 +476,13 @@ namespace RT.Servers
             return new HttpResponseWebSocket(websocket, subprotocol, headers);
         }
 
+        /// <summary>
+        ///     Provides an implicit conversion from <see cref="WebSocket"/> to <see cref="HttpResponse"/> by assuming no
+        ///     subprotocol and no extra HTTP response headers.</summary>
+        /// <param name="websocket">
+        ///     The <see cref="WebSocket"/> implementation to use for the remainder of the connection.</param>
+        /// <returns>
+        ///     An <see cref="HttpResponseWebSocket"/> object.</returns>
         public static implicit operator HttpResponse(WebSocket websocket) { return websocket == null ? null : WebSocket(websocket); }
     }
 }

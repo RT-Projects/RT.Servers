@@ -11,14 +11,21 @@ namespace RT.Servers
     {
         private string _usersPath;
 
-        /// <summary>Used to ensure that the AuthUsers XML file is not read and written concurrently.</summary>
-        /// <remarks>static in case multiple instances of <see cref="FileAuthenticator"/> use the same XML file.</remarks>
+        /// <summary>
+        ///     Used to ensure that the AuthUsers XML file is not read and written concurrently.</summary>
+        /// <remarks>
+        ///     static in case multiple instances of <see cref="FileAuthenticator"/> use the same XML file.</remarks>
         private static object _lock = new object();
 
-        /// <summary>Constructor.</summary>
-        /// <param name="usersFilePath">Specifies the path and filename of an XML file containing the users and passwords.</param>
-        /// <param name="defaultReturnTo">Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET parameter.</param>
-        /// <param name="appName">Name of the application which uses this authentication handler.</param>
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="usersFilePath">
+        ///     Specifies the path and filename of an XML file containing the users and passwords.</param>
+        /// <param name="defaultReturnTo">
+        ///     Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET
+        ///     parameter.</param>
+        /// <param name="appName">
+        ///     Name of the application which uses this authentication handler.</param>
         public FileAuthenticator(string usersFilePath, Func<IHttpUrl, string> defaultReturnTo, string appName)
             : base(defaultReturnTo, appName)
         {
@@ -27,6 +34,7 @@ namespace RT.Servers
             _usersPath = usersFilePath;
         }
 
+        /// <summary>See base.</summary>
         protected override bool getUser(ref string username, out string passwordHash, out bool canCreateUsers)
         {
             passwordHash = null;
@@ -51,6 +59,7 @@ namespace RT.Servers
             return false;
         }
 
+        /// <summary>See base.</summary>
         protected override bool changePassword(string username, string newPasswordHash, Func<string, bool> verifyOldPasswordHash)
         {
             lock (_lock)
@@ -71,6 +80,7 @@ namespace RT.Servers
             }
         }
 
+        /// <summary>See base.</summary>
         protected override bool createUser(string username, string passwordHash, bool canCreateUsers)
         {
             lock (_lock)

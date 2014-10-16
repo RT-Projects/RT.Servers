@@ -16,6 +16,8 @@ namespace RT.Servers
         /// <param name="defaultReturnTo">
         ///     Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET
         ///     parameter.</param>
+        /// <param name="appName">
+        ///     Name of the application which uses this authentication handler.</param>
         public Authenticator(Func<IHttpUrl, string> defaultReturnTo, string appName)
         {
             if (defaultReturnTo == null)
@@ -50,6 +52,8 @@ namespace RT.Servers
         ///     Username of the new user.</param>
         /// <param name="password">
         ///     Password for the new user.</param>
+        /// <param name="canCreateUsers">
+        ///     Indicates whether the new user should have the right to create new users.</param>
         /// <exception cref="InvalidOperationException">
         ///     The specified username is already in use.</exception>
         public void CreateUser(string username, string password, bool canCreateUsers = false)
@@ -80,7 +84,7 @@ namespace RT.Servers
         protected abstract bool getUser(ref string username, out string passwordHash, out bool canCreateUsers);
 
         /// <summary>
-        ///     Attempts to change a user’s password.</summary>
+        ///     When overridden in a derived class, attempts to change a user’s password.</summary>
         /// <param name="username">
         ///     The user whose password is to be changed.</param>
         /// <param name="newPasswordHash">
@@ -94,7 +98,7 @@ namespace RT.Servers
         protected abstract bool changePassword(string username, string newPasswordHash, Func<string, bool> verifyOldPasswordHash);
 
         /// <summary>
-        ///     Creates a new user.</summary>
+        ///     When overridden in a derived class, creates a new user.</summary>
         /// <param name="username">
         ///     Username for the new user.</param>
         /// <param name="passwordHash">
