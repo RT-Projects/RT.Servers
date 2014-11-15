@@ -15,7 +15,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestErrorHandlerExceptions()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, OutputExceptionInformation = true });
+            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { OutputExceptionInformation = true });
             try
             {
                 instance.StartListening();
@@ -139,7 +139,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestErrorHandlerAndCleanUp()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port });
+            var instance = new HttpServer(ProgramServersTests.Port);
             try
             {
                 bool errorHandlerCalled = false;

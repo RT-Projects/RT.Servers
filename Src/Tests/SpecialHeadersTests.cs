@@ -23,7 +23,7 @@ namespace RT.Servers.Tests
         public void TestClientIPAddress()
         {
             HttpRequest request = null;
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
+            var instance = new HttpServer(ProgramServersTests.Port)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => { request = req; return HttpResponse.PlainText("blah"); }, path: "/static")

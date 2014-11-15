@@ -88,7 +88,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestDomainCase()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, OutputExceptionInformation = true });
+            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { OutputExceptionInformation = true });
             try
             {
                 bool ok;

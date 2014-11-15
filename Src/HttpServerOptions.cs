@@ -1,30 +1,66 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System;
+using System.Linq;
+using RT.Util.Serialization;
 
 namespace RT.Servers
 {
     /// <summary>Contains configuration settings for an <see cref="HttpServer"/>.</summary>
     [Serializable]
-    public sealed class HttpServerOptions
+    public sealed class HttpServerOptions : IClassifyObjectProcessor
     {
         /// <summary>
-        ///     The IP address of the interface to which the HTTP server should bind, or null to let the server listen on all
-        ///     network interfaces.</summary>
-        /// <remarks>
-        ///     This is a string rather than System.Net.IPAddress so that it is reasonably XmlClassifyable. If the contents
-        ///     don’t parse, null is assumed.</remarks>
-        public string BindAddress = null;
+        ///     A readonly dictionary of added server endpoints. See <see cref="AddEndpoint(string,string,int,bool)"/>, <see
+        ///     cref="AddEndpoint(string,HttpEndpoint)"/> and <seealso cref="RemoveEndpoint"/> for adding and removing things
+        ///     from this list.</summary>
+        public IReadOnlyDictionary<string, HttpEndpoint> Endpoints { get { return _endpoints; } }
 
         /// <summary>
-        ///     The port on which the server should listen for unsecured HTTP connections. Default is 80. Set to <c>null</c>
-        ///     to disable unsecured HTTP.</summary>
-        public int? Port = 80;
+        ///     Adds an endpoint for the server to listen on</summary>
+        /// <param name="key">
+        ///     Unique key used to identify this endpoint</param>
+        /// <param name="endpoint">
+        ///     The endpoint object</param>
+        public void AddEndpoint(string key, HttpEndpoint endpoint)
+        {
+            if (Endpoints.Values.Any(e => e.Port == endpoint.Port))
+                throw new ArgumentException("There is an endpoint with the specified port already added.", "endpoint");
+            _endpoints.Add(key, endpoint);
+        }
+        /// <summary>
+        ///     Adds an endpoint for the server to listen on</summary>
+        /// <param name="key">
+        ///     Unique key used to identify this endpoint</param>
+        /// <param name="bindAddress">
+        ///     The hostname/address to listen on</param>
+        /// <param name="port">
+        ///     The port to listen on</param>
+        /// <param name="secure">
+        ///     Specifies whether this is a secure (HTTPS) endpoint</param>
+        public void AddEndpoint(string key, string bindAddress, int port, bool secure = false)
+        {
+            AddEndpoint(key, new HttpEndpoint(bindAddress, port, secure));
+        }
 
         /// <summary>
-        ///     The port on which the server should listen for secured HTTPS connections. Default is <c>null</c>, i.e. with
-        ///     HTTPS disabled. The usual port for HTTPS is 443.</summary>
-        public int? SecurePort = null;
+        ///     Removes an endpoint from this option class.</summary>
+        /// <param name="key">
+        ///     The unique key used to removed from endpoint.</param>
+        /// <returns>
+        ///     <c>true</c> if the key was removed; <c>false</c> if the key did not exist.</returns>
+        public bool RemoveEndpoint(string key)
+        {
+            return _endpoints.Remove(key);
+        }
+
+        // Backwards compatibility with old serialized HttpServerOptions instances
+        [ClassifyIgnoreIfDefault]
+        private string BindAddress = null;
+        [ClassifyIgnoreIfDefault]
+        private int? Port = null;
+        [ClassifyIgnoreIfDefault]
+        private int? SecurePort = null;
 
         /// <summary>
         ///     Specifies the path and filename of the X509 certificate to use in HTTPS. Currently, only certificates not
@@ -72,6 +108,8 @@ namespace RT.Servers
         /// <summary>Content-Type to return when handler provides none. Default is "text/html; charset=utf-8".</summary>
         public string DefaultContentType = "text/html; charset=utf-8";
 
+        private readonly Dictionary<string, HttpEndpoint> _endpoints = new Dictionary<string, HttpEndpoint>(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>
         ///     Throws an exception if the settings are invalid.</summary>
         /// <remarks>
@@ -79,16 +117,34 @@ namespace RT.Servers
         ///         Possible reasons for invalid settings include:</para>
         ///     <list type="bullet">
         ///         <item><description>
-        ///             Both <see cref="Port"/> and <see cref="SecurePort"/> are <c>null</c>.</description></item>
+        ///             There are no endpoints.</description></item>
         ///         <item><description>
-        ///             <see cref="SecurePort"/> is non-<c>null</c>, but <see cref="CertificatePath"/> is <c>null</c>.</description></item></list></remarks>
+        ///             There is an endpoint with <see cref="HttpEndpoint.Secure"/> set to <c>true</c>, but <see
+        ///             cref="CertificatePath"/> is <c>null</c>.</description></item></list></remarks>
         public void CheckValid()
         {
-            if (Port == null && SecurePort == null)
-                throw new ArgumentException("In the server options, both 'Port' and 'SecurePort' are null. There is no port to listen on.");
+            if (Endpoints.Count < 1)
+                throw new ArgumentException("There are no endpoints specified. There is no port to listen on.");
 
-            if (SecurePort != null && CertificatePath == null)
-                throw new ArgumentException("Since 'SecurePort' is not null, a 'CertificatePath' must be specified in the options.");
+            if (Endpoints.Values.Any(e => e.Secure) && CertificatePath == null)
+                throw new ArgumentException("Since there is an endpoint flagged 'Secure', a 'CertificatePath' must be specified in the options.");
+        }
+
+        void IClassifyObjectProcessor.BeforeSerialize() { }
+
+        void IClassifyObjectProcessor.AfterDeserialize()
+        {
+            if (BindAddress != null || Port != null || SecurePort != null)
+            {
+                if (Port != null)
+                    AddEndpoint("HTTP", BindAddress, Port.Value, secure: false);
+                if (SecurePort != null)
+                    AddEndpoint("HTTPS", BindAddress, SecurePort.Value, secure: true);
+
+                BindAddress = null;
+                Port = null;
+                SecurePort = null;
+            }
         }
     }
 }

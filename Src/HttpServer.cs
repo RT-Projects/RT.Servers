@@ -14,6 +14,7 @@ using System.Threading;
 using RT.Servers.SharpZipLib.GZip;
 using RT.Util;
 using RT.Util.ExtensionMethods;
+using RT.Util.Serialization;
 using RT.Util.Streams;
 
 namespace RT.Servers
@@ -29,6 +30,21 @@ namespace RT.Servers
         public HttpServer(HttpServerOptions options = null)
         {
             _opt = options ?? new HttpServerOptions();
+            Stats = new Statistics(this);
+        }
+
+        /// <summary>
+        ///     Constructs an HTTP server with the specified configuration settings and using the specified port number for
+        ///     unsecured HTTP traffic.</summary>
+        /// <param name="port">
+        ///     The port number to use.</param>
+        /// <param name="options">
+        ///     Specifies the configuration settings to use for this <see cref="HttpServer"/>, or null to set all
+        ///     configuration values to default values.</param>
+        public HttpServer(int port, HttpServerOptions options = null)
+        {
+            _opt = options ?? new HttpServerOptions();
+            _opt.AddEndpoint("*", null, port);
             Stats = new Statistics(this);
         }
 
@@ -83,7 +99,7 @@ namespace RT.Servers
         ///     result in this event not being raised at all for the previous shutdown.</summary>
         public readonly ManualResetEvent ShutdownComplete = new ManualResetEvent(false);
 
-        private Socket[] _listeningSockets = new Socket[2]; // index 0 = HTTP, index 1 = HTTPS
+        private Dictionary<string, HttpEndpoint> _listeningSockets = new Dictionary<string, HttpEndpoint>();
         private HttpServerOptions _opt;
         private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
 
@@ -141,12 +157,12 @@ namespace RT.Servers
         {
             IsListening = false;
 
-            for (int index = 0; index < 1; index++)
+            foreach (var socketkvp in _listeningSockets.ToArray())
             {
-                if (_listeningSockets[index] != null)
+                if (socketkvp.Value != null && socketkvp.Value.Socket != null)
                 {
-                    _listeningSockets[index].Close();
-                    _listeningSockets[index] = null;
+                    socketkvp.Value.Socket.Close();
+                    _listeningSockets.Remove(socketkvp.Key);
                 }
             }
 
@@ -186,30 +202,25 @@ namespace RT.Servers
             IsListening = true;
             ShutdownComplete.Reset();
 
-            IPAddress addr;
-            if (_opt.BindAddress == null || !IPAddress.TryParse(_opt.BindAddress, out addr))
-                addr = IPAddress.Any;
-
-            foreach (var secure in new[] { false, true })
+            foreach (var endpointKvp in _opt.Endpoints)
             {
-                var port = secure ? _opt.SecurePort : _opt.Port;
-                if (port == null)
-                    continue;
+                IPAddress addr;
+                if (!IPAddress.TryParse(endpointKvp.Value.BindAddress, out addr))
+                    addr = IPAddress.Any;
 
-                var ep = new IPEndPoint(addr, port.Value);
-
-                var index = secure ? 1 : 0;
-                _listeningSockets[index] = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                _listeningSockets[index].Bind(ep);
+                var ep = new IPEndPoint(addr, endpointKvp.Value.Port);
+                var socket = new Socket(ep.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                endpointKvp.Value.Socket = socket;
+                _listeningSockets.Add(endpointKvp.Key, endpointKvp.Value);
+                socket.Bind(ep);
 
                 try
                 {
-                    _listeningSockets[index].Listen(int.MaxValue);
+                    socket.Listen(int.MaxValue);
                 }
                 catch (SocketException)
                 {
-                    _listeningSockets[index].Close();
+                    socket.Close();
                     throw;
                 }
 
@@ -218,7 +229,7 @@ namespace RT.Servers
                 {
                     // If someone calls StopListening() immediately after StartListening(),
                     // this could be null or a disposed object, and we really don’t care about that.
-                    try { _listeningSockets[index].BeginAccept(r => acceptSocket(r, secure), null); }
+                    try { socket.BeginAccept(r => acceptSocket(r, endpointKvp.Key), null); }
                     catch { }
                 });
             }
@@ -227,7 +238,7 @@ namespace RT.Servers
                 ShutdownComplete.WaitOne();
         }
 
-        private void acceptSocket(IAsyncResult result, bool secure)
+        private void acceptSocket(IAsyncResult result, string key)
         {
 #if DEBUG
             // Workaround for bug in .NET 4.0 and 4.5:
@@ -239,31 +250,29 @@ namespace RT.Servers
                 if (!IsListening)
                     return;
 
-                var socketIndex = secure ? 1 : 0;
-
                 // Get the socket
                 Socket socket = null;
-                try { socket = _listeningSockets[socketIndex].EndAccept(result); }
+                try { socket = _listeningSockets[key].Socket.EndAccept(result); }
                 catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
                 catch (ObjectDisposedException) { }
-                catch (NullReferenceException) { if (_listeningSockets[socketIndex] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
+                catch (NullReferenceException) { if (_listeningSockets[key] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
                 // Schedule the next socket accept
-                if (_listeningSockets[socketIndex] != null)
-                    try { _listeningSockets[socketIndex].BeginAccept(r => acceptSocket(r, secure), null); }
-                    catch (NullReferenceException) { if (_listeningSockets[socketIndex] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
+                if (_listeningSockets[key] != null)
+                    try { _listeningSockets[key].Socket.BeginAccept(r => acceptSocket(r, key), null); }
+                    catch (NullReferenceException) { if (_listeningSockets[key] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
                 // Handle this connection
                 if (socket == null)
                     return;
 
                 if (PropagateExceptions)
-                    HandleConnection(socket, secure);
+                    HandleConnection(socket, _listeningSockets[key].Secure);
                 else
                 {
                     try
                     {
-                        HandleConnection(socket, secure);
+                        HandleConnection(socket, _listeningSockets[key].Secure);
                     }
                     catch (Exception e)
                     {
@@ -484,22 +493,22 @@ namespace RT.Servers
                 {
 #endif
 
-                KeepAliveActive = false;
-                Interlocked.Increment(ref _endedReceives);
+                    KeepAliveActive = false;
+                    Interlocked.Increment(ref _endedReceives);
 
-                try
-                {
-                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                }
-                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                    try
+                    {
+                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                    }
+                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                if (_bufferDataLength == 0)
-                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                else
-                    processHeaderData();
-                cleanupIfDone();
+                    if (_bufferDataLength == 0)
+                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    else
+                        processHeaderData();
+                    cleanupIfDone();
 
 #if DEBUG
                 }).Start();

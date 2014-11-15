@@ -61,7 +61,7 @@ namespace RT.Servers.Tests
         public void TestBasicRequestHandling()
         {
             var store = 1024 * 1024;
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, StoreFileUploadInFileAtSize = store })
+            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { StoreFileUploadInFileAtSize = store })
             {
                 Handler = new UrlResolver(
                     new UrlMapping(handlerStatic, path: "/static"),
@@ -175,7 +175,7 @@ namespace RT.Servers.Tests
 
             foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
             {
-                instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize })
+                instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize })
                 {
                     Handler = new UrlResolver(
                         new UrlMapping(handlerStatic, path: "/static"),
@@ -255,7 +255,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestKeepaliveAndChunked()
         {
-            HttpServer instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port }) { Handler = handlerDynamic };
+            HttpServer instance = new HttpServer(ProgramServersTests.Port) { Handler = handlerDynamic };
             try
             {
                 instance.StartListening();

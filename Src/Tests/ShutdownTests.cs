@@ -12,7 +12,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestAbortedEndReceive()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
+            var instance = new HttpServer(ProgramServersTests.Port)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
@@ -41,7 +41,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestKeepaliveShutdownGentle()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
+            var instance = new HttpServer(ProgramServersTests.Port)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
@@ -79,7 +79,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestActiveShutdownGentle()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
+            var instance = new HttpServer(ProgramServersTests.Port)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
@@ -121,7 +121,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestActiveShutdownBrutal()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
+            var instance = new HttpServer(ProgramServersTests.Port)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")

@@ -45,6 +45,7 @@
     <Compile Include="Communicator.cs" />
     <Compile Include="FileSystemHandler.cs" />
     <Compile Include="FileSystemOptions.cs" />
+    <Compile Include="HttpEndpoint.cs" />
     <Compile Include="HttpEnums.cs" />
     <Compile Include="HttpException.cs" />
     <Compile Include="HttpInternalObjects.cs" />

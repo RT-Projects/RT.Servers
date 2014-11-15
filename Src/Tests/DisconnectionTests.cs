@@ -26,7 +26,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestMidResponseSocketClosure()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port })
+            var instance = new HttpServer(ProgramServersTests.Port)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => { return HttpResponse.Create(enumInfinite(), "text/plain"); }, path: "/infinite-and-slow")
@@ -67,7 +67,7 @@ namespace RT.Servers.Tests
         [Test]
         public void TestHalfOpenConnection()
         {
-            var instance = new HttpServer(new HttpServerOptions { Port = ProgramServersTests.Port, OutputExceptionInformation = true });
+            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { OutputExceptionInformation = true });
             instance.Handler = req => HttpResponse.PlainText(" thingy stuff ");
             try
             {
