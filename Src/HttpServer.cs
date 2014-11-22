@@ -52,7 +52,7 @@ namespace RT.Servers
         ///     Gets or sets the configuration settings currently in effect for this server.</summary>
         /// <remarks>
         ///     When set while the server is running, most of the new settings take effect immediately. The following do not:
-        ///     Port, SecurePort, BindAddress.</remarks>
+        ///     <see cref="HttpServerOptions.Endpoints"/>, <see cref="HttpServerOptions.CertificatePath"/>.</remarks>
         public HttpServerOptions Options
         {
             get

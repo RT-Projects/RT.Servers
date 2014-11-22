@@ -36,7 +36,7 @@ namespace RT.Servers
         /// <summary>
         ///     Creates an instance of HttpEndpoint.</summary>
         /// <param name="bindAddress">
-        ///     The hostname/address to listen on.</param>
+        ///     The hostname/address to listen on, or null to listen on all interfaces.</param>
         /// <param name="port">
         ///     The port to listen on.</param>
         /// <param name="secure">
@@ -59,6 +59,12 @@ namespace RT.Servers
         public bool Equals(HttpEndpoint other)
         {
             return other.BindAddress == BindAddress && other.Port == Port && other.Secure == Secure;
+        }
+
+        /// <summary>Returns a human-readable representation of this endpoint.</summary>
+        public override string ToString()
+        {
+            return (BindAddress ?? "all") + ":" + Port + (Secure ? "/secure" : "");
         }
 
         /// <summary>Returns a hash value for this object.</summary>
