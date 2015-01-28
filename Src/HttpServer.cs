@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Runtime.Remoting;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -14,7 +15,6 @@ using System.Threading;
 using RT.Servers.SharpZipLib.GZip;
 using RT.Util;
 using RT.Util.ExtensionMethods;
-using RT.Util.Serialization;
 using RT.Util.Streams;
 
 namespace RT.Servers
@@ -613,7 +613,11 @@ namespace RT.Servers
                     catch (IOException) { Socket.Close(); return; }
                     catch (ObjectDisposedException) { return; }
 
+                    // If ‘response’ is a transparent proxy, this will take a copy of the headers object because HttpResponseHeaders is serialized.
                     var headers = response.Headers;
+                    // If it is NOT a transparent proxy, we need to take such a copy ourselves.
+                    if (!RemotingServices.IsTransparentProxy(response))
+                        headers = headers.Clone();
                     _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
 
                     string webSocketKey;
@@ -703,13 +707,12 @@ namespace RT.Servers
 
             private bool outputResponse(HttpResponse response, HttpStatusCode status, HttpResponseHeaders headers, Stream contentStream, UseGzipOption useGzipOption, HttpRequest originalRequest)
             {
-                // IMPORTANT:
-                // Since HttpResponse is a MarshalByRefObject so that .NET Remoting can be used to proxy HttpResponse
-                // objects across AppDomain boundaries, but HttpResponseHeaders is serialized instead of proxied, it is
-                // moderately important that response.Headers is retrieved only once (as doing so retrieves a serialized copy).
-                // Consequently, the headers are passed into this method separately from the response object. The response
-                // object is ONLY used to pass it to _server.ResponseExceptionHandler(). Everything else in this method
-                // must use the other parameters, which contain a copy of all the necessary information.
+                // IMPORTANT: Do not access properties of ‘response’. Use the other parameters instead, which contain copies.
+                // The request handler can re-use HttpResponse objects between requests. Thus the properties of ‘response’ would
+                // be accessed simultaneously from multiple instances of this method running in separate threads.
+                // Additionally, HttpResponse is a MarshalByRefObject but HttpResponseHeaders is not, so ‘response’
+                // may be a transparent proxy, in which case ‘response.Headers’ would retrieve a serialized copy.
+                // ‘response’ is ONLY used to pass it to _server.ResponseExceptionHandler().
 
                 Socket.NoDelay = false;
 
@@ -751,8 +754,8 @@ namespace RT.Servers
                         originalRequest.HttpVersion == HttpProtocolVersion.Http11 &&
                         originalRequest.Headers.Connection.HasFlag(HttpConnection.KeepAlive) &&
                         !headers.Connection.HasFlag(HttpConnection.Close);
-                    if (useKeepAlive)
-                        headers.Connection = HttpConnection.KeepAlive;
+                    headers.Connection = useKeepAlive ? HttpConnection.KeepAlive : HttpConnection.Close;
+                    headers.ContentLength = null;
 
                     // Special cases: status codes that may not have a body
                     if (!status.MayHaveBody())
@@ -761,7 +764,6 @@ namespace RT.Servers
                             throw new InvalidOperationException("A response with the {0} status cannot have a body (GetContentStream must be null or return null).".Fmt(status));
                         if (headers.ContentType != null)
                             throw new InvalidOperationException("A response with the {0} status cannot have a Content-Type header.".Fmt(status));
-                        headers.ContentLength = null;
                         sendHeaders(status, headers);
                         return useKeepAlive;
                     }
@@ -863,8 +865,7 @@ namespace RT.Servers
                         catch { }
                     }
 
-                    if (useGzip)
-                        headers.ContentEncoding = HttpContentEncoding.Gzip;
+                    headers.ContentEncoding = useGzip ? HttpContentEncoding.Gzip : HttpContentEncoding.Identity;
 
                     // If we know the content length and it is smaller than the in-memory gzip threshold, gzip and output everything now
                     if (useGzip && contentLengthKnown && contentLength < _server.Options.GzipInMemoryUpToSize)

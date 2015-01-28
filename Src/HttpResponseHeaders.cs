@@ -146,5 +146,11 @@ namespace RT.Servers
                     b.Append("{0}: {1}\r\n".Fmt(kvp.Key, kvp.Value));
             return b.ToString();
         }
+
+        /// <summary>Creates a shallow clone of this object.</summary>
+        public HttpResponseHeaders Clone()
+        {
+            return (HttpResponseHeaders) MemberwiseClone();
+        }
     }
 }
