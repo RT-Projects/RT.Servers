@@ -17,30 +17,32 @@ namespace RT.Servers
         public IReadOnlyDictionary<string, HttpEndpoint> Endpoints { get { return _endpoints; } }
 
         /// <summary>
-        ///     Adds an endpoint for the server to listen on</summary>
+        ///     Adds an endpoint for the server to listen on.</summary>
         /// <param name="key">
-        ///     Unique key used to identify this endpoint</param>
+        ///     Unique key used to identify this endpoint.</param>
         /// <param name="endpoint">
-        ///     The endpoint object</param>
-        public void AddEndpoint(string key, HttpEndpoint endpoint)
+        ///     The endpoint object.</param>
+        public HttpServerOptions AddEndpoint(string key, HttpEndpoint endpoint)
         {
             if (Endpoints.Values.Any(e => e.Port == endpoint.Port))
                 throw new ArgumentException("There is an endpoint with the specified port already added.", "endpoint");
             _endpoints.Add(key, endpoint);
+            return this;
         }
         /// <summary>
-        ///     Adds an endpoint for the server to listen on</summary>
+        ///     Adds an endpoint for the server to listen on.</summary>
         /// <param name="key">
-        ///     Unique key used to identify this endpoint</param>
+        ///     Unique key used to identify this endpoint.</param>
         /// <param name="bindAddress">
-        ///     The hostname/address to listen on</param>
+        ///     The hostname/address to listen on, or null to listen on all interfaces.</param>
         /// <param name="port">
-        ///     The port to listen on</param>
+        ///     The port to listen on.</param>
         /// <param name="secure">
-        ///     Specifies whether this is a secure (HTTPS) endpoint</param>
-        public void AddEndpoint(string key, string bindAddress, int port, bool secure = false)
+        ///     Specifies whether this is a secure (HTTPS) endpoint.</param>
+        public HttpServerOptions AddEndpoint(string key, string bindAddress, int port, bool secure = false)
         {
             AddEndpoint(key, new HttpEndpoint(bindAddress, port, secure));
+            return this;
         }
 
         /// <summary>
