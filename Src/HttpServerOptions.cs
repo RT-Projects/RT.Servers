@@ -14,7 +14,7 @@ namespace RT.Servers
         ///     A readonly dictionary of added server endpoints. See <see cref="AddEndpoint(string,string,int,bool)"/>, <see
         ///     cref="AddEndpoint(string,HttpEndpoint)"/> and <seealso cref="RemoveEndpoint"/> for adding and removing things
         ///     from this list.</summary>
-        public IReadOnlyDictionary<string, HttpEndpoint> Endpoints { get { return _endpoints; } }
+        public IDictionary<string, HttpEndpoint> Endpoints { get { return _endpoints; } }
 
         /// <summary>
         ///     Adds an endpoint for the server to listen on.</summary>
@@ -24,11 +24,10 @@ namespace RT.Servers
         ///     The endpoint object.</param>
         public HttpServerOptions AddEndpoint(string key, HttpEndpoint endpoint)
         {
-            if (Endpoints.Values.Any(e => e.Port == endpoint.Port))
-                throw new ArgumentException("There is an endpoint with the specified port already added.", "endpoint");
             _endpoints.Add(key, endpoint);
             return this;
         }
+
         /// <summary>
         ///     Adds an endpoint for the server to listen on.</summary>
         /// <param name="key">

@@ -15,21 +15,21 @@ namespace RT.Servers
         /// <remarks>
         ///     This is a string rather than System.Net.IPAddress so that Classify can serialize it. If the contents don’t
         ///     parse, <c>null</c> is assumed.</remarks>
-        public string BindAddress { get; private set; }
+        public string BindAddress { get; set; }
 
         /// <summary>The port on which the server should listen for connections.</summary>
-        public int Port { get; private set; }
+        public int Port { get; set; }
 
         /// <summary>
         ///     Specifies whether this should be a secured (HTTPS) connection. The X509 certificate defined in the <see
         ///     cref="HttpServerOptions"/> must not be <c>null</c>.</summary>
-        public bool Secure { get; private set; }
+        public bool Secure { get; set; }
 
         // used to store socket in HttpServer
         [ClassifyIgnore]
         internal Socket Socket { get; set; }
 
-        internal HttpEndpoint()
+        private HttpEndpoint() // for Classify
         {
         }
 
@@ -64,7 +64,7 @@ namespace RT.Servers
         /// <summary>Returns a human-readable representation of this endpoint.</summary>
         public override string ToString()
         {
-            return (BindAddress ?? "all") + ":" + Port + (Secure ? "/secure" : "");
+            return (BindAddress ?? "*") + ":" + Port + (Secure ? "/secure" : "");
         }
 
         /// <summary>Returns a hash value for this object.</summary>

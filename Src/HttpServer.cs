@@ -202,6 +202,12 @@ namespace RT.Servers
             IsListening = true;
             ShutdownComplete.Reset();
 
+            if (_opt.Endpoints.Count == 0)
+                throw new InvalidOperationException("No endpoints are configured.");
+            var dupes = _opt.Endpoints.Values.GroupBy(v => (v.BindAddress ?? "*") + ":" + v.Port).Where(g => g.Count() > 1);
+            if (dupes.Any())
+                throw new InvalidOperationException("Duplicate endpoint(s): " + dupes.Select(d => d.First().ToString()).JoinString(", "));
+
             foreach (var endpointKvp in _opt.Endpoints)
             {
                 IPAddress addr;
