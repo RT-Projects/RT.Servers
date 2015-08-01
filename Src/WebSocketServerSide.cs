@@ -17,6 +17,7 @@ namespace RT.Servers
         private byte _currentMessageOpcode;
         private WebSocket _client;
         private HttpServer _server;
+        private bool _ended;
 
         internal WebSocketServerSide(Stream socketStream, WebSocket client, HttpServer server)
         {
@@ -26,6 +27,7 @@ namespace RT.Servers
             _currentMessage = null;
             _client = client;
             _server = server;
+            _ended = false;
             beginRead();
         }
 
@@ -155,10 +157,7 @@ namespace RT.Servers
                 if ((_currentFrameBuffer[0] & 0x80) == 0x80)
                 {
                     if (processMessage())
-                    {
-                        end();
                         return;
-                    }
                     _currentMessage = null;
                 }
 
@@ -269,6 +268,9 @@ namespace RT.Servers
         {
             try
             {
+                if (_ended)
+                    return;
+
                 try { _socketStream.Close(); }
                 catch (SocketException) { }
                 catch (IOException) { }
@@ -279,6 +281,7 @@ namespace RT.Servers
             }
             finally
             {
+                _ended = true;
                 RemotingServices.Disconnect(this);
             }
         }
