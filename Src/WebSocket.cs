@@ -13,6 +13,7 @@ namespace RT.Servers
     public abstract class WebSocket : MarshalByRefObject
     {
         private WebSocketServerSide _serverSideSocket;
+        private object _locker = new object();
 
         internal void takeSocket(WebSocketServerSide serverSideSocket)
         {
@@ -83,7 +84,8 @@ namespace RT.Servers
         {
             if (binaryMessage == null)
                 throw new ArgumentNullException("binaryMessage");
-            _serverSideSocket.SendMessage(opcode: 2, payload: binaryMessage);
+            lock (_locker)
+                _serverSideSocket.SendMessage(opcode: 2, payload: binaryMessage);
         }
 
         /// <summary>
@@ -95,12 +97,15 @@ namespace RT.Servers
             if (fragmentedBinaryMessage == null)
                 throw new ArgumentNullException("fragmentedBinaryMessage");
             var first = true;
-            foreach (var fragment in fragmentedBinaryMessage)
+            lock (_locker)
             {
-                _serverSideSocket.SendMessageFragment((byte) (first ? 2 : 0), fragment);
-                first = false;
+                foreach (var fragment in fragmentedBinaryMessage)
+                {
+                    _serverSideSocket.SendMessageFragment((byte) (first ? 2 : 0), fragment);
+                    first = false;
+                }
+                _serverSideSocket.SendMessageFragmentEnd((byte) (first ? 2 : 0));
             }
-            _serverSideSocket.SendMessageFragmentEnd((byte) (first ? 2 : 0));
         }
 
         /// <summary>
@@ -111,7 +116,8 @@ namespace RT.Servers
         {
             if (textMessage == null)
                 throw new ArgumentNullException("textMessage");
-            _serverSideSocket.SendMessage(opcode: 1, payload: textMessage.ToUtf8());
+            lock (_locker)
+                _serverSideSocket.SendMessage(opcode: 1, payload: textMessage.ToUtf8());
         }
 
         /// <summary>
@@ -123,12 +129,15 @@ namespace RT.Servers
             if (fragmentedTextMessage == null)
                 throw new ArgumentNullException("fragmentedTextMessage");
             var first = true;
-            foreach (var fragment in fragmentedTextMessage)
+            lock (_locker)
             {
-                _serverSideSocket.SendMessageFragment((byte) (first ? 1 : 0), fragment.ToUtf8());
-                first = false;
+                foreach (var fragment in fragmentedTextMessage)
+                {
+                    _serverSideSocket.SendMessageFragment((byte) (first ? 1 : 0), fragment.ToUtf8());
+                    first = false;
+                }
+                _serverSideSocket.SendMessageFragmentEnd((byte) (first ? 1 : 0));
             }
-            _serverSideSocket.SendMessageFragmentEnd((byte) (first ? 1 : 0));
         }
 
         /// <summary>
@@ -149,7 +158,8 @@ namespace RT.Servers
         ///     The message to send as a sequence of bytes.</param>
         public void SendMessage(byte opcode, byte[] payload)
         {
-            _serverSideSocket.SendMessage(opcode, payload);
+            lock (_locker)
+                _serverSideSocket.SendMessage(opcode, payload);
         }
 
         /// <summary>Closes the WebSocket connection.</summary>
