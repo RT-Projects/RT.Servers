@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System.Linq;
+using NUnit.Framework;
 
 namespace RT.Servers.Tests
 {
@@ -24,6 +25,27 @@ namespace RT.Servers.Tests
             url = new HttpUrl("example.com", "/foo").WithQuery("blah", (string) null);
             Assert.IsFalse(url.HasQuery);
             Assert.AreEqual("http://example.com/foo", url.ToFull());
+
+            // Query string key without value
+            url = new HttpUrl("localhost", "/blah/thingy?dl");
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "dl" && kvp.Value == ""));
+            url = new HttpUrl("localhost", "/blah/thingy?dl=");
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "dl" && kvp.Value == ""));
+            url = new HttpUrl("localhost", "/blah/thingy?dl&blah=5");
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "dl" && kvp.Value == ""));
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "blah" && kvp.Value == "5"));
+            url = new HttpUrl("localhost", "/blah/thingy?dl=&blah=5");
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "dl" && kvp.Value == ""));
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "blah" && kvp.Value == "5"));
+            url = new HttpUrl("localhost", "/blah/thingy?blah=5&dl");
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "dl" && kvp.Value == ""));
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "blah" && kvp.Value == "5"));
+            url = new HttpUrl("localhost", "/blah/thingy?blah=5&dl=");
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "dl" && kvp.Value == ""));
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "blah" && kvp.Value == "5"));
+            url = new HttpUrl("localhost", "/blah/thingy?blah=5&dl&");
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "dl" && kvp.Value == ""));
+            Assert.IsTrue(url.Query.Any(kvp => kvp.Key == "blah" && kvp.Value == "5"));
 
             // WithQuery Single + one other argument
             url = new HttpUrl("example.com", "/foo?q=s").WithQuery("blah", "thingy");

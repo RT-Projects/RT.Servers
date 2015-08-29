@@ -48,7 +48,7 @@ namespace RT.Servers
             int charsRead = s.Read(buffer, 0, buffer.Length);
             int bufferIndex = 0;
             string curKey = "";
-            string curValue = null;
+            string curValue = "";
 
             bool inKey = true;
             while (charsRead > 0)
@@ -81,15 +81,13 @@ namespace RT.Servers
                     else if (buffer[i] == (byte) '&')
                     {
                         if (inKey)
-                            curKey += new string(buffer, bufferIndex, i - bufferIndex) + "&";
+                            curKey += new string(buffer, bufferIndex, i - bufferIndex);
                         else
-                        {
                             curValue += new string(buffer, bufferIndex, i - bufferIndex);
-                            result.Add(Ut.KeyValuePair(curKey.UrlUnescape(), curValue.UrlUnescape()));
-                            curKey = "";
-                            curValue = null;
-                            inKey = true;
-                        }
+                        result.Add(Ut.KeyValuePair(curKey.UrlUnescape(), curValue.UrlUnescape()));
+                        curKey = "";
+                        curValue = "";
+                        inKey = true;
                         bufferIndex = i + 1;
                     }
                 }
@@ -97,7 +95,7 @@ namespace RT.Servers
                 bufferIndex = 0;
             }
 
-            if (curValue != null)
+            if (curKey != "")
                 result.Add(Ut.KeyValuePair(curKey.UrlUnescape(), curValue.UrlUnescape()));
 
             return result;
