@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using RT.Util.Serialization;
 
 namespace RT.Servers
 {
@@ -71,6 +72,14 @@ namespace RT.Servers
         /// Specifies which way directory listings should be generated. Default is <see cref="RT.Servers.DirectoryListingStyle.XmlPlusXsl"/>.
         /// </summary>
         public DirectoryListingStyle DirectoryListingStyle = DirectoryListingStyle.XmlPlusXsl;
+
+        /// <summary>
+        /// If directory listings are permitted, this handler is invoked to confirm that listing this specific directory is permitted. The handler should
+        /// return <c>null</c> to allow directory listing, or an appropriate response if listing is not allowed. A null handler is identical to a
+        /// handler that always returns null.
+        /// </summary>
+        [ClassifyIgnore]
+        public Func<HttpRequest, HttpResponse> DirectoryListingAuth = null;
 
         /// <summary>
         /// Specifies the value for the CacheControl max-age header on the files served by the file system handler, in seconds. Set to null to prevent this header being

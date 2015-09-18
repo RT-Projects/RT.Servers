@@ -125,6 +125,13 @@ namespace RT.Servers
                 case DirectoryListingStyle.Forbidden:
                     throw new HttpException(HttpStatusCode._401_Unauthorized);
                 case DirectoryListingStyle.XmlPlusXsl:
+                    var auth = (Options ?? DefaultOptions).DirectoryListingAuth;
+                    if (auth != null)
+                    {
+                        var response = auth(request);
+                        if (response != null)
+                            return response;
+                    }
                     if (!Directory.Exists(p + soFar))
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
                     return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url, soFarUrl + "/"), "application/xml; charset=utf-8");
