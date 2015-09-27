@@ -187,7 +187,7 @@ namespace RT.Servers
                 }
                 else if (nameLower == "x-forwarded-for" && XForwardedFor == null)
                 {
-                    var items = value.Split(',').Select(s => IPAddress.Parse(s.Trim().Split(':')[0])).ToList();
+                    var items = value.Split(',').Select(s => parseEndpointAddr(s.Trim())).ToList();
                     if (items.Count > 0)
                     {
                         XForwardedFor = items;
@@ -203,6 +203,48 @@ namespace RT.Servers
             _headers[name] = value;
 
             return recognised;
+        }
+
+        private IPAddress parseEndpointAddr(string str)
+        {
+            if (str == null)
+                throw new ArgumentNullException("str");
+            if (str.Length == 0)
+                throw new ArgumentException();
+            IPAddress addr;
+            if (str[0] == '[')
+            {
+                if (str[str.Length - 1] == ']')
+                    return ensureIPv6(IPAddress.Parse(str));
+                var lastColon = str.LastIndexOf(':');
+                if (lastColon <= 0 || str[lastColon - 1] != ']')
+                    throw new ArgumentException();
+                return ensureIPv6(IPAddress.Parse(str.Substring(1, lastColon - 2)));
+            }
+            else
+            {
+                var lastColon = str.LastIndexOf(':');
+                if (lastColon != str.IndexOf(':')) // else there are zero or one colons
+                    return ensureIPv6(IPAddress.Parse(str));
+                else if (lastColon == -1)
+                    return ensureIPv4(IPAddress.Parse(str));
+                else
+                    return ensureIPv4(IPAddress.Parse(str.Substring(0, lastColon)));
+            }
+        }
+
+        private IPAddress ensureIPv6(IPAddress addr)
+        {
+            if (addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6)
+                throw new ArgumentException();
+            return addr;
+        }
+
+        private IPAddress ensureIPv4(IPAddress addr)
+        {
+            if (addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+                throw new ArgumentException();
+            return addr;
         }
 
         /// <summary>Parses the cookie header and adds the cookies to the specified cookie dictionary.</summary>

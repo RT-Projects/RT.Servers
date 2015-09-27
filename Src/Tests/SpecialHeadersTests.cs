@@ -50,7 +50,20 @@ namespace RT.Servers.Tests
                 Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
                 Assert.IsNotNull(request.Headers["X-Forwarded-For"]);
 
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nX-Forwarded-For: 12.34.56.78:63125\r\n\r\n".ToUtf8());
+                TestUtil.ReadResponseUntilContent(sck);
+                Assert.AreEqual(IPAddress.Parse("12.34.56.78"), request.ClientIPAddress);
+                Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
+                Assert.IsNotNull(request.Headers["X-Forwarded-For"]);
+
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nX-Forwarded-For: 2a00:1450:400c:c01::93, 12.34.56.78\r\n\r\n".ToUtf8());
+                TestUtil.ReadResponseUntilContent(sck);
+                Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.ClientIPAddress);
+                Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.Headers.XForwardedFor[0]);
+                Assert.AreEqual(IPAddress.Parse("12.34.56.78"), request.Headers.XForwardedFor[1]);
+                Assert.IsTrue(IPAddress.IsLoopback(request.SourceIP.Address));
+
+                sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\nX-Forwarded-For: [2a00:1450:400c:c01::93]:63125, 12.34.56.78:63125\r\n\r\n".ToUtf8());
                 TestUtil.ReadResponseUntilContent(sck);
                 Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.ClientIPAddress);
                 Assert.AreEqual(IPAddress.Parse("2a00:1450:400c:c01::93"), request.Headers.XForwardedFor[0]);
