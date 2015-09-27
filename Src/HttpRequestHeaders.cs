@@ -187,7 +187,7 @@ namespace RT.Servers
                 }
                 else if (nameLower == "x-forwarded-for" && XForwardedFor == null)
                 {
-                    var items = value.Split(',').Select(s => IPAddress.Parse(s.Trim())).ToList();
+                    var items = value.Split(',').Select(s => IPAddress.Parse(s.Trim().Split(':')[0])).ToList();
                     if (items.Count > 0)
                     {
                         XForwardedFor = items;
