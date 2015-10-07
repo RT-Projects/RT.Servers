@@ -57,6 +57,9 @@ namespace RT.Servers
                     try { result = method.Invoke(api, arr); }
                     catch (Exception e) { throw new AjaxException("Error invoking the AJAX method.", e); }
 
+                    if (result is JsonValue)
+                        return (JsonValue) result;
+
                     try { return ClassifyJson.Serialize(returnType, result); }
                     catch (Exception e) { throw new AjaxInvalidReturnValueException(result, returnType, e); }
                 });
