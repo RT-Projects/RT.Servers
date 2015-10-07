@@ -211,7 +211,6 @@ namespace RT.Servers
                 throw new ArgumentNullException("str");
             if (str.Length == 0)
                 throw new ArgumentException();
-            IPAddress addr;
             if (str[0] == '[')
             {
                 if (str[str.Length - 1] == ']')
