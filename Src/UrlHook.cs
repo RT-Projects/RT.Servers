@@ -108,7 +108,7 @@ namespace RT.Servers
 
             if (Path == null && SpecificPath)
                 throw new ArgumentException("If SpecificPath is true, Path must not be null.");
-            if (Path != null && Path != "" && !Regex.IsMatch(Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9]*$"))
+            if (Path != null && Path != "" && !Regex.IsMatch(Path, @"^/[-;/:@=&$_\.\+!*'\(\),a-zA-Z0-9%]*$"))
                 throw new ArgumentException("Path must be empty or begin with a slash (/) and must not contain any characters that are invalid in URLs or the question mark (?) character.");
             if (Path != null && !SpecificPath && Path.EndsWith("/"))
                 throw new ArgumentException(@"If SpecificPath is false, Path must not end with a slash (/). It will, however, be treated as a directory. For example, if you specify the path ""/files"", only URLs beginning with ""/files/"" and the URL ""/files"" itself are matched. The URL ""/fileshare"" would not be considered a match. If you wish to hook to the root directory of the domain, set Path to null.");
