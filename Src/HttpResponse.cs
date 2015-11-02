@@ -477,10 +477,10 @@ namespace RT.Servers
         }
 
         /// <summary>
-        ///     Provides an implicit conversion from <see cref="WebSocket"/> to <see cref="HttpResponse"/> by assuming no
-        ///     subprotocol and no extra HTTP response headers.</summary>
+        ///     Provides an implicit conversion from <see cref="RT.Servers.WebSocket"/> to <see cref="HttpResponse"/> by
+        ///     assuming no subprotocol and no extra HTTP response headers.</summary>
         /// <param name="websocket">
-        ///     The <see cref="WebSocket"/> implementation to use for the remainder of the connection.</param>
+        ///     The <see cref="RT.Servers.WebSocket"/> implementation to use for the remainder of the connection.</param>
         /// <returns>
         ///     An <see cref="HttpResponseWebSocket"/> object.</returns>
         public static implicit operator HttpResponse(WebSocket websocket) { return websocket == null ? null : WebSocket(websocket); }
