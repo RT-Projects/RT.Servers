@@ -32,15 +32,15 @@ namespace RT.Servers
         /// <param name="filePath">
         ///     Full path and filename of the file to return.</param>
         /// <param name="contentType">
-        ///     MIME type to use in the Content-Type header. If null, the first kilobyte will be looked at to choose between
-        ///     the plaintext and the octet-stream content type.</param>
+        ///     MIME type to use in the Content-Type header. If <c>null</c> (the default), the first kilobyte is looked at to
+        ///     choose between the plaintext and the octet-stream content type.</param>
         /// <param name="maxAge">
-        ///     Specifies the value for the CacheControl max-age header on the file served. Set to null to prevent this header
-        ///     being sent.</param>
+        ///     Specifies the value for the CacheControl max-age header on the file served. Set to <c>null</c> to prevent this
+        ///     header being sent.</param>
         /// <param name="ifModifiedSince">
         ///     If specified, a 304 Not Modified will be served if the file's last modified timestamp is at or before this
         ///     time.</param>
-        public static HttpResponseContent File(string filePath, string contentType, int? maxAge = 3600, DateTime? ifModifiedSince = null)
+        public static HttpResponseContent File(string filePath, string contentType = null, int? maxAge = 3600, DateTime? ifModifiedSince = null)
         {
             try
             {

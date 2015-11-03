@@ -41,6 +41,7 @@
     <Compile Include="AjaxHandler.cs" />
     <Compile Include="AjaxMethodAttribute.cs" />
     <Compile Include="Authenticator.cs" />
+    <Compile Include="Documentation.cs" />
     <Compile Include="FileAuthenticator.cs" />
     <Compile Include="Communicator.cs" />
     <Compile Include="FileSystemHandler.cs" />
