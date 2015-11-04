@@ -9,7 +9,7 @@ namespace RT.Servers
 {
     /// <summary>
     ///     Provides the base class for your application to implement a WebSocket connection. Derive from this class and then
-    ///     pass an instance of your derived class to <see cref="HttpResponseWebSocket"/>.</summary>
+    ///     pass an instance of your derived class to <see cref="HttpResponse.WebSocket"/>.</summary>
     public abstract class WebSocket : MarshalByRefObject
     {
         private WebSocketServerSide _serverSideSocket;

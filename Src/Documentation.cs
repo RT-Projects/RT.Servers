@@ -138,7 +138,11 @@ namespace RT.Servers
     ///         <item><description>
     ///             You can write your own methods that generate HTML incrementally by declaring them as
     ///             <c>IEnumerable&lt;object&gt;</c> and returning pieces of HTML using <c>yield return</c>. Calling such a
-    ///             method inside a TagSoup tree causes that method to be evaluated just as lazily as the above.</description></item></list>
+    ///             method inside a TagSoup tree causes that method to be evaluated just as lazily as the above.</description></item>
+    ///         <item><description>
+    ///             If the HTTP connection is interrupted (for example because the user pressed Escape in the browser),
+    ///             HttpServer also stops generating the HTML. Therefore, any expensive operation (such as iterating over a
+    ///             large database result set) that generates HTML on the fly, is automatically halted.</description></item></list>
     ///     <para>
     ///         Apart from plain text and HTML (and other text-based items such as CSS and JavaScript), HttpServer can deal
     ///         efficiently with files using <see cref="HttpResponse.File"/>. For example:</para>
@@ -188,5 +192,5 @@ namespace RT.Servers
     ///         Once you have sessions, you can use <see cref="Authenticator"/> for a rudimentary login system. Again, <see
     ///         cref="FileAuthenticator"/> is an example derived class which takes the username/password information from a
     ///         local file, but you can derive your own to retrieve the information from a database or some other way.</para></summary>
-    sealed class AssemblyDocumentation { }
+    sealed class NamespaceDocumentation { }
 }
