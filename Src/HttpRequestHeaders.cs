@@ -322,9 +322,9 @@ namespace RT.Servers
                     ranges = new List<HttpRange>();
                 var range = new HttpRange();
                 if (m.Groups[1].Length > 0)
-                    range.From = int.Parse(m.Groups[1].Value);
+                    range.From = long.Parse(m.Groups[1].Value);
                 if (m.Groups[2].Length > 0)
-                    range.To = int.Parse(m.Groups[2].Value);
+                    range.To = long.Parse(m.Groups[2].Value);
                 ranges.Add(range);
             }
         }
