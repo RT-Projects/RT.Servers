@@ -4,7 +4,6 @@ using System.IO;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Serialization;
-using RT.Util.Xml;
 
 namespace RT.Servers
 {
