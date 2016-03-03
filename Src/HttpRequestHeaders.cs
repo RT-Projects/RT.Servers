@@ -97,6 +97,8 @@ namespace RT.Servers
                             {
                                 ContentType = HttpPostContentType.MultipartFormData;
                                 ContentMultipartBoundary = v.Substring("boundary=".Length);
+                                if (ContentMultipartBoundary.StartsWith('"') && ContentMultipartBoundary.EndsWith('"'))
+                                    ContentMultipartBoundary = ContentMultipartBoundary.Substring(1, ContentMultipartBoundary.Length - 2);
                                 recognised = true;
                             }
                         }
