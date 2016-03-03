@@ -143,7 +143,7 @@ namespace RT.Servers
         private HttpResponse changePasswordHandler(HttpRequest req, string loggedInUser)
         {
             if (loggedInUser == null)
-                return HttpResponse.Redirect(req.Url.WithPathOnly("/login").WithQuery("returnto", req.Url.ToHref()));
+                return HttpResponse.Redirect(req.Url.WithPathParent().WithPathOnly("/login").WithQuery("returnto", req.Url.ToHref()));
 
             if (req.Method != HttpMethod.Post)
                 return changePasswordForm(loggedInUser, req.Url["returnto"], false, false, null, null, null, req.Url.WithoutQuery("returnto"));
