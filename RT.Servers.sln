@@ -1,15 +1,15 @@
 
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServersTests", "Src\Tests\ServersTests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers.Tests", "Src\Tests\RT.Servers.Tests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Servers", "Src\RT.Servers.csproj", "{A7333C19-56A9-4A8E-A196-7648666EF26A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers", "Src\RT.Servers.csproj", "{A7333C19-56A9-4A8E-A196-7648666EF26A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Util", "..\RT.Util\Src\RT.Util.csproj", "{8D0FE79C-AD8D-475C-9E6F-9CAE85365B5D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Util", "..\RT.Util\Src\RT.Util.csproj", "{8D0FE79C-AD8D-475C-9E6F-9CAE85365B5D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NUnitDirect", "..\RT.NUnitDirect\Src\RT.NUnitDirect.csproj", "{275ECB9D-F75E-45F8-BB34-AD122589D2CC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.NUnitDirect", "..\RT.NUnitDirect\Src\RT.NUnitDirect.csproj", "{275ECB9D-F75E-45F8-BB34-AD122589D2CC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TagSoup", "..\RT.TagSoup\Src\RT.TagSoup.csproj", "{8F80D916-8999-45D8-ACB2-FFA7E2698FD6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.TagSoup", "..\RT.TagSoup\Src\RT.TagSoup.csproj", "{8F80D916-8999-45D8-ACB2-FFA7E2698FD6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
