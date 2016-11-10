@@ -66,6 +66,7 @@ namespace RT.Servers
             if (request.Url.Path.StartsWith("/$/"))
                 throw new HttpNotFoundException();
 
+            var dirStyle = (Options ?? DefaultOptions).DirectoryListingStyle;
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string[] urlPieces = request.Url.Path.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
@@ -91,6 +92,9 @@ namespace RT.Servers
                     string nextSoFar = soFar + Path.DirectorySeparatorChar + suitablePiece;
                     string curPath = p + nextSoFar;
 
+                    if (!File.Exists(curPath) && !Directory.Exists(curPath) && curPath.Contains('*') && dirStyle != DirectoryListingStyle.Forbidden)
+                        curPath = new DirectoryInfo(p + soFar).GetFileSystemInfos(suitablePiece).Select(fs => fs.FullName).FirstOrDefault() ?? curPath;
+
                     if (File.Exists(curPath))
                     {
                         soFarUrl += "/" + new DirectoryInfo(p + soFar).GetFiles(suitablePiece)[0].Name.UrlEscape();
@@ -112,15 +116,14 @@ namespace RT.Servers
                 // The specified piece is neither a file nor a directory.
                 throw new HttpNotFoundException(request.Url.WithPathOnly(soFarUrl + "/" + piece).ToHref());
 
-                foundOne: ;
+                foundOne:;
             }
 
             // If this point is reached, it’s a directory
             if (request.Url.Path != soFarUrl + "/")
                 return HttpResponse.Redirect(request.Url.WithPath(soFarUrl + "/"));
 
-            var style = (Options ?? DefaultOptions).DirectoryListingStyle;
-            switch (style)
+            switch (dirStyle)
             {
                 case DirectoryListingStyle.Forbidden:
                     throw new HttpException(HttpStatusCode._401_Unauthorized);
@@ -136,7 +139,7 @@ namespace RT.Servers
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
                     return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url, soFarUrl + "/"), "application/xml; charset=utf-8");
                 default:
-                    throw new InvalidOperationException("Invalid directory listing style: " + (int) style);
+                    throw new InvalidOperationException("Invalid directory listing style: " + (int) dirStyle);
             }
         }
 
