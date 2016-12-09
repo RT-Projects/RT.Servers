@@ -77,12 +77,12 @@ namespace RT.Servers
         /// <summary>Maximum allowed size for the headers of a request, in bytes. Default is 256 KB.</summary>
         public int MaxSizeHeaders = 256 * 1024;
 
-        /// <summary>Maximum allowed size for the content of a POST request, in bytes. Default is 1 GB.</summary>
+        /// <summary>Maximum allowed size for the content of a POST/PUT/PATCH request, in bytes. Default is 1 GB.</summary>
         public long MaxSizePostContent = 1024 * 1024 * 1024;
 
         /// <summary>
-        ///     The maximum size (in bytes) at which file uploads in a POST request are stored in memory. Any uploads that
-        ///     exceed this limit are written to temporary files on disk. Default is 16 MB.</summary>
+        ///     The maximum size (in bytes) at which file uploads in a POST/PUT/PATCH request are stored in memory. Any
+        ///     uploads that exceed this limit are written to temporary files on disk. Default is 16 MB.</summary>
         public long StoreFileUploadInFileAtSize = 1024 * 1024;
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace RT.Servers
         public int GzipAutodetectThreshold = 1024 * 1024;
 
         /// <summary>
-        ///     The temporary directory to use for file uploads in POST requests. Default is <see cref="Path.GetTempPath"/>.</summary>
+        ///     The temporary directory to use for file uploads in POST/PUT/PATCH requests. Default is <see cref="Path.GetTempPath"/>.</summary>
         public string TempDir = Path.GetTempPath();
 
         /// <summary>

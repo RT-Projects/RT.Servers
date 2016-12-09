@@ -25,7 +25,7 @@ namespace RT.Servers
         /// <summary>Specifies the HTTP protocol version that was used for this request.</summary>
         public HttpProtocolVersion HttpVersion { get; internal set; }
 
-        /// <summary>Specifies the HTTP request method (GET, POST or HEAD) that was used for this request.</summary>
+        /// <summary>Specifies the HTTP request method (GET, POST, HEAD, PUT, PATCH, DELETE) that was used for this request.</summary>
         public HttpMethod Method { get; internal set; }
 
         /// <summary>Contains the HTTP request headers that were received and understood by <see cref="HttpServer"/>.</summary>
@@ -66,18 +66,18 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Provides access to POST query parameters (empty if the request is not a POST request).
+        /// Provides access to values in the body of a POST/PUT/PATCH request (empty if the request does not have a body).
         /// </summary>
         public NameValuesCollection<string> Post { get { return _postFields; } }
 
         /// <summary>
-        /// Contains information about file uploads included in a POST request. Empty if the request is not a POST request.
+        /// Contains information about file uploads included in a POST/PUT/PATCH request. Empty if the request does not have a body.
         /// </summary>
         public Dictionary<string, FileUpload> FileUploads { get { return _fileUploads; } }
 
-        /// <summary>If this request is a POST request, replaces the body of the request with data from the specified stream.
-        /// This will clear and reinitialise all the POST parameter values and file uploads.</summary>
-        /// <param name="body">Stream to read new POST request body from.</param>
+        /// <summary>If this request is a POST/PUT/PATCH request, replaces the body of the request with data from the specified stream.
+        /// This will clear and reinitialize all the parameter values and file uploads.</summary>
+        /// <param name="body">Stream to read new request body from.</param>
         /// <param name="tempPath">The temporary directory to use for file uploads. Default is <see cref="Path.GetTempPath"/>.</param>
         /// <param name="storeFileUploadInFileAtSize">The maximum size (in bytes) at which file uploads are stored in memory.
         /// Any uploads that exceed this limit are written to temporary files on disk. Default is 16 MB.</param>
@@ -125,7 +125,7 @@ namespace RT.Servers
                 }
             };
 
-            // Process POST request upload data
+            // Process request body
             int bytesRead = body.Read(buffer, 0, bufferSize);
             if (bytesRead == 0)    // premature end of request body
                 return;

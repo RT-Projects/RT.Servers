@@ -1115,8 +1115,14 @@ namespace RT.Servers
                     req.Method = HttpMethod.Get;
                 else if (line.StartsWith("HEAD "))
                     req.Method = HttpMethod.Head;
+                else if (line.StartsWith("DELETE "))
+                    req.Method = HttpMethod.Delete;
                 else if (line.StartsWith("POST "))
                     req.Method = HttpMethod.Post;
+                else if (line.StartsWith("PUT "))
+                    req.Method = HttpMethod.Put;
+                else if (line.StartsWith("PATCH "))
+                    req.Method = HttpMethod.Patch;
                 else
                     return errorParsingRequest(req, HttpStatusCode._501_NotImplemented);
 
@@ -1129,7 +1135,7 @@ namespace RT.Servers
 
                 var url = new HttpUrl { Https = _secure };
 
-                int start = req.Method == HttpMethod.Get ? 4 : 5;
+                int start = req.Method.ToString().Length + 1;
                 try { url.SetLocation(line.Substring(start, line.Length - start - 9)); }
                 catch { return errorParsingRequest(req, HttpStatusCode._400_BadRequest); }
 
@@ -1165,10 +1171,10 @@ namespace RT.Servers
                 _server.Log.Info(1, "{0:X8} Request: {1} {2}".Fmt(_requestId, req.Method, url.ToFull()));
                 req.Url = url;
 
-                if (req.Method == HttpMethod.Post)
+                if (req.Method == HttpMethod.Post || req.Method == HttpMethod.Put || req.Method == HttpMethod.Patch)
                 {
                     // This returns null in case of success and an error response in case of error
-                    var result = processPostContent(req);
+                    var result = processRequestBody(req);
                     if (result != null)
                         return result;
                 }
@@ -1232,7 +1238,7 @@ namespace RT.Servers
                 return null;
             }
 
-            private HttpResponse processPostContent(HttpRequest req)
+            private HttpResponse processRequestBody(HttpRequest req)
             {
                 // Some validity checks
                 if (req.Headers.ContentLength == null)
@@ -1251,7 +1257,7 @@ namespace RT.Servers
                 if (req.Headers.Expect != null && req.Headers.Expect.ContainsKey("100-continue"))
                     _stream.Write("HTTP/1.1 100 Continue\r\n\r\n".ToUtf8());
 
-                // Read the contents of the POST request
+                // Read the contents of the request body
                 Stream contentStream;
                 if (_bufferDataLength >= req.Headers.ContentLength.Value)
                 {

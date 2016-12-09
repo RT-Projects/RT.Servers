@@ -104,7 +104,7 @@ namespace RT.Servers
     }
 
     /// <summary>
-    /// Represents a file upload contained in an HTTP POST request.
+    /// Represents a file upload contained in an HTTP request with a body.
     /// </summary>
     [Serializable]
     public sealed class FileUpload

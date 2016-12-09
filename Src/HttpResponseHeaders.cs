@@ -18,7 +18,7 @@ namespace RT.Servers
 
         public HttpAcceptRanges? AcceptRanges;
         public int? Age; // in seconds
-        public string[] Allow;  // usually: { "GET", "HEAD", "POST" }
+        public string[] Allow;
         public HttpCacheControl[] CacheControl;
         public HttpConnection Connection;
         public HttpContentEncoding ContentEncoding = HttpContentEncoding.Identity;

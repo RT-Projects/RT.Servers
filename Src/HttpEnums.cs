@@ -19,8 +19,11 @@ namespace RT.Servers
     public enum HttpMethod
     {
         Get,
+        Head,
+        Delete,
         Post,
-        Head
+        Put,
+        Patch
     }
 
     /// <summary>Contains values for the supported values of the Accept-Ranges HTTP request header.</summary>
@@ -90,7 +93,7 @@ namespace RT.Servers
     }
 
     /// <summary>
-    /// Contains values for the supported values of the Content-Type HTTP request header when used in HTTP POST requests.
+    /// Contains values for the supported values of the Content-Type HTTP request header when used in HTTP POST/PUT/PATCH requests.
     /// </summary>
     public enum HttpPostContentType
     {
