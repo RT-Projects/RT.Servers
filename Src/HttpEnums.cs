@@ -19,9 +19,9 @@ namespace RT.Servers
     public enum HttpMethod
     {
         Get,
+        Post,
         Head,
         Delete,
-        Post,
         Put,
         Patch
     }
