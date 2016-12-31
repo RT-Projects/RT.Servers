@@ -418,33 +418,67 @@ namespace RT.Servers
                 lock (server._activeConnectionHandlers)
                     server._activeConnectionHandlers.Add(this);
 
-                var stream = new NetworkStream(socket, ownsSocket: true);
-                if (_secure)
+                var stream = new SniReaderStream(new NetworkStream(socket, ownsSocket: true));
+                stream.PeekAtSniHostAsync().ContinueWith((sniHost) =>
                 {
-                    var secureStream = new SslStream(stream);
-                    _stream = secureStream;
-                    secureStream.BeginAuthenticateAsServer(new X509Certificate2(server.Options.CertificatePath, server.Options.CertificatePassword), false, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, true, ar =>
+                    try
                     {
+                        if (_secure)
+                        {
+                            var secureStream = new SslStream(stream);
+                            _stream = secureStream;
+
+                            // select the most appropriate certificate.
+                            var certificate = server.Options.CertificateResolver?.Invoke(sniHost.Result)
+                                              ?? new X509Certificate2(server.Options.CertificatePath, server.Options.CertificatePassword);
+
+                            secureStream.BeginAuthenticateAsServer(
+                                certificate,
+                                false,
+                                SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12,
+                                true,
+                                ar =>
+                                {
+                                    try
+                                    {
+                                        secureStream.EndAuthenticateAsServer(ar);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Socket.Close();
+                                        cleanupIfDone();
+                                        if (_server.ResponseExceptionHandler != null)
+                                            _server.ResponseExceptionHandler(null, e, null);
+                                        return;
+                                    }
+                                    receiveMoreHeaderData();
+                                }, null);
+                        }
+                        else
+                        {
+                            _stream = stream;
+                            receiveMoreHeaderData();
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is AggregateException)
+                            e = ((AggregateException)e).InnerException;
+
+                        var response = exceptionToResponse(null, e);
+                        var responseContent = (HttpResponseContent)response;
+                        var responseStream = responseContent.GetContentStream();
                         try
                         {
-                            secureStream.EndAuthenticateAsServer(ar);
+                            outputResponse(response, responseContent.Status, new HttpResponseHeaders(), responseStream, UseGzipOption.DontUseGzip, null);
                         }
-                        catch (Exception e)
-                        {
-                            Socket.Close();
-                            cleanupIfDone();
-                            if (_server.ResponseExceptionHandler != null)
-                                _server.ResponseExceptionHandler(null, e, null);
-                            return;
-                        }
-                        receiveMoreHeaderData();
-                    }, null);
-                }
-                else
-                {
-                    _stream = stream;
-                    receiveMoreHeaderData();
-                }
+                        catch { }
+                        responseStream.Dispose();
+
+                        Socket.Close();
+                        cleanupIfDone();
+                    }
+                });
             }
 
             /// <summary>
