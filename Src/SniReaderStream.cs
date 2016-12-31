@@ -10,7 +10,7 @@ using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
-    public class SniReaderStream : Stream
+    internal class SniReaderStream : Stream
     {
         public override bool CanTimeout => _impl.CanTimeout;
         public override bool CanRead => _impl.CanRead;
@@ -81,7 +81,15 @@ namespace RT.Servers
                 throw new ArgumentException("state is not supported");
 
             var read = ReadInternal(buffer, ref offset, ref count);
-            return base.BeginRead(buffer, offset, count, callback, read);
+
+            if (count <= 0)
+            {
+                var result = new FinishedResult() { AsyncState = read, IsCompleted = true, CompletedSynchronously = true };
+                callback(result);
+                return result;
+            }
+
+            return _impl.BeginRead(buffer, offset, count, callback, read);
         }
 
         public override int Read(byte[] buffer, int offset, int count)
@@ -98,8 +106,12 @@ namespace RT.Servers
         public override int EndRead(IAsyncResult asyncResult)
         {
             _firstAction = true;
-            var read = (int) asyncResult.AsyncState;
-            return read + base.EndRead(asyncResult);
+            var read = (int)asyncResult.AsyncState;
+
+            if (asyncResult is FinishedResult)
+                return read;
+
+            return read + _impl.EndRead(asyncResult);
         }
 
         public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
@@ -171,8 +183,6 @@ namespace RT.Servers
         {
             throw new NotImplementedException();
         }
-
-
 
         public override void Close()
         {
@@ -270,6 +280,14 @@ namespace RT.Servers
             }
 
             return null;
+        }
+
+        private class FinishedResult : IAsyncResult
+        {
+            public bool IsCompleted { get; set; }
+            public WaitHandle AsyncWaitHandle { get; set; }
+            public object AsyncState { get; set; }
+            public bool CompletedSynchronously { get; set; }
         }
 
         private class ByteBuffer
