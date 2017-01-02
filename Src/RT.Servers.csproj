@@ -55,6 +55,7 @@
     <Compile Include="HttpRequestHeaders.cs" />
     <Compile Include="HttpResponseContent.cs" />
     <Compile Include="HttpResponseHeaders.cs" />
+    <Compile Include="SniReaderStream.cs" />
     <Compile Include="WebSocket.cs" />
     <Compile Include="HttpServer.cs" />
     <Compile Include="HttpServerOptions.cs" />

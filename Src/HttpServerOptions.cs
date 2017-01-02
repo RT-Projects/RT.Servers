@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using RT.Util.Serialization;
 
 namespace RT.Servers
@@ -64,12 +65,19 @@ namespace RT.Servers
         private int? SecurePort = null;
 
         /// <summary>
-        ///     Specifies the path and filename of the X509 certificate to use in HTTPS. Currently, only certificates not
-        ///     protected by a password are supported.</summary>
+        ///     Obsolete: Specifies the path and filename of the X509 certificate to use in HTTPS. Currently, only certificates not
+        ///     protected by a password are supported. If <see cref="CertificateResolver"/> is specified, this is ignored.</summary>
+        [Obsolete("Please see the CertificateResolver property.")]
         public string CertificatePath = null;
 
-        /// <summary>The password required to access the certificate in <see cref="CertificatePath"/>.</summary>
+        /// <summary>Obsolete: The password required to access the certificate in <see cref="CertificatePath"/>. If <see cref="CertificateResolver"/> is specified, this is ignored.</summary>
+        [Obsolete("Please see the CertificateResolver property.")]
         public string CertificatePassword = null;
+
+        /// <summary>
+        /// A function which returns a certificate based on a host name (SNI). The input will be null if the client software does not specify the host in the TLS hello packet.
+        /// </summary>
+        public Func<string, X509Certificate2> CertificateResolver = null;
 
         /// <summary>Timeout in milliseconds for idle connections. Set to 0 for no timeout. Default is 10000 (10 seconds).</summary>
         public int IdleTimeout = 10000;
@@ -127,7 +135,7 @@ namespace RT.Servers
             if (Endpoints.Count < 1)
                 throw new ArgumentException("There are no endpoints specified. There is no port to listen on.");
 
-            if (Endpoints.Values.Any(e => e.Secure) && CertificatePath == null)
+            if (Endpoints.Values.Any(e => e.Secure) && CertificatePath == null && CertificateResolver == null)
                 throw new ArgumentException("Since there is an endpoint flagged 'Secure', a 'CertificatePath' must be specified in the options.");
         }
 
