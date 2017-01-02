@@ -77,14 +77,11 @@ namespace RT.Servers
         public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
         {
             _firstAction = true;
-            if (state != null)
-                throw new ArgumentException("state is not supported");
 
             var read = ReadInternal(buffer, ref offset, ref count);
-
-            if (count <= 0)
+            if (read > 0)
             {
-                var result = new FinishedResult() { AsyncState = read, IsCompleted = true, CompletedSynchronously = true };
+                var result = new FinishedResult() { AsyncState = state, IsCompleted = true, CompletedSynchronously = true, AmountRead = read };
                 callback(result);
                 return result;
             }
@@ -95,34 +92,34 @@ namespace RT.Servers
         public override int Read(byte[] buffer, int offset, int count)
         {
             _firstAction = true;
-            var read = ReadInternal(buffer, ref offset, ref count);
 
-            if (count <= 0)
+            var read = ReadInternal(buffer, ref offset, ref count);
+            if (read > 0)
                 return read;
 
-            return read + _impl.Read(buffer, offset, count);
+            return _impl.Read(buffer, offset, count);
         }
 
         public override int EndRead(IAsyncResult asyncResult)
         {
             _firstAction = true;
-            var read = (int)asyncResult.AsyncState;
 
-            if (asyncResult is FinishedResult)
-                return read;
+            var result = asyncResult as FinishedResult;
+            if (result != null)
+                return result.AmountRead;
 
-            return read + _impl.EndRead(asyncResult);
+            return _impl.EndRead(asyncResult);
         }
 
         public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             _firstAction = true;
-            var read = ReadInternal(buffer, ref offset, ref count);
 
-            if (count <= 0)
+            var read = ReadInternal(buffer, ref offset, ref count);
+            if (read > 0)
                 return read;
 
-            return count + await _impl.ReadAsync(buffer, offset, count, cancellationToken);
+            return await _impl.ReadAsync(buffer, offset, count, cancellationToken);
         }
 
         public override void Write(byte[] buffer, int offset, int count)
@@ -288,6 +285,7 @@ namespace RT.Servers
             public WaitHandle AsyncWaitHandle { get; set; }
             public object AsyncState { get; set; }
             public bool CompletedSynchronously { get; set; }
+            public int AmountRead { get; set; }
         }
 
         private class ByteBuffer
