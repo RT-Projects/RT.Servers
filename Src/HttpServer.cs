@@ -418,7 +418,6 @@ namespace RT.Servers
                 lock (server._activeConnectionHandlers)
                     server._activeConnectionHandlers.Add(this);
 
-
                 _stream = new NetworkStream(socket, ownsSocket: true);
                 if (_secure)
                 {
@@ -426,34 +425,32 @@ namespace RT.Servers
                     var secureStream = new SslStream(sniReader);
                     _stream = secureStream;
 
-                    sniReader.PeekAtSniHostAsync().ContinueWith((sniHost) =>
-                    {
-                        // select the most appropriate certificate.
-                        var certificate = server.Options.CertificateResolver?.Invoke(sniHost.Result)
-                                          ?? new X509Certificate2(server.Options.CertificatePath, server.Options.CertificatePassword);
+                    // select the most appropriate certificate.
+                    var sniHost = sniReader.PeekAtSniHost();
+                    var certificate = server.Options.CertificateResolver?.Invoke(sniHost)
+                        ?? server.Options.Certificates?.Get(sniHost, null)?.GetCertificate()
+                        ?? server.Options.Certificate?.GetCertificate();
 
-                        secureStream.BeginAuthenticateAsServer(
-                            certificate,
-                            false,
-                            SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12,
-                            true,
-                            ar =>
+                    secureStream.BeginAuthenticateAsServer(
+                        certificate,
+                        false,
+                        SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12,
+                        true,
+                        ar =>
+                        {
+                            try
                             {
-                                try
-                                {
-                                    secureStream.EndAuthenticateAsServer(ar);
-                                }
-                                catch (Exception e)
-                                {
-                                    Socket.Close();
-                                    cleanupIfDone();
-                                    if (_server.ResponseExceptionHandler != null)
-                                        _server.ResponseExceptionHandler(null, e, null);
-                                    return;
-                                }
-                                receiveMoreHeaderData();
-                            }, null);
-                    });
+                                secureStream.EndAuthenticateAsServer(ar);
+                            }
+                            catch (Exception e)
+                            {
+                                Socket.Close();
+                                cleanupIfDone();
+                                _server.ResponseExceptionHandler?.Invoke(null, e, null);
+                                return;
+                            }
+                            receiveMoreHeaderData();
+                        }, null);
                 }
                 else
                 {
@@ -513,22 +510,22 @@ namespace RT.Servers
                 {
 #endif
 
-                    KeepAliveActive = false;
-                    Interlocked.Increment(ref _endedReceives);
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
 
-                    try
-                    {
-                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                    }
-                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                try
+                {
+                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
-                    if (_bufferDataLength == 0)
-                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                    else
-                        processHeaderData();
-                    cleanupIfDone();
+                if (_bufferDataLength == 0)
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                else
+                    processHeaderData();
+                cleanupIfDone();
 
 #if DEBUG
                 }).Start();

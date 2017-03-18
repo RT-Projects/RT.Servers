@@ -63,20 +63,27 @@ namespace RT.Servers
         private int? Port = null;
         [ClassifyIgnoreIfDefault]
         private int? SecurePort = null;
+        [ClassifyIgnoreIfDefault]
+        private string CertificatePath = null;
+        [ClassifyIgnoreIfDefault]
+        private string CertificatePassword = null;
 
         /// <summary>
-        ///     Obsolete: Specifies the path and filename of the X509 certificate to use in HTTPS. Currently, only certificates not
-        ///     protected by a password are supported. If <see cref="CertificateResolver"/> is specified, this is ignored.</summary>
-        [Obsolete("Please see the CertificateResolver property.")]
-        public string CertificatePath = null;
-
-        /// <summary>Obsolete: The password required to access the certificate in <see cref="CertificatePath"/>. If <see cref="CertificateResolver"/> is specified, this is ignored.</summary>
-        [Obsolete("Please see the CertificateResolver property.")]
-        public string CertificatePassword = null;
+        ///     Specifies the default X509 certificate to use in HTTPS. Use <see cref="Certificates"/> to override this for
+        ///     specific domain names. If <see cref="CertificateResolver"/> is specified, this is ignored.</summary>
+        public HttpServerCertificateInfo Certificate = null;
 
         /// <summary>
-        /// A function which returns a certificate based on a host name (SNI). The input will be null if the client software does not specify the host in the TLS hello packet.
-        /// </summary>
+        ///     Specifies the X509 certificates to use for specific domain names. If <see cref="CertificateResolver"/> is
+        ///     specified, this is ignored.</summary>
+        public Dictionary<string, HttpServerCertificateInfo> Certificates = null;
+
+        /// <summary>
+        ///     A function which returns a certificate based on a host name (SNI). The input is <c>null</c> if the client does
+        ///     not specify a host name in the TLS hello packet. If specified, this takes precendence over both <see
+        ///     cref="Certificates"/> and <see cref="Certificate"/>. Return <c>null</c> to fall back to <see
+        ///     cref="Certificates"/> and <see cref="Certificate"/>.</summary>
+        [ClassifyIgnore]
         public Func<string, X509Certificate2> CertificateResolver = null;
 
         /// <summary>Timeout in milliseconds for idle connections. Set to 0 for no timeout. Default is 10000 (10 seconds).</summary>
@@ -105,7 +112,8 @@ namespace RT.Servers
         public int GzipAutodetectThreshold = 1024 * 1024;
 
         /// <summary>
-        ///     The temporary directory to use for file uploads in POST/PUT/PATCH requests. Default is <see cref="Path.GetTempPath"/>.</summary>
+        ///     The temporary directory to use for file uploads in POST/PUT/PATCH requests. Default is <see
+        ///     cref="Path.GetTempPath"/>.</summary>
         public string TempDir = Path.GetTempPath();
 
         /// <summary>
@@ -135,8 +143,8 @@ namespace RT.Servers
             if (Endpoints.Count < 1)
                 throw new ArgumentException("There are no endpoints specified. There is no port to listen on.");
 
-            if (Endpoints.Values.Any(e => e.Secure) && CertificatePath == null && CertificateResolver == null)
-                throw new ArgumentException("Since there is an endpoint flagged 'Secure', a 'CertificatePath' must be specified in the options.");
+            if (Endpoints.Values.Any(e => e.Secure) && CertificateResolver == null && Certificate == null && Certificates == null)
+                throw new ArgumentException("Since there is an endpoint flagged 'Secure', a certificate must be specified in the options.");
         }
 
         void IClassifyObjectProcessor.BeforeSerialize() { }
@@ -154,6 +162,26 @@ namespace RT.Servers
                 Port = null;
                 SecurePort = null;
             }
+
+            if (Certificate == null && CertificatePath != null)
+            {
+                Certificate = new HttpServerCertificateInfo { Path = CertificatePath, Password = CertificatePassword };
+                CertificatePath = null;
+                CertificatePassword = null;
+            }
         }
+    }
+
+    /// <summary>Encapsulates information about a server certificate.</summary>
+    [Serializable]
+    public sealed class HttpServerCertificateInfo
+    {
+        /// <summary>The path and filename of the certificate file on disk.</summary>
+        public string Path;
+        /// <summary>The password required to access the certificate stored in <see cref="Path"/>.</summary>
+        public string Password;
+
+        /// <summary>Instantiates and returns the <see cref="X509Certificate2"/>.</summary>
+        public X509Certificate2 GetCertificate() => new X509Certificate2(Path, Password);
     }
 }

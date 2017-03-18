@@ -193,7 +193,7 @@ namespace RT.Servers
             _impl.Dispose();
         }
 
-        public async Task<string> PeekAtSniHostAsync()
+        public string PeekAtSniHost()
         {
             if (_firstAction)
                 throw new InvalidOperationException("PeekAtSniHost must be the first action performed on this stream.");
@@ -201,7 +201,7 @@ namespace RT.Servers
             _firstAction = true;
 
             byte[] header = new byte[5];
-            if (header.Length != await _impl.FillBufferAsync(header, 0, header.Length))
+            if (header.Length != _impl.FillBuffer(header, 0, header.Length))
                 return null;
 
             _prefix = header;
@@ -216,7 +216,7 @@ namespace RT.Servers
             var recordLength = buffer.ReadUInt16();
 
             byte[] record = new byte[recordLength];
-            if (record.Length != await _impl.FillBufferAsync(record, 0, record.Length))
+            if (record.Length != _impl.FillBuffer(record, 0, record.Length))
                 return null;
 
             _prefix = new byte[record.Length + header.Length];
@@ -319,7 +319,7 @@ namespace RT.Servers
             public byte[] ReadBytes(int length)
             {
                 byte[] numArray = new byte[length];
-                Buffer.BlockCopy((Array)this._buffer, this.Position, (Array)numArray, 0, length);
+                Buffer.BlockCopy((Array) this._buffer, this.Position, (Array) numArray, 0, length);
                 this.Position = this.Position + length;
                 return numArray;
             }
@@ -329,7 +329,7 @@ namespace RT.Servers
                 var x = BitConverter.ToUInt16(_buffer, Position);
                 Position += 2;
                 if (BitConverter.IsLittleEndian)
-                    return (ushort)((ushort)((x & 0xff) << 8) | ((x >> 8) & 0xff));
+                    return (ushort) ((ushort) ((x & 0xff) << 8) | ((x >> 8) & 0xff));
                 return x;
             }
         }
