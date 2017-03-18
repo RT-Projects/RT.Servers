@@ -70,12 +70,12 @@ namespace RT.Servers
 
         /// <summary>
         ///     Specifies the default X509 certificate to use in HTTPS. Use <see cref="Certificates"/> to override this for
-        ///     specific domain names. If <see cref="CertificateResolver"/> is specified, this is ignored.</summary>
+        ///     specific domain names. <see cref="CertificateResolver"/> takes precedence over this.</summary>
         public HttpServerCertificateInfo Certificate = null;
 
         /// <summary>
-        ///     Specifies the X509 certificates to use for specific domain names. If <see cref="CertificateResolver"/> is
-        ///     specified, this is ignored.</summary>
+        ///     Specifies the X509 certificates to use for specific domain names. <see cref="CertificateResolver"/> takes
+        ///     precedence over this.</summary>
         public Dictionary<string, HttpServerCertificateInfo> Certificates = null;
 
         /// <summary>
@@ -179,6 +179,7 @@ namespace RT.Servers
         /// <summary>The path and filename of the certificate file on disk.</summary>
         public string Path;
         /// <summary>The password required to access the certificate stored in <see cref="Path"/>.</summary>
+        [ClassifyIgnoreIfDefault]
         public string Password;
 
         /// <summary>Instantiates and returns the <see cref="X509Certificate2"/>.</summary>
