@@ -86,7 +86,7 @@ namespace RT.Servers
                 return result;
             }
 
-            return _impl.BeginRead(buffer, offset, count, callback, read);
+            return _impl.BeginRead(buffer, offset, count, callback, state);
         }
 
         public override int Read(byte[] buffer, int offset, int count)
