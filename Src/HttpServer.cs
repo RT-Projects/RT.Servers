@@ -422,8 +422,6 @@ namespace RT.Servers
                 if (_secure)
                 {
                     var sniReader = new SniReaderStream(_stream);
-                    var secureStream = new SslStream(sniReader);
-                    _stream = secureStream;
 
                     // select the most appropriate certificate.
                     var sniHost = sniReader.PeekAtSniHost();
@@ -431,6 +429,8 @@ namespace RT.Servers
                         ?? server.Options.Certificates?.Get(sniHost, null)?.GetCertificate()
                         ?? server.Options.Certificate?.GetCertificate();
 
+                    var secureStream = new SslStream(sniReader);
+                    _stream = secureStream;
                     secureStream.BeginAuthenticateAsServer(
                         certificate,
                         false,
