@@ -125,11 +125,11 @@ namespace RT.Servers
         /// <summary>
         ///     Initialises this session instance from the specified request. Only call this if you are not using <see
         ///     cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>, <see
-        ///     cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse}, Func{TSession})"/> or <see
-        ///     cref="EnableManual"/>, as that already calls it.</summary>
+        ///     cref="EnableManual{TSession}(HttpRequest, Func{TSession, HttpResponse})"/> or any of their overloads, as these
+        ///     already call it.</summary>
         /// <param name="req">
         ///     Request containing the cookie information from which to initialise the session.</param>
-        protected void InitialiseFromRequest(HttpRequest req)
+        protected internal void InitializeFromRequest(HttpRequest req)
         {
             // Try to read in an existing session
             if (req.Headers != null && req.Headers.Cookie != null && req.Headers.Cookie.ContainsKey(CookieName))
@@ -166,9 +166,9 @@ namespace RT.Servers
 
         /// <summary>
         ///     Saves/deletes the session and/or sets the session cookie, as appropriate. Only call this if you are not using
-        ///     <see cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>, <see
-        ///     cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse}, Func{TSession})"/> or <see
-        ///     cref="EnableManual"/>, as that already calls it.</summary>
+        ///     <see cref="Session.EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>, <see
+        ///     cref="Session.EnableManual{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>, <see
+        ///     cref="SessionExtensions"/> or anything else that already calls it.</summary>
         /// <param name="response">
         ///     Response to add cookie information to.</param>
         /// <param name="wasModified">
@@ -207,39 +207,12 @@ namespace RT.Servers
         ///     HTTP request handler code that can make free use of a session variable.</param>
         /// <remarks>
         ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
-        /// <seealso cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse}, Func{TSession})"/>
-        /// <seealso cref="EnableManual{TSession}"/>
+        /// <seealso cref="SessionExtensions.EnableAutomatic{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
+        /// <seealso cref="EnableManual{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
         public static HttpResponse EnableAutomatic<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, ISessionEquatable<TSession>, new()
         {
             var session = new TSession();
-            session.InitialiseFromRequest(req);
-            var sessionCopy = session.DeepClone();
-            var response = handler(session);
-            session.CleanUp(response, wasModified: !sessionCopy.Equals(session));
-            return response;
-        }
-
-        /// <summary>
-        ///     Enables the use of sessions in an HTTP request handler. Use this if your session class implements <see
-        ///     cref="ISessionEquatable{TSession}"/>.</summary>
-        /// <typeparam name="TSession">
-        ///     The type of session to be used.</typeparam>
-        /// <param name="req">
-        ///     The HTTP request for which to enable session support.</param>
-        /// <param name="handler">
-        ///     HTTP request handler code that can make free use of a session variable.</param>
-        /// <param name="constructor">
-        ///     A delegate that can be used to create an instance of the session class. (If your session class has a
-        ///     parameterless constructor, consider using <see cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession,
-        ///     HttpResponse})"/> instead.)</param>
-        /// <remarks>
-        ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
-        /// <seealso cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
-        /// <seealso cref="EnableManual{TSession}"/>
-        public static HttpResponse EnableAutomatic<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler, Func<TSession> constructor) where TSession : Session, ISessionEquatable<TSession>
-        {
-            var session = constructor();
-            session.InitialiseFromRequest(req);
+            session.InitializeFromRequest(req);
             var sessionCopy = session.DeepClone();
             var response = handler(session);
             session.CleanUp(response, wasModified: !sessionCopy.Equals(session));
@@ -258,10 +231,12 @@ namespace RT.Servers
         ///     HTTP request handler code that can make free use of a session variable.</param>
         /// <remarks>
         ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
+        /// <seealso cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
+        /// <seealso cref="SessionExtensions.EnableAutomatic{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
         public static HttpResponse EnableManual<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, new()
         {
             var session = new TSession();
-            session.InitialiseFromRequest(req);
+            session.InitializeFromRequest(req);
             var response = handler(session);
             session.CleanUp(response, wasModified: session.SessionModified);
             return response;
@@ -294,6 +269,61 @@ namespace RT.Servers
     {
         /// <summary>Takes a deep clone of this session object.</summary>
         TSession DeepClone();
+    }
+
+    /// <summary>Provides extension methods for HTTP session handling.</summary>
+    public static class SessionExtensions
+    {
+        /// <summary>
+        ///     Enables the use of sessions in an HTTP request handler. Use this if your session class implements <see
+        ///     cref="ISessionEquatable{TSession}"/>.</summary>
+        /// <typeparam name="TSession">
+        ///     The type of session to be used.</typeparam>
+        /// <param name="session">
+        ///     An already-constructed empty session object. The session object will have <see cref="Session.NewSession"/> or
+        ///     <see cref="Session.ReadSession"/> called on it to populate it.</param>
+        /// <param name="req">
+        ///     The HTTP request for which to enable session support.</param>
+        /// <param name="handler">
+        ///     HTTP request handler code that can make free use of a session variable.</param>
+        /// <remarks>
+        ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
+        /// <seealso cref="Session.EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
+        /// <seealso cref="SessionExtensions.EnableManual{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
+        public static HttpResponse EnableAutomatic<TSession>(this TSession session, HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, ISessionEquatable<TSession>
+        {
+            session.InitializeFromRequest(req);
+            var sessionCopy = session.DeepClone();
+            var response = handler(session);
+            session.CleanUp(response, wasModified: !sessionCopy.Equals(session));
+            return response;
+        }
+
+        /// <summary>
+        ///     Enables the use of sessions in an HTTP request handler. Use this if your session class does not implement <see
+        ///     cref="ISessionEquatable{TSession}"/>; your class will have to manually set <see
+        ///     cref="Session.SessionModified"/> to <c>true</c> before the request handler returns if any change was made to
+        ///     the session.</summary>
+        /// <typeparam name="TSession">
+        ///     The type of session to be used.</typeparam>
+        /// <param name="session">
+        ///     An already-constructed empty session object. The session object will have <see cref="Session.NewSession"/> or
+        ///     <see cref="Session.ReadSession"/> called on it to populate it.</param>
+        /// <param name="req">
+        ///     The HTTP request for which to enable session support.</param>
+        /// <param name="handler">
+        ///     HTTP request handler code that can make free use of a session variable.</param>
+        /// <remarks>
+        ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
+        /// <seealso cref="Session.EnableManual{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
+        /// <seealso cref="SessionExtensions.EnableAutomatic{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
+        public static HttpResponse EnableManual<TSession>(this TSession session, HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, new()
+        {
+            session.InitializeFromRequest(req);
+            var response = handler(session);
+            session.CleanUp(response, wasModified: session.SessionModified);
+            return response;
+        }
     }
 
     /// <summary>
