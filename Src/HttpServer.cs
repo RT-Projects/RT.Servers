@@ -445,7 +445,6 @@ namespace RT.Servers
                             catch (Exception e)
                             {
                                 Socket.Close();
-                                cleanupIfDone();
                                 _server.ResponseExceptionHandler?.Invoke(null, e, null);
                                 return;
                             }
