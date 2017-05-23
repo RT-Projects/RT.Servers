@@ -400,60 +400,83 @@ namespace RT.Servers
 
             public connectionHandler(Socket socket, HttpServer server, bool secure)
             {
-                Socket = socket;
-
-                _requestId = Rnd.Next();
-                _requestStart = DateTime.UtcNow;
-                _server = server;
-                _secure = secure;
-
-                _server.Log.Info(4, "{0:X8} Incoming connection from {1}".Fmt(_requestId, socket.RemoteEndPoint));
-
-                _buffer = new byte[1024];
-                _bufferDataOffset = 0;
-                _bufferDataLength = 0;
-
-                _headersSoFar = "";
-
-                lock (server._activeConnectionHandlers)
-                    server._activeConnectionHandlers.Add(this);
-
-                _stream = new NetworkStream(socket, ownsSocket: true);
-                if (_secure)
+                try
                 {
-                    var sniReader = new SniReaderStream(_stream);
+                    Socket = socket;
 
-                    // select the most appropriate certificate.
-                    var sniHost = sniReader.PeekAtSniHost();
-                    var certificate = server.Options.CertificateResolver?.Invoke(sniHost)
-                        ?? server.Options.Certificates?.Get(sniHost, null)?.GetCertificate()
-                        ?? server.Options.Certificate?.GetCertificate();
+                    _requestId = Rnd.Next();
+                    _requestStart = DateTime.UtcNow;
+                    _server = server;
+                    _secure = secure;
 
-                    var secureStream = new SslStream(sniReader);
-                    _stream = secureStream;
-                    secureStream.BeginAuthenticateAsServer(
-                        certificate,
-                        false,
-                        SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12,
-                        true,
-                        ar =>
-                        {
-                            try
+                    _server.Log.Info(4, "{0:X8} Incoming connection from {1}".Fmt(_requestId, socket.RemoteEndPoint));
+
+                    _buffer = new byte[1024];
+                    _bufferDataOffset = 0;
+                    _bufferDataLength = 0;
+
+                    _headersSoFar = "";
+
+                    lock (server._activeConnectionHandlers)
+                        server._activeConnectionHandlers.Add(this);
+
+                    _stream = new NetworkStream(socket, ownsSocket: true);
+                    if (_secure)
+                    {
+                        var sniReader = new SniReaderStream(_stream);
+                        var sniHost = sniReader.PeekAtSniHost();
+                        var secureStream = new SslStream(sniReader);
+                        _stream = secureStream;
+
+                        secureStream.BeginAuthenticateAsServer(
+                            // select the most appropriate certificate.
+                            serverCertificate: server.Options.CertificateResolver?.Invoke(sniHost)
+                                ?? server.Options.Certificates?.Get(sniHost, null)?.GetCertificate()
+                                ?? server.Options.Certificate?.GetCertificate(),
+                            enabledSslProtocols: SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12,
+                            clientCertificateRequired: false,
+                            checkCertificateRevocation: true,
+                            asyncState: null,
+                            asyncCallback: ar =>
                             {
-                                secureStream.EndAuthenticateAsServer(ar);
-                            }
-                            catch (Exception e)
-                            {
-                                Socket.Close();
-                                _server.ResponseExceptionHandler?.Invoke(null, e, null);
-                                return;
-                            }
-                            receiveMoreHeaderData();
-                        }, null);
+                                try
+                                {
+                                    try
+                                    {
+                                        secureStream.EndAuthenticateAsServer(ar);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Socket.Close();
+                                        _server.ResponseExceptionHandler?.Invoke(null, e, null);
+                                        return;
+                                    }
+                                    receiveMoreHeaderData();
+                                }
+                                catch (Exception e)
+                                {
+                                    // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
+                                    // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
+                                    // runs in another AppDomain; etc.
+                                    _server.Log.Exception(e);
+
+                                    try { Socket.Close(); } catch { }
+                                }
+                            });
+                    }
+                    else
+                    {
+                        receiveMoreHeaderData();
+                    }
                 }
-                else
+                catch (Exception e)
                 {
-                    receiveMoreHeaderData();
+                    // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
+                    // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
+                    // runs in another AppDomain; etc.
+                    _server.Log.Exception(e);
+
+                    try { Socket.Close(); } catch { }
                 }
             }
 
@@ -486,8 +509,8 @@ namespace RT.Servers
                     // Couldn’t read synchronously, so begin an async read that waits for the data to arrive
                     try
                     {
-                        _stream.BeginRead(_buffer, 0, _buffer.Length, moreHeaderDataReceived, null);
                         Interlocked.Increment(ref _begunReceives);
+                        _stream.BeginRead(_buffer, 0, _buffer.Length, moreHeaderDataReceived, null);
                     }
                     catch (SocketException) { Socket.Close(); }
                     catch (IOException) { Socket.Close(); }
@@ -509,22 +532,37 @@ namespace RT.Servers
                 {
 #endif
 
-                KeepAliveActive = false;
-                Interlocked.Increment(ref _endedReceives);
-
                 try
                 {
-                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                }
-                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+                    KeepAliveActive = false;
+                    Interlocked.Increment(ref _endedReceives);
 
-                if (_bufferDataLength == 0)
-                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                else
-                    processHeaderData();
-                cleanupIfDone();
+                    try
+                    {
+                        _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                    }
+                    catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                    catch (ObjectDisposedException) { cleanupIfDone(); return; }
+
+                    if (_bufferDataLength == 0)
+                        Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    else
+                        processHeaderData();
+                }
+                catch (Exception e)
+                {
+                    // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
+                    // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
+                    // runs in another AppDomain; etc.
+                    _server.Log.Exception(e);
+
+                    try { Socket.Close(); } catch { }
+                }
+                finally
+                {
+                    cleanupIfDone();
+                }
 
 #if DEBUG
                 }).Start();
@@ -554,6 +592,8 @@ namespace RT.Servers
             ///     whatever got received.</summary>
             private void processHeaderData()
             {
+                start:;
+
                 // Request more header data if we have none
                 // (This only happens if we just finished a request and are in a keep-alive connection which has
                 // already received some of the header data for the next request. In this case we must process
@@ -712,7 +752,7 @@ namespace RT.Servers
                         _headersSoFar = "";
                         KeepAliveActive = true;
                         _requestStart = DateTime.UtcNow;
-                        processHeaderData();
+                        goto start;
                     }
                     return;
                 }
