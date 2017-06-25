@@ -400,8 +400,10 @@ namespace RT.Servers
 
             public connectionHandler(Socket socket, HttpServer server, bool secure)
             {
+#if !DEBUG
                 try
                 {
+#endif
                     Socket = socket;
 
                     _requestId = Rnd.Next();
@@ -439,8 +441,10 @@ namespace RT.Servers
                             asyncState: null,
                             asyncCallback: ar =>
                             {
+#if !DEBUG
                                 try
                                 {
+#endif
                                     try
                                     {
                                         secureStream.EndAuthenticateAsServer(ar);
@@ -452,6 +456,8 @@ namespace RT.Servers
                                         return;
                                     }
                                     receiveMoreHeaderData();
+
+#if !DEBUG
                                 }
                                 catch (Exception e)
                                 {
@@ -462,12 +468,15 @@ namespace RT.Servers
 
                                     try { Socket.Close(); } catch { }
                                 }
+#endif
                             });
                     }
                     else
                     {
                         receiveMoreHeaderData();
                     }
+
+#if !DEBUG
                 }
                 catch (Exception e)
                 {
@@ -478,6 +487,7 @@ namespace RT.Servers
 
                     try { Socket.Close(); } catch { }
                 }
+#endif
             }
 
             /// <summary>
@@ -530,10 +540,10 @@ namespace RT.Servers
                 // https://connect.microsoft.com/VisualStudio/feedback/details/535917
                 new Thread(() =>
                 {
-#endif
-
+#else
                 try
                 {
+#endif
                     KeepAliveActive = false;
                     Interlocked.Increment(ref _endedReceives);
 
@@ -549,6 +559,9 @@ namespace RT.Servers
                         Socket.Close(); // remote end closed the connection and there are no more bytes to receive
                     else
                         processHeaderData();
+#if DEBUG
+                }).Start();
+#else
                 }
                 catch (Exception e)
                 {
@@ -563,9 +576,6 @@ namespace RT.Servers
                 {
                     cleanupIfDone();
                 }
-
-#if DEBUG
-                }).Start();
 #endif
             }
 
