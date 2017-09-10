@@ -17,6 +17,7 @@ namespace RT.Servers
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
         public HttpAcceptRanges? AcceptRanges;
+        public string AccessControlAllowOrigin;
         public int? Age; // in seconds
         public string[] Allow;
         public HttpCacheControl[] CacheControl;
@@ -57,6 +58,8 @@ namespace RT.Servers
                     b.Append("Accept-Ranges: bytes\r\n");
                     break;
             }
+            if (AccessControlAllowOrigin != null)
+                b.Append("Access-Control-Allow-Origin: " + AccessControlAllowOrigin + "\r\n");
             if (Age != null)
                 b.Append("Age: " + Age.Value + "\r\n");
             if (Allow != null)
