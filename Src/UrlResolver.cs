@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using RT.TagSoup;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 
@@ -39,52 +40,74 @@ namespace RT.Servers
         ///     Assign this method to <see cref="HttpServer.Handler"/>.</remarks>
         public HttpResponse Handle(HttpRequest req)
         {
-            Func<HttpResponse>[] applicableHandlers;
-            lock (_locker)
+            if (req.Url.Path.StartsWith("/$debug"))
             {
-                applicableHandlers = _mappings
-                    .Where(mp =>
-                        ((mp.Hook.Protocols.HasFlag(Protocols.Http) && !req.Url.Https) || (mp.Hook.Protocols.HasFlag(Protocols.Https) && req.Url.Https)) &&
-                        (mp.Hook.Port == null || mp.Hook.Port.Value == req.Url.Port) &&
-                        (mp.Hook.Domain == null || mp.Hook.Domain == req.Url.Domain || (!mp.Hook.SpecificDomain && req.Url.Domain.EndsWith("." + mp.Hook.Domain))) &&
-                        (mp.Hook.Path == null || mp.Hook.Path == req.Url.Path || (mp.Hook.Path == "" && req.Url.Path == "/") || (!mp.Hook.SpecificPath && req.Url.Path.StartsWith(mp.Hook.Path + "/"))))
-                    .Select(mapping => Ut.Lambda(() =>
-                    {
-                        var url = req.Url.ToUrl();
-                        if (mapping.Hook.Domain != null)
-                        {
-                            var parents = url.ParentDomains;
-                            url.ParentDomains = new string[parents.Length + 1];
-                            Array.Copy(parents, url.ParentDomains, parents.Length);
-                            url.ParentDomains[parents.Length] = mapping.Hook.Domain;
-                            url.Domain = url.Domain.Substring(0, url.Domain.Length - mapping.Hook.Domain.Length);
-                        }
-                        if (mapping.Hook.Path != null)
-                        {
-                            var parents = url.ParentPaths;
-                            url.ParentPaths = new string[parents.Length + 1];
-                            Array.Copy(parents, url.ParentPaths, parents.Length);
-                            url.ParentPaths[parents.Length] = mapping.Hook.Path;
-                            url.Path = url.Path.Substring(mapping.Hook.Path.Length);
-                        }
-                        req.Url = url;
-                        var response = mapping.Handler(req);
-                        if (response == null && !mapping.Skippable)
-                            throw new InvalidOperationException("The handler of a non-skippable mapping returned null. Mapping: {0}".Fmt(mapping));
-                        return response;
-                    }))
-                    .ToArray();
+                UrlMapping[] candidates = null;
+                if (req.Url["https"] != null && req.Url["host"] != null && req.Url["location"] != null)
+                    candidates = getApplicableMappings(new HttpUrl(ExactConvert.ToBool(req.Url["https"]), req.Url["host"], req.Url["location"]));
+
+                return HttpResponse.Html(new HTML(
+                    new HEAD(
+                        new TITLE("URL resolver debugging"),
+                        new STYLELiteral(@"
+                            div.mapping { border: 3px solid black; margin: 1em auto; padding: 1em 2em 1em 5em; }
+                            div.mapping.skippable { border: 1px solid black; }
+                            div.mapping.applicable { background: #fee; }
+                            div.hook { margin-bottom: .5em; }")),
+                    new BODY(
+                        _mappings.Select(m => new DIV { class_ = "mapping" + (m.Skippable ? " skippable" : "") + (candidates != null && candidates.Contains(m) ? " applicable" : "")/*+ (m.Hook.SpecificDomain ? " specific-domain" : "") + (m.Hook.SpecificPath ? " specific-path" : "")*/ }._(
+                            //new DIV { class_ = "domain" }._((object) m.Hook.Domain ?? new EM("<null>")),
+                            //new DIV { class_ = "path" }._((object) m.Hook.Path ?? new EM("<null>")),
+                            //new DIV { class_ = "port" }._((object) m.Hook.Port ?? new EM("<null>")),
+                            //new DIV { class_ = "protocols" }._(ExactConvert.ToString(m.Hook.Protocols)),
+                            new DIV { class_ = "hook" }._(m.Hook.ToString()),
+                            new DIV { class_ = "module" }._(m.Handler.Target.GetType().FullName))))));
             }
 
             var originalUrl = req.Url;
-            foreach (var handler in applicableHandlers)
+            var applicableMappings = getApplicableMappings(originalUrl);
+            foreach (var mapping in applicableMappings)
             {
-                var response = handler();
+                var url = req.Url.ToUrl();
+                if (mapping.Hook.Domain != null)
+                {
+                    var parents = url.ParentDomains;
+                    url.ParentDomains = new string[parents.Length + 1];
+                    Array.Copy(parents, url.ParentDomains, parents.Length);
+                    url.ParentDomains[parents.Length] = mapping.Hook.Domain;
+                    url.Domain = url.Domain.Substring(0, url.Domain.Length - mapping.Hook.Domain.Length);
+                }
+                if (mapping.Hook.Path != null)
+                {
+                    var parents = url.ParentPaths;
+                    url.ParentPaths = new string[parents.Length + 1];
+                    Array.Copy(parents, url.ParentPaths, parents.Length);
+                    url.ParentPaths[parents.Length] = mapping.Hook.Path;
+                    url.Path = url.Path.Substring(mapping.Hook.Path.Length);
+                }
+                req.Url = url;
+                var response = mapping.Handler(req);
+                if (response == null && !mapping.Skippable)
+                    throw new InvalidOperationException("The handler of a non-skippable handler returned null. Mapping: {0}".Fmt(mapping));
                 if (response != null)
                     return response;
                 req.Url = originalUrl;
             }
             throw new HttpNotFoundException(originalUrl.ToFull());
+        }
+
+        private UrlMapping[] getApplicableMappings(IHttpUrl url)
+        {
+            lock (_locker)
+            {
+                return _mappings
+                    .Where(mp =>
+                        ((mp.Hook.Protocols.HasFlag(Protocols.Http) && !url.Https) || (mp.Hook.Protocols.HasFlag(Protocols.Https) && url.Https)) &&
+                        (mp.Hook.Port == null || mp.Hook.Port.Value == url.Port) &&
+                        (mp.Hook.Domain == null || mp.Hook.Domain == url.Domain || (!mp.Hook.SpecificDomain && url.Domain.EndsWith("." + mp.Hook.Domain))) &&
+                        (mp.Hook.Path == null || mp.Hook.Path == url.Path || (mp.Hook.Path == "" && url.Path == "/") || (!mp.Hook.SpecificPath && url.Path.StartsWith(mp.Hook.Path + "/"))))
+                    .ToArray();
+            }
         }
 
         private List<UrlMapping> _mappings = new List<UrlMapping>();
