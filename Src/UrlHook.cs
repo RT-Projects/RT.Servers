@@ -132,24 +132,12 @@ namespace RT.Servers
             result = (this.Port ?? int.MaxValue).CompareTo(other.Port ?? int.MaxValue);
             if (result != 0) return result;
 
-            // specific single domains match first
-            result = (this.SpecificDomain ? 0 : 1).CompareTo(other.SpecificDomain ? 0 : 1);
-            if (result != 0) return result;
-
-            // match more specified domains before less specified ones (e.g. blah.thingy.stuff matches before thingy.stuff)
-            // match catch-all domain last
-            if (this.Domain != null && other.Domain == null)
-                return -1;
-            else if (this.Domain == null && other.Domain != null)
-                return 1;
-            else if (this.Domain != other.Domain)
-            {
-                result = -this.Domain.Length.CompareTo(other.Domain.Length);
-                if (result != 0) return result;
-            }
-
             // specific single paths match first
             result = -this.SpecificPath.CompareTo(other.SpecificPath);
+            if (result != 0) return result;
+
+            // specific single domains match first
+            result = -this.SpecificDomain.CompareTo(other.SpecificDomain);
             if (result != 0) return result;
 
             // match more specific paths before less specific ones (e.g. /blah/thingy/stuff matches before /blah/thingy)
@@ -161,6 +149,18 @@ namespace RT.Servers
             else if (this.Path != other.Path)
             {
                 result = -this.Path.Length.CompareTo(other.Path.Length);
+                if (result != 0) return result;
+            }
+
+            // match more specified domains before less specified ones (e.g. blah.thingy.stuff matches before thingy.stuff)
+            // match catch-all domain last
+            if (this.Domain != null && other.Domain == null)
+                return -1;
+            else if (this.Domain == null && other.Domain != null)
+                return 1;
+            else if (this.Domain != other.Domain)
+            {
+                result = -this.Domain.Length.CompareTo(other.Domain.Length);
                 if (result != 0) return result;
             }
 
