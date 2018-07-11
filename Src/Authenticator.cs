@@ -206,6 +206,8 @@ namespace RT.Servers
 
         private static bool verifyHash(string password, string hash)
         {
+            if (hash.Length == 0)
+                return password.Length == 0;
             var parts = hash.Split(':');
             if (parts.Length != 2)
                 return false;
