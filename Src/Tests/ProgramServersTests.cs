@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using NUnit.Direct;
 using NUnit.Framework;
-using System.Net.Sockets;
-using System.Text;
+using RT.Util.ExtensionMethods;
 
 [assembly: Timeout(40000)]
 
@@ -18,8 +19,15 @@ namespace RT.Servers.Tests
         static void Main(string[] args)
         {
             bool wait = !args.Contains("--no-wait");
+            bool notimes = args.Contains("--no-times");
 
-            NUnitDirect.RunTestsOnAssembly(Assembly.GetEntryAssembly());
+            string filter = null;
+            var pos = args.IndexOf("--filter");
+            if (pos != -1 && args.Length > pos + 1)
+                filter = args[pos + 1];
+
+            Console.OutputEncoding = Encoding.UTF8;
+            NUnitDirect.RunTestsOnAssembly(Assembly.GetEntryAssembly(), notimes, filter);
 
             if (wait)
             {
