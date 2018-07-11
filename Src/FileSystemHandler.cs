@@ -67,6 +67,7 @@ namespace RT.Servers
                 throw new HttpNotFoundException();
 
             var dirStyle = (Options ?? DefaultOptions).DirectoryListingStyle;
+            var dirAuth = (Options ?? DefaultOptions).DirectoryListingAuth;
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string[] urlPieces = request.Url.Path.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
@@ -92,7 +93,7 @@ namespace RT.Servers
                     string nextSoFar = soFar + Path.DirectorySeparatorChar + suitablePiece;
                     string curPath = p + nextSoFar;
 
-                    if (!File.Exists(curPath) && !Directory.Exists(curPath) && curPath.Contains('*') && dirStyle != DirectoryListingStyle.Forbidden)
+                    if (!File.Exists(curPath) && !Directory.Exists(curPath) && curPath.Contains('*') && dirStyle != DirectoryListingStyle.Forbidden && (dirAuth == null || dirAuth(request) == null))
                         curPath = new DirectoryInfo(p + soFar).GetFileSystemInfos(suitablePiece).Select(fs => fs.FullName).FirstOrDefault() ?? curPath;
 
                     if (File.Exists(curPath))
