@@ -540,10 +540,9 @@ namespace RT.Servers
                 // https://connect.microsoft.com/VisualStudio/feedback/details/535917
                 new Thread(() =>
                 {
-#else
+#endif
                 try
                 {
-#endif
                     KeepAliveActive = false;
                     Interlocked.Increment(ref _endedReceives);
 
@@ -556,13 +555,20 @@ namespace RT.Servers
                     catch (ObjectDisposedException) { cleanupIfDone(); return; }
 
                     if (_bufferDataLength == 0)
+                        {
                         Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                            cleanupIfDone();
+                        }
                     else
                         processHeaderData();
+                    }
 #if DEBUG
+                    finally
+                    {
+                        cleanupIfDone();
+                    }
                 }).Start();
 #else
-                }
                 catch (Exception e)
                 {
                     // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
