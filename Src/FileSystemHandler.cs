@@ -78,6 +78,7 @@ namespace RT.Servers
                 if (piece == "..")
                     throw new HttpException(HttpStatusCode._403_Forbidden);
 
+                // Tolerate variant file extensions
                 var candidateFiles = new List<string> { piece };
                 if (piece.EndsWith(".htm"))
                     candidateFiles.Add(piece + "l");
@@ -87,6 +88,11 @@ namespace RT.Servers
                     candidateFiles.Add(piece.Substring(0, piece.Length - 1) + "eg");
                 else if (piece.EndsWith(".jpeg"))
                     candidateFiles.Add(piece.Substring(0, piece.Length - 2) + "g");
+
+                // Tolerate double-encoded URLs (e.g., %2520 instead of %20)
+                for (int cfIx = candidateFiles.Count - 1; cfIx >= 0; cfIx--)
+                    if (candidateFiles[cfIx].Contains("%"))
+                        try { candidateFiles.Add(candidateFiles[cfIx].UrlUnescape()); } catch { }
 
                 foreach (var suitablePiece in candidateFiles)
                 {
