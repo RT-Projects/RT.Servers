@@ -189,7 +189,7 @@ namespace RT.Servers
                             foreach (string header in currentHeaders.Split(new string[] { "\r\n" }, StringSplitOptions.None))
                             {
                                 Match m;
-                                if ((m = Regex.Match(header, @"^content-disposition\s*:\s*form-data\s*;(.*)$", RegexOptions.IgnoreCase)).Success)
+                                if ((m = Regex.Match(header, @"^content-disposition\s*:\s*(?:form-data|file)\s*;(.*)$", RegexOptions.IgnoreCase)).Success)
                                 {
                                     string v = m.Groups[1].Value;
                                     while (v.Length > 0)
