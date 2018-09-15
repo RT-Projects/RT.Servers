@@ -449,6 +449,12 @@ namespace RT.Servers
                             {
                                 secureStream.EndAuthenticateAsServer(ar);
                             }
+                            catch (IOException io) when (io.Message == "Authentication failed because the remote party has closed the transport stream.")
+                            {
+                                // Very common exception that appears to be harmless
+                                Socket.Close();
+                                return;
+                            }
                             catch (Exception e)
                             {
                                 Socket.Close();
