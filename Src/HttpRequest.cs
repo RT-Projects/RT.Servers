@@ -81,7 +81,7 @@ namespace RT.Servers
         /// <param name="tempPath">The temporary directory to use for file uploads. Default is <see cref="Path.GetTempPath"/>.</param>
         /// <param name="storeFileUploadInFileAtSize">The maximum size (in bytes) at which file uploads are stored in memory.
         /// Any uploads that exceed this limit are written to temporary files on disk. Default is 16 MB.</param>
-        internal void ParsePostBody(Stream body, string tempPath = null, long storeFileUploadInFileAtSize = 16*1024*1024)
+        internal void ParsePostBody(Stream body, string tempPath = null, long storeFileUploadInFileAtSize = 16 * 1024 * 1024)
         {
             _fileUploads.Clear();
             _postFields.Clear();
@@ -109,7 +109,7 @@ namespace RT.Servers
             byte[] buffer1 = new byte[bufferSize];
             byte[] buffer2 = null;
             byte[] buffer = buffer1;
-            Action<int, int> switchBuffer = (offset, count) =>
+            void switchBuffer(int offset, int count)
             {
                 if (buffer == buffer1)
                 {
@@ -123,7 +123,7 @@ namespace RT.Servers
                     Buffer.BlockCopy(buffer, offset, buffer1, 0, count);
                     buffer = buffer1;
                 }
-            };
+            }
 
             // Process request body
             int bytesRead = body.Read(buffer, 0, bufferSize);
@@ -131,19 +131,27 @@ namespace RT.Servers
                 return;
 
             // We expect the input to begin with "--" followed by the boundary followed by "\r\n"
+            // It is, however, allowed to have CRLFs before the first "--"
+            var crlfs = 0;
+            while (crlfs + 1 < bytesRead && buffer[crlfs] == '\r' && buffer[crlfs + 1] == '\n')
+                crlfs += 2;
             byte[] expecting = ("--" + Headers.ContentMultipartBoundary + "\r\n").ToUtf8();
             int bufferIndex = bytesRead;
-            while (bufferIndex < expecting.Length)
+            while (bufferIndex < buffer.Length && bufferIndex < expecting.Length + crlfs)
             {
                 bytesRead = body.Read(buffer, bufferIndex, buffer.Length - bufferIndex);
                 if (bytesRead == 0)    // premature end of request body
                     return;
                 bufferIndex += bytesRead;
+                while (crlfs + 1 < bufferIndex && buffer[crlfs] == '\r' && buffer[crlfs + 1] == '\n')
+                    crlfs += 2;
+                if (expecting.Length + crlfs > buffer.Length)   // Sanity check in case the client tries to fill the buffer with just CRLFs
+                    return;
             }
-            if (!buffer.SubarrayEquals(0, expecting, 0, expecting.Length))
+            if (!buffer.SubarrayEquals(crlfs, expecting, 0, expecting.Length))
                 return;
-            bytesRead = bufferIndex - expecting.Length;
-            bufferIndex = expecting.Length;
+            bytesRead = bufferIndex - expecting.Length - crlfs;
+            bufferIndex = expecting.Length + crlfs;
 
             // Now comes the main reading loop
             bool processingHeaders = true;
@@ -240,9 +248,9 @@ namespace RT.Servers
 
                         int howMuchToWrite = boundaryFound
                             // If we have encountered the boundary, write all the data up to it
-                            ? howMuchToWrite = boundaryIndex - bufferIndex
+                            ? boundaryIndex - bufferIndex
                             // Write as much of the data to the output stream as possible, but leave enough so that we can still recognise the boundary
-                            : howMuchToWrite = bytesRead - lastBoundary.Length;  // this is never negative because of the "if" we're in
+                            : bytesRead - lastBoundary.Length;  // this is never negative because of the "if" we're in
 
                         // Write the aforementioned amount of data to the output stream
                         if (howMuchToWrite > 0 && currentWritingStream != null)
@@ -258,8 +266,7 @@ namespace RT.Servers
                                     var lastKey = inMemoryKeys[inMemoryKeys.Count - 1];
                                     var biggestUpload = inMemoryFileUploads[lastKey][0];
                                     inMemoryFileUploads[lastKey].RemoveAt(0);
-                                    Stream fileStream;
-                                    biggestUpload.LocalFilename = HttpInternalObjects.RandomTempFilepath(tempPath, out fileStream);
+                                    biggestUpload.LocalFilename = HttpInternalObjects.RandomTempFilepath(tempPath, out var fileStream);
                                     fileStream.Write(biggestUpload.Data, 0, biggestUpload.Data.Length);
                                     fileStream.Close();
                                     fileStream.Dispose();
@@ -346,13 +353,31 @@ namespace RT.Servers
                 do
                 {
                     bytesRead = body.Read(buffer, writeIndex, bufferSize - writeIndex);
-                    if (bytesRead == 0) // premature end of content
+                    if (bytesRead == 0)
                     {
+                        // Premature end of content. We want to allow broken clients (such as UnityWebRequest) to work, so tolerate this
                         if (currentWritingStream != null)
                         {
+                            currentWritingStream.Write(buffer, 0, writeIndex);
                             currentWritingStream.Close();
+
+                            if (!currentIsFileUpload)
+                                // It's a normal field
+                                _postFields[currentFieldName].Add(Encoding.UTF8.GetString(((MemoryStream) currentWritingStream).ToArray()));
+                            else
+                            {
+                                // It's a file upload
+                                var fileUpload = new FileUpload(currentFileUploadContentType, currentFileUploadFilename);
+                                if (currentFileUploadTempFilename != null)
+                                    fileUpload.LocalFilename = currentFileUploadTempFilename;
+                                else
+                                    fileUpload.Data = ((MemoryStream) currentWritingStream).ToArray();
+                                _fileUploads[currentFieldName] = fileUpload;
+                            }
+
                             currentWritingStream.Dispose();
                         }
+
                         return;
                     }
                     writeIndex += bytesRead;
