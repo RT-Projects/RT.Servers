@@ -221,7 +221,8 @@ namespace RT.Servers
                 new HTML(
                     new HEAD(
                         new TITLE("Log in"),
-                        new STYLELiteral(_formCss)
+                        new STYLELiteral(_formCss),
+                        new META { name = "viewport", content = "width=device-width,initial-scale=1.0" }
                     ),
                     new BODY(
                         new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
@@ -247,7 +248,8 @@ namespace RT.Servers
                 new HTML(
                     new HEAD(
                         new TITLE("Create user"),
-                        new STYLELiteral(_formCss)
+                        new STYLELiteral(_formCss),
+                        new META { name = "viewport", content = "width=device-width,initial-scale=1.0" }
                     ),
                     new BODY(
                         new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
@@ -275,7 +277,8 @@ namespace RT.Servers
                 new HTML(
                     new HEAD(
                         new TITLE("Change Password"),
-                        new STYLELiteral(_formCss)
+                        new STYLELiteral(_formCss),
+                        new META { name = "viewport", content = "width=device-width,initial-scale=1.0" }
                     ),
                     new BODY(
                         new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
