@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
-using RT.Util.ExtensionMethods;
+using RT.Util;
 
 namespace RT.Servers
 {
@@ -163,10 +163,16 @@ namespace RT.Servers
         public string GetMd5()
         {
             if (Data != null)
-                return MD5.Create().ComputeHash(Data).ToHex();
+            {
+                using (var m = MD5.Create())
+                    return m.ComputeHash(Data).ToHex();
+            }
             else
+            {
                 using (var f = File.Open(LocalFilename, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    return MD5.Create().ComputeHash(f).ToHex();
+                using (var m = MD5.Create())
+                    return m.ComputeHash(f).ToHex();
+            }
         }
     }
 }
