@@ -45,6 +45,14 @@ namespace RT.Servers
                 case "svg": return "image/svg+xml";
                 case "ico": return "image/x-icon";
 
+                // Fonts
+                case "ttf": return "font/ttf";
+                case "otf": return "font/otf";
+                case "sfnt": return "font/sfnt";
+                case "woff": return "font-woff";
+                case "woff2": return "font/woff2";
+                case "eot": return "application/vnd.ms-fontobject";
+
                 // Etc.
                 case "pdf": return "application/pdf";
                 case "mp3": return "audio/mpeg3";
