@@ -82,9 +82,7 @@ namespace RT.Servers
             get { return _log; }
             set
             {
-                if (value == null)
-                    throw new ArgumentNullException("value");
-                _log = value;
+                _log = value ?? throw new ArgumentNullException("value");
             }
         }
         private LoggerBase _log = new NullLogger();
@@ -101,7 +99,7 @@ namespace RT.Servers
 
         private Dictionary<string, HttpEndpoint> _listeningSockets = new Dictionary<string, HttpEndpoint>();
         private HttpServerOptions _opt;
-        private HashSet<connectionHandler> _activeConnectionHandlers = new HashSet<connectionHandler>();
+        private HashSet<ConnectionHandler> _activeConnectionHandlers = new HashSet<ConnectionHandler>();
 
         /// <summary>
         ///     Specifies the HTTP request handler for this server.</summary>
@@ -210,8 +208,7 @@ namespace RT.Servers
 
             foreach (var endpointKvp in _opt.Endpoints)
             {
-                IPAddress addr;
-                if (!IPAddress.TryParse(endpointKvp.Value.BindAddress, out addr))
+                if (!IPAddress.TryParse(endpointKvp.Value.BindAddress, out var addr))
                     addr = IPAddress.Any;
 
                 var ep = new IPEndPoint(addr, endpointKvp.Value.Port);
@@ -313,7 +310,7 @@ namespace RT.Servers
             if (_opt.IdleTimeout != 0)
                 incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
             // The reader will add itself to the active connections, process the current connection, and remove from active connections when done
-            new connectionHandler(incomingConnection, this, secure);
+            new ConnectionHandler(incomingConnection, this, secure);
         }
 
         private HttpResponse defaultErrorHandler(Exception exception, Exception exInErrorHandler = null)
@@ -380,7 +377,7 @@ namespace RT.Servers
             return exceptionText;
         }
 
-        private sealed class connectionHandler
+        private sealed class ConnectionHandler
         {
             public Socket Socket;
             public bool DisallowKeepAlive = false;
@@ -394,11 +391,11 @@ namespace RT.Servers
             private HttpServer _server;
             private int _begunReceives = 0;
             private int _endedReceives = 0;
-            private int _requestId;
+            private readonly int _requestId;
             private DateTime _requestStart;
             private bool _secure;
 
-            public connectionHandler(Socket socket, HttpServer server, bool secure)
+            public ConnectionHandler(Socket socket, HttpServer server, bool secure)
             {
 #if !DEBUG
                 try
@@ -698,10 +695,9 @@ namespace RT.Servers
                         headers = headers.Clone();
                     _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
 
-                    string webSocketKey;
                     if (response is HttpResponseWebSocket)
                     {
-                        if (!originalRequest.Headers.Connection.HasFlag(HttpConnection.Upgrade) || !"websocket".EqualsNoCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out webSocketKey))
+                        if (!originalRequest.Headers.Connection.HasFlag(HttpConnection.Upgrade) || !"websocket".EqualsNoCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out var webSocketKey))
                         {
                             response = HttpResponse.Html("<h1>Websocket expected</h1><p>The server expected a WebSocket upgrade request.</p>", HttpStatusCode._400_BadRequest);
                             goto notWebsocket;
@@ -1039,9 +1035,7 @@ namespace RT.Servers
                             {
                                 if (!(e is SocketException) && _server.Options.OutputExceptionInformation)
                                     output.Write((headers.ContentType.StartsWith("text/html") ? exceptionToHtml(e) : exceptionToPlaintext(e)).ToUtf8());
-                                var handler = _server.ResponseExceptionHandler;
-                                if (handler != null)
-                                    handler(originalRequest, e, response);
+                                _server.ResponseExceptionHandler?.Invoke(originalRequest, e, response);
                                 output.Close();
                                 return false;
                             }

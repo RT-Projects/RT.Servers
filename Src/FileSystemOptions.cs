@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using RT.Util.Serialization;
+using RT.Serialization;
 
 namespace RT.Servers
 {

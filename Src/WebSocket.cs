@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Remoting;
 using System.Security.Permissions;
 using RT.Util.ExtensionMethods;
-using RT.Util.Json;
+using RT.Json;
 
 namespace RT.Servers
 {

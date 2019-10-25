@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>RT.Servers.Tests</RootNamespace>
     <AssemblyName>RT.ServersTests</AssemblyName>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <StartupObject>
     </StartupObject>
@@ -55,19 +55,19 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\RT.NUnitDirect\Src\RT.NUnitDirect.csproj">
       <Project>{275ECB9D-F75E-45F8-BB34-AD122589D2CC}</Project>
-      <Name>NUnitDirect</Name>
+      <Name>RT.NUnitDirect</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\..\RT.TagSoup\Src\RT.TagSoup.csproj">
       <Project>{8F80D916-8999-45D8-ACB2-FFA7E2698FD6}</Project>
-      <Name>TagSoup</Name>
+      <Name>RT.TagSoup</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\RT.Util\Src\RT.Util.csproj">
+    <ProjectReference Include="..\..\..\RT.Util\RT.Util.Core\RT.Util.Core.csproj">
       <Project>{8D0FE79C-AD8D-475C-9E6F-9CAE85365B5D}</Project>
-      <Name>Util</Name>
+      <Name>RT.Util.Core</Name>
     </ProjectReference>
     <ProjectReference Include="..\RT.Servers.csproj">
       <Project>{A7333C19-56A9-4A8E-A196-7648666EF26A}</Project>
-      <Name>Servers</Name>
+      <Name>RT.Servers</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

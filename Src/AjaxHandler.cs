@@ -4,8 +4,8 @@ using System.Linq;
 using System.Reflection;
 using RT.Util;
 using RT.Util.ExtensionMethods;
-using RT.Util.Json;
-using RT.Util.Serialization;
+using RT.Json;
+using RT.Serialization;
 
 namespace RT.Servers
 {

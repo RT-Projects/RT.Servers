@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using RT.Serialization;
 using RT.TagSoup;
 using RT.Util;
 using RT.Util.ExtensionMethods;
@@ -25,10 +26,8 @@ namespace RT.Servers
         /// <summary>Initializes this <see cref="UrlResolver"/> with the specified collection of mappings.</summary>
         public UrlResolver(params UrlMapping[] mappings) { AddRange(mappings); }
 
-        private object _locker = new object();
-
         /// <summary>Take a lock on this object to perform multiple add/remove/clear operations atomically.</summary>
-        public object Locker { get { return _locker; } }
+        public object Locker { get; } = new object();
 
         /// <summary>
         ///     Handles an HTTP request by delegating it to the appropriate handler according to the request’s URL.</summary>
@@ -98,7 +97,7 @@ namespace RT.Servers
 
         private UrlMapping[] getApplicableMappings(IHttpUrl url)
         {
-            lock (_locker)
+            lock (Locker)
             {
                 return _mappings
                     .Where(mp =>
@@ -117,7 +116,7 @@ namespace RT.Servers
         {
             get
             {
-                lock (_locker)
+                lock (Locker)
                     return _mappings.Count;
             }
         }
@@ -125,7 +124,7 @@ namespace RT.Servers
         /// <summary>Determines whether a mapping with the same match specification is present in this collection.</summary>
         public bool Contains(UrlMapping item)
         {
-            lock (_locker)
+            lock (Locker)
                 return _mappings.BinarySearch(item) >= 0;
         }
 
@@ -148,14 +147,14 @@ namespace RT.Servers
         /// <summary>Removes all mappings from this collection.</summary>
         public void Clear()
         {
-            lock (_locker)
+            lock (Locker)
                 _mappings.Clear();
         }
 
         /// <summary>Adds the specified mapping to this collection.</summary>
         public void Add(UrlMapping item)
         {
-            lock (_locker)
+            lock (Locker)
             {
                 int i = _mappings.BinarySearch(item);
                 if (i >= 0 && !item.Skippable) // skippable hooks are never considered duplicates
@@ -191,7 +190,7 @@ namespace RT.Servers
         ///     once.</summary>
         public void AddRange(IEnumerable<UrlMapping> items)
         {
-            lock (_locker)
+            lock (Locker)
             {
                 var mappings = _mappings.Concat(items).ToList();
                 if (mappings.Count == _mappings.Count)
@@ -223,7 +222,7 @@ namespace RT.Servers
         ///     cref="UrlMapping.Equals(UrlMapping)"/>.</remarks>
         public bool Remove(UrlMapping item)
         {
-            lock (_locker)
+            lock (Locker)
                 return _mappings.Remove(item);
         }
 
@@ -233,7 +232,7 @@ namespace RT.Servers
         ///     The number of elements removed.</returns>
         public int Remove(UrlHook hook)
         {
-            lock (_locker)
+            lock (Locker)
                 return _mappings.RemoveAll(item => item.Hook.Equals(hook));
         }
     }

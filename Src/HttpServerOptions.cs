@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-using RT.Util.Serialization;
+using RT.Serialization;
 
 namespace RT.Servers
 {

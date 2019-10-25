@@ -2,7 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using RT.Util.ExtensionMethods;
-using RT.Util.Serialization;
+using RT.Serialization;
 
 namespace RT.Servers
 {

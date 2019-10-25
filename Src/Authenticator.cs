@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Security.Cryptography;
 using RT.TagSoup;
+using RT.Util;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
