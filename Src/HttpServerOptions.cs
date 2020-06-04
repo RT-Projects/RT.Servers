@@ -125,7 +125,7 @@ namespace RT.Servers
         /// <summary>Content-Type to return when handler provides none. Default is "text/html; charset=utf-8".</summary>
         public string DefaultContentType = "text/html; charset=utf-8";
 
-        private readonly Dictionary<string, HttpEndpoint> _endpoints = new Dictionary<string, HttpEndpoint>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, HttpEndpoint> _endpoints = new Dictionary<string, HttpEndpoint>(StringComparer.OrdinalIgnoreCase) { { "HTTP", new HttpEndpoint("127.0.0.1", 8990) } };
 
         /// <summary>
         ///     Throws an exception if the settings are invalid.</summary>
