@@ -55,7 +55,7 @@ namespace RT.Servers
 
                 // Etc.
                 case "pdf": return "application/pdf";
-                case "mp3": return "audio/mpeg3";
+                case "mp3": return "audio/mpeg";
                 case "ogg": return "audio/ogg";
 
                 default: return null;
