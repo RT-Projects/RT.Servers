@@ -18,6 +18,8 @@ namespace RT.Servers
         public string Domain;
         public DateTime? Expires;
         public bool HttpOnly;
+        public HttpCookieSameSite? SameSite;
+        public bool Secure;
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
     }
 

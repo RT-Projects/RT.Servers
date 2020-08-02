@@ -133,7 +133,13 @@ namespace RT.Servers
                         b.Append("; Path=" + c.Path);
                     if (c.Expires != null)
                         b.Append("; Expires=" + c.Expires.Value.ToUniversalTime().ToString("r" /* = RFC1123 */));
-                    b.Append(c.HttpOnly ? "; HttpOnly\r\n" : "\r\n");
+                    if (c.HttpOnly)
+                        b.Append("; HttpOnly");
+                    if (c.SameSite != null)
+                        b.Append("; SameSite=" + c.SameSite.Value.ToString());
+                    if (c.Secure)
+                        b.Append("; Secure");
+                    b.Append("\r\n");
                 }
             }
             switch (TransferEncoding)
