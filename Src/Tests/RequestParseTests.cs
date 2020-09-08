@@ -89,7 +89,7 @@ Content-Type: text/html
     </body>
 </html>
 -----------------------------265001916915724--
-";
+".UnifyLineEndings();
             byte[] testCase = Encoding.UTF8.GetBytes(inputStr);
 
             var directoryNotToBeCreated = @"C:\serverstests";
@@ -139,8 +139,8 @@ Content-Type: text/html
             <input type='submit'>
         </form>
     </body>
-</html>",
-                            fileContent);
+</html>".UnifyLineEndings(),
+                            fileContent.UnifyLineEndings());
                     }
 
                     Assert.AreEqual(0, gets.Count);
