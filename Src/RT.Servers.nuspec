@@ -10,11 +10,16 @@
     <iconUrl>https://avatars0.githubusercontent.com/u/14182444?v=3&amp;s=200</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>An in-process HTTP server.</description>
-    <copyright>Copyright 2016 RT Projects</copyright>
+    <copyright>Copyright 2020 RT Projects</copyright>
     <tags>C# Http Server</tags>
     <dependencies>
-      <dependency id="RT.Util" />
+      <dependency id="RT.Json" />
+      <dependency id="RT.PostBuild" />
+      <dependency id="RT.Serialization" />
+      <dependency id="RT.Serialization.Json" />
+      <dependency id="RT.Serialization.Xml" />
       <dependency id="RT.TagSoup" />
+      <dependency id="RT.Util.Core" />
     </dependencies>
   </metadata>
 </package>
