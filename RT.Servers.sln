@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29306.81
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers.Tests", "Src\Tests\RT.Servers.Tests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers.Tests", "Tests\RT.Servers.Tests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers", "Src\RT.Servers.csproj", "{A7333C19-56A9-4A8E-A196-7648666EF26A}"
 EndProject
