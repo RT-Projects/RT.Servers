@@ -4,7 +4,6 @@ using System.Text;
 using NUnit.Framework;
 using RT.Util;
 using RT.Util.ExtensionMethods;
-using RT.Util.Streams;
 
 namespace RT.Servers.Tests
 {

@@ -1,160 +1,42 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{A7333C19-56A9-4A8E-A196-7648666EF26A}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>RT.Servers</RootNamespace>
-    <AssemblyName>RT.Servers</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <OutputPath>..\Builds\$(Configuration)</OutputPath>
-    <IntermediateOutputPath>..\Builds\$(Configuration)\obj-$(AssemblyName)</IntermediateOutputPath>
-    <BaseIntermediateOutputPath>..\Builds\$(Configuration)\obj-$(AssemblyName)</BaseIntermediateOutputPath>
-    <DocumentationFile>..\Builds\$(Configuration)\$(AssemblyName).xml</DocumentationFile>
-    <TargetFrameworkProfile>
-    </TargetFrameworkProfile>
+    <TargetFramework>net472</TargetFramework>
+    <OutputPath>..\Builds\$(Configuration)-$(TargetFramework)$(RuntimeIdentifier)\</OutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)\$(Configuration)-$(TargetFramework)$(RuntimeIdentifier)\</IntermediateOutputPath>
+    <DocumentationFile>$(OutputPath)\$(AssemblyName).xml</DocumentationFile>
+    <Configurations>Debug;Release</Configurations>
+
+    <Version>1.0.0.9999</Version>
+    <Authors>rstarkov;Timwi</Authors>
+    <Description>An in-process HTTP server.</Description>
+    <PackageTags>C#;Http;Server</PackageTags>
+
+    <RepositoryUrl>https://github.com/RT-Projects/RT.Servers</RepositoryUrl>
+    <PackageIconUrl>https://avatars0.githubusercontent.com/u/14182444?v=3&amp;s=200</PackageIconUrl>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <DefineConstants>TRACE</DefineConstants>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="RT.Json, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RT.Json.2.0.1668\lib\netstandard2.0\RT.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="RT.PostBuild, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RT.PostBuild.2.0.1668\lib\netstandard2.0\RT.PostBuild.dll</HintPath>
-    </Reference>
-    <Reference Include="RT.Serialization, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RT.Serialization.2.0.1668\lib\netstandard2.0\RT.Serialization.dll</HintPath>
-    </Reference>
-    <Reference Include="RT.Serialization.Json, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RT.Serialization.Json.2.0.1668\lib\netstandard2.0\RT.Serialization.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="RT.Serialization.Xml, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RT.Serialization.Xml.2.0.1668\lib\netstandard2.0\RT.Serialization.Xml.dll</HintPath>
-    </Reference>
-    <Reference Include="RT.TagSoup, Version=1.0.1621.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RT.TagSoup.1.0.1621\lib\net471\RT.TagSoup.dll</HintPath>
-    </Reference>
-    <Reference Include="RT.Util.Core, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RT.Util.Core.2.0.1668\lib\netstandard2.0\RT.Util.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.XML" />
-    <Reference Include="System.Xml.Linq" />
+    <Compile Remove="Tests\**" />
+    <EmbeddedResource Remove="Tests\**" />
+    <None Remove="Tests\**" />
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="AjaxHandler.cs" />
-    <Compile Include="AjaxMethodAttribute.cs" />
-    <Compile Include="Authenticator.cs" />
-    <Compile Include="Documentation.cs" />
-    <Compile Include="FileAuthenticator.cs" />
-    <Compile Include="FileSystemHandler.cs" />
-    <Compile Include="FileSystemOptions.cs" />
-    <Compile Include="HttpEndpoint.cs" />
-    <Compile Include="HttpEnums.cs" />
-    <Compile Include="HttpException.cs" />
-    <Compile Include="HttpInternalObjects.cs" />
-    <Compile Include="HttpRequest.cs" />
-    <Compile Include="HttpResponse.cs" />
-    <Compile Include="HttpRequestHeaders.cs" />
-    <Compile Include="HttpResponseContent.cs" />
-    <Compile Include="HttpResponseHeaders.cs" />
-    <Compile Include="SniReaderStream.cs" />
-    <Compile Include="WebSocket.cs" />
-    <Compile Include="HttpServer.cs" />
-    <Compile Include="HttpServerOptions.cs" />
-    <Compile Include="HttpStatusCode.cs" />
-    <Compile Include="HttpStructs.cs" />
-    <Compile Include="HttpUrl.cs" />
-    <Compile Include="HttpHelper.cs" />
-    <Compile Include="NameValuesCollection.cs" />
-    <Compile Include="SharpZipLib\Checksums\Adler32.cs" />
-    <Compile Include="SharpZipLib\Checksums\CRC32.cs" />
-    <Compile Include="SharpZipLib\Checksums\IChecksum.cs" />
-    <Compile Include="SharpZipLib\GZip\GZIPConstants.cs" />
-    <Compile Include="SharpZipLib\GZip\GZipException.cs" />
-    <Compile Include="SharpZipLib\GZip\GzipInputStream.cs" />
-    <Compile Include="SharpZipLib\GZip\GzipOutputStream.cs" />
-    <Compile Include="SharpZipLib\SharpZipBaseException.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\Deflater.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\DeflaterConstants.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\DeflaterEngine.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\DeflaterHuffman.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\DeflaterPending.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\Inflater.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\InflaterDynHeader.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\InflaterHuffmanTree.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\PendingBuffer.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\Streams\DeflaterOutputStream.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\Streams\InflaterInputStream.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\Streams\OutputWindow.cs" />
-    <Compile Include="SharpZipLib\Zip\Compression\Streams\StreamManipulator.cs" />
-    <Compile Include="SharpZipLib\Zip\ZipException.cs" />
-    <Compile Include="SimpleSession.cs" />
-    <Compile Include="SocketStreams.cs" />
-    <Compile Include="UrlMapping.cs" />
-    <Compile Include="ValueTypes.cs" />
-    <Compile Include="Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-    <Compile Include="Session.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UrlHook.cs" />
-    <Compile Include="UrlResolver.cs" />
-    <Compile Include="HttpResponseWebSocket.cs" />
-    <Compile Include="WebSocketServerSide.cs" />
+    <PackageReference Include="RT.Serialization" Version="2.0.1668" />
+    <PackageReference Include="RT.Json" version="2.0.1668" />
+    <PackageReference Include="RT.PostBuild" version="2.0.1668" />
+    <PackageReference Include="RT.Serialization" version="2.0.1668" />
+    <PackageReference Include="RT.Serialization.Json" version="2.0.1668" />
+    <PackageReference Include="RT.Serialization.Xml" version="2.0.1668" />
+    <PackageReference Include="RT.TagSoup" version="1.0.1621" />
+    <PackageReference Include="RT.Util.Core" version="2.0.1668" />
   </ItemGroup>
+
   <ItemGroup>
-    <None Include="icons\bmp-16.blob" />
-    <None Include="icons\csv-16.blob" />
-    <None Include="icons\doc-16.blob" />
-    <None Include="icons\exe-16.blob" />
-    <None Include="icons\faq-16.blob" />
-    <None Include="icons\folder-16.blob" />
-    <None Include="icons\folder-48.blob" />
-    <None Include="icons\gz-16.blob" />
-    <None Include="icons\jpg-16.blob" />
-    <None Include="icons\pdf-16.blob" />
-    <None Include="icons\pic-16.blob" />
-    <None Include="icons\png-16.blob" />
-    <None Include="icons\pps-16.blob" />
-    <None Include="icons\ppt-16.blob" />
-    <None Include="icons\txt-16.blob" />
-    <None Include="icons\xls-16.blob" />
-    <None Include="icons\zip-16.blob" />
-    <None Include="packages.config" />
+    <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+
 </Project>

@@ -5,10 +5,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Runtime.Remoting;
 using System.Security.Authentication;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -16,6 +16,8 @@ using RT.Servers.SharpZipLib.GZip;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
+
+[assembly: InternalsVisibleTo("RT.Servers.Tests")]
 
 namespace RT.Servers
 {
