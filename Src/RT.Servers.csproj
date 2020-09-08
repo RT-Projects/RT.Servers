@@ -33,6 +33,27 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="RT.Json, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RT.Json.2.0.1668\lib\netstandard2.0\RT.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="RT.PostBuild, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RT.PostBuild.2.0.1668\lib\netstandard2.0\RT.PostBuild.dll</HintPath>
+    </Reference>
+    <Reference Include="RT.Serialization, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RT.Serialization.2.0.1668\lib\netstandard2.0\RT.Serialization.dll</HintPath>
+    </Reference>
+    <Reference Include="RT.Serialization.Json, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RT.Serialization.Json.2.0.1668\lib\netstandard2.0\RT.Serialization.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="RT.Serialization.Xml, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RT.Serialization.Xml.2.0.1668\lib\netstandard2.0\RT.Serialization.Xml.dll</HintPath>
+    </Reference>
+    <Reference Include="RT.TagSoup, Version=1.0.1621.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RT.TagSoup.1.0.1621\lib\net471\RT.TagSoup.dll</HintPath>
+    </Reference>
+    <Reference Include="RT.Util.Core, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RT.Util.Core.2.0.1668\lib\netstandard2.0\RT.Util.Core.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.XML" />
     <Reference Include="System.Xml.Linq" />
@@ -119,6 +140,7 @@
     <None Include="icons\txt-16.blob" />
     <None Include="icons\xls-16.blob" />
     <None Include="icons\zip-16.blob" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources.resx">
@@ -126,32 +148,6 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\RT.TagSoup\Src\RT.TagSoup.csproj">
-      <Project>{8F80D916-8999-45D8-ACB2-FFA7E2698FD6}</Project>
-      <Name>RT.TagSoup</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\RT.Util\RT.Json\RT.Json.csproj">
-      <Project>{9cb2febf-ec11-4494-9229-5f93d209dbd6}</Project>
-      <Name>RT.Json</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\RT.Util\RT.Serialization.Json\RT.Serialization.Json.csproj">
-      <Project>{5b78ee36-4a7b-4fd3-bf8c-439efeacd78e}</Project>
-      <Name>RT.Serialization.Json</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\RT.Util\RT.Serialization.Xml\RT.Serialization.Xml.csproj">
-      <Project>{cc2e1bee-9546-4ef3-a009-b08b76d2ba6a}</Project>
-      <Name>RT.Serialization.Xml</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\RT.Util\RT.Serialization\RT.Serialization.csproj">
-      <Project>{a6d3b81b-c58b-4e39-9ac8-f80f5b51ba17}</Project>
-      <Name>RT.Serialization</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\RT.Util\RT.Util.Core\RT.Util.Core.csproj">
-      <Project>{70328064-e4b0-4d90-a769-d480677ee187}</Project>
-      <Name>RT.Util.Core</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.

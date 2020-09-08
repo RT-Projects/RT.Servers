@@ -37,6 +37,12 @@
     <Reference Include="nunit.framework">
       <HintPath>..\..\..\RT.NUnitDirect\ThirdParty\nunit.framework.dll</HintPath>
     </Reference>
+    <Reference Include="RT.NUnitDirect, Version=1.0.0.13, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\RT.NUnitDirect.1.0.0.13\lib\net471\RT.NUnitDirect.dll</HintPath>
+    </Reference>
+    <Reference Include="RT.Util.Core, Version=2.0.1668.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\RT.Util.Core.2.0.1668\lib\netstandard2.0\RT.Util.Core.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
@@ -53,22 +59,13 @@
     <Compile Include="UrlPathResolverTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\RT.NUnitDirect\Src\RT.NUnitDirect.csproj">
-      <Project>{275ECB9D-F75E-45F8-BB34-AD122589D2CC}</Project>
-      <Name>RT.NUnitDirect</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\..\RT.TagSoup\Src\RT.TagSoup.csproj">
-      <Project>{8F80D916-8999-45D8-ACB2-FFA7E2698FD6}</Project>
-      <Name>RT.TagSoup</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\..\RT.Util\RT.Util.Core\RT.Util.Core.csproj">
-      <Project>{8D0FE79C-AD8D-475C-9E6F-9CAE85365B5D}</Project>
-      <Name>RT.Util.Core</Name>
-    </ProjectReference>
     <ProjectReference Include="..\RT.Servers.csproj">
       <Project>{A7333C19-56A9-4A8E-A196-7648666EF26A}</Project>
       <Name>RT.Servers</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
