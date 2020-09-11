@@ -393,16 +393,35 @@ namespace RT.Servers
             private HttpServer _server;
             private int _begunReceives = 0;
             private int _endedReceives = 0;
-            private readonly int _requestId;
+            private int _requestId;
             private DateTime _requestStart;
             private bool _secure;
 
             public ConnectionHandler(Socket socket, HttpServer server, bool secure)
             {
-#if !DEBUG
+                if (server.PropagateExceptions)
+                {
+                    constructorTryBlock(socket, server, secure);
+                    return;
+                }
+
                 try
                 {
-#endif
+                    constructorTryBlock(socket, server, secure);
+                }
+                catch (Exception e)
+                {
+                    // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
+                    // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
+                    // runs in another AppDomain; etc.
+                    server.Log.Exception(e);
+
+                    try { Socket.Close(); } catch { }
+                }
+            }
+
+            private void constructorTryBlock(Socket socket, HttpServer server, bool secure)
+            {
                 Socket = socket;
 
                 _requestId = Rnd.Next();
@@ -440,59 +459,53 @@ namespace RT.Servers
                         asyncState: null,
                         asyncCallback: ar =>
                         {
-#if !DEBUG
-                                try
-                                {
-#endif
+                            if (_server.PropagateExceptions)
+                            {
+                                asyncCallbackTryBlock(ar, secureStream);
+                                return;
+                            }
+
                             try
                             {
-                                secureStream.EndAuthenticateAsServer(ar);
-                            }
-                            catch (IOException io) when (io.Message == "Authentication failed because the remote party has closed the transport stream.")
-                            {
-                                // Very common exception that appears to be harmless
-                                Socket.Close();
-                                return;
+                                asyncCallbackTryBlock(ar, secureStream);
                             }
                             catch (Exception e)
                             {
-                                Socket.Close();
-                                _server.ResponseExceptionHandler?.Invoke(null, e, null);
-                                return;
+                                // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
+                                // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
+                                // runs in another AppDomain; etc.
+                                _server.Log.Exception(e);
+
+                                try { Socket.Close(); } catch { }
                             }
-                            receiveMoreHeaderData();
-
-#if !DEBUG
-                                }
-                                catch (Exception e)
-                                {
-                                    // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
-                                    // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
-                                    // runs in another AppDomain; etc.
-                                    _server.Log.Exception(e);
-
-                                    try { Socket.Close(); } catch { }
-                                }
-#endif
                         });
                 }
                 else
                 {
                     receiveMoreHeaderData();
                 }
+            }
 
-#if !DEBUG
+            private void asyncCallbackTryBlock(IAsyncResult ar, SslStream secureStream)
+            {
+                try
+                {
+                    secureStream.EndAuthenticateAsServer(ar);
+                }
+                catch (IOException io) when (io.Message == "Authentication failed because the remote party has closed the transport stream.")
+                {
+                    // Very common exception that appears to be harmless
+                    Socket.Close();
+                    return;
                 }
                 catch (Exception e)
                 {
-                    // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
-                    // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
-                    // runs in another AppDomain; etc.
-                    _server.Log.Exception(e);
 
-                    try { Socket.Close(); } catch { }
+                    Socket.Close();
+                    _server.ResponseExceptionHandler?.Invoke(null, e, null);
+                    return;
                 }
-#endif
+                receiveMoreHeaderData();
             }
 
             /// <summary>
@@ -540,40 +553,23 @@ namespace RT.Servers
             ///     for processing.</summary>
             private void moreHeaderDataReceived(IAsyncResult res)
             {
-#if DEBUG
-                // Workaround for bug in .NET 4.0:
-                // https://connect.microsoft.com/VisualStudio/feedback/details/535917
-                new Thread(() =>
+                if (_server.PropagateExceptions)
                 {
-#endif
                     try
                     {
-                        KeepAliveActive = false;
-                        Interlocked.Increment(ref _endedReceives);
-
-                        try
-                        {
-                            _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
-                        }
-                        catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
-                        catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
-                        catch (ObjectDisposedException) { cleanupIfDone(); return; }
-
-                        if (_bufferDataLength == 0)
-                        {
-                            Socket.Close(); // remote end closed the connection and there are no more bytes to receive
-                            cleanupIfDone();
-                        }
-                        else
-                            processHeaderData();
+                        moreHeaderDataReceivedTryBlock(res);
                     }
-#if DEBUG
                     finally
                     {
                         cleanupIfDone();
                     }
-                }).Start();
-#else
+                    return;
+                }
+
+                try
+                {
+                    moreHeaderDataReceivedTryBlock(res);
+                }
                 catch (Exception e)
                 {
                     // Ideally, this catch clause should not be reached, but in practice, calls to Socket.Close() can cause
@@ -587,7 +583,28 @@ namespace RT.Servers
                 {
                     cleanupIfDone();
                 }
-#endif
+            }
+
+            private void moreHeaderDataReceivedTryBlock(IAsyncResult res)
+            {
+                KeepAliveActive = false;
+                Interlocked.Increment(ref _endedReceives);
+
+                try
+                {
+                    _bufferDataLength = Socket.Connected ? _stream.EndRead(res) : 0;
+                }
+                catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
+                catch (ObjectDisposedException) { cleanupIfDone(); return; }
+
+                if (_bufferDataLength == 0)
+                {
+                    Socket.Close(); // remote end closed the connection and there are no more bytes to receive
+                    cleanupIfDone();
+                }
+                else
+                    processHeaderData();
             }
 
             /// <summary>

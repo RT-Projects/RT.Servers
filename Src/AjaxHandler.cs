@@ -54,11 +54,14 @@ namespace RT.Servers
                     }
 
                     object result;
-                    try { result = method.Invoke(api, arr); }
-                    catch (Exception e) { throw new AjaxException("Error invoking the AJAX method.", e); }
+                    if (_options == AjaxHandlerOptions.PropagateExceptions)
+                        result = method.InvokeDirect(api, arr);
+                    else
+                        try { result = method.Invoke(api, arr); }
+                        catch (Exception e) { throw new AjaxException("Error invoking the AJAX method.", e); }
 
-                    if (result is JsonValue)
-                        return (JsonValue) result;
+                    if (result is JsonValue value)
+                        return value;
 
                     try { return ClassifyJson.Serialize(returnType, result); }
                     catch (Exception e) { throw new AjaxInvalidReturnValueException(result, returnType, e); }
