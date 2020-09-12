@@ -10,13 +10,14 @@ using RT.Serialization;
 namespace RT.Servers
 {
     /// <summary>
-    ///     Provides a means to call methods decorated with an <see cref="AjaxMethodAttribute"/> via AJAX, using JSON as the data
-    ///     interchange format.</summary>
+    ///     Provides a means to call methods decorated with an <see cref="AjaxMethodAttribute"/> via AJAX, using JSON as the
+    ///     data interchange format.</summary>
     /// <typeparam name="TApi">
     ///     Type of the object containing the Ajax methods to use.</typeparam>
     public sealed class AjaxHandler<TApi>
     {
-        private readonly Dictionary<string, Func<HttpRequest, TApi, JsonValue>> _apiFunctions;
+        private readonly Dictionary<string, Func<HttpRequest, TApi, JsonValue>> _apiFunctions = new Dictionary<string, Func<HttpRequest, TApi, JsonValue>>();
+        private readonly Dictionary<Type, Dictionary<string, (Type serializedType, Func<object, TApi, object> converter)>> _converterFunctions = new Dictionary<Type, Dictionary<string, (Type serializedType, Func<object, TApi, object> converter)>>();
         private readonly AjaxHandlerOptions _options;
 
         /// <summary>
@@ -25,47 +26,77 @@ namespace RT.Servers
         ///     Specifies <see cref="AjaxHandler{TApi}"/>’s exception behaviour.</param>
         public AjaxHandler(AjaxHandlerOptions options = AjaxHandlerOptions.ReturnExceptionsWithoutMessages)
         {
-            _apiFunctions = new Dictionary<string, Func<HttpRequest, TApi, JsonValue>>();
             _options = options;
 
             var typeContainingAjaxMethods = typeof(TApi);
-            foreach (var method in typeContainingAjaxMethods.GetMethods(BindingFlags.Public | BindingFlags.Instance).Where(m => m.IsDefined<AjaxMethodAttribute>()))
+            foreach (var method in typeContainingAjaxMethods.GetMethods(BindingFlags.Public | BindingFlags.Instance))
             {
-                var parameters = method.GetParameters();
-                var returnType = method.ReturnType;
-
-                _apiFunctions.Add(method.Name, (req, api) =>
+                if (method.IsDefined<AjaxMethodAttribute>())
                 {
-                    JsonDict json;
-                    var rawJson = req.Post["data"].Value;
-                    try { json = JsonDict.Parse(rawJson); }
-                    catch (Exception e) { throw new AjaxInvalidParameterDataException(rawJson, e); }
-                    var arr = new object[parameters.Length];
-                    for (int i = 0; i < parameters.Length; i++)
+                    var parameters = method.GetParameters();
+                    var returnType = method.ReturnType;
+
+                    _apiFunctions.Add(method.Name, (req, api) =>
                     {
-                        var paramName = parameters[i].Name;
-                        if (parameters[i].IsOptional && !json.ContainsKey(paramName))
-                            arr[i] = parameters[i].DefaultValue;
-                        else
+                        JsonDict json;
+                        var rawJson = req.Post["data"].Value;
+                        try { json = JsonDict.Parse(rawJson); }
+                        catch (Exception e) { throw new AjaxInvalidParameterDataException(rawJson, e); }
+                        var arr = new object[parameters.Length];
+                        for (int i = 0; i < parameters.Length; i++)
                         {
-                            try { arr[i] = ClassifyJson.Deserialize(parameters[i].ParameterType, json[paramName]); }
-                            catch (Exception e) { throw new AjaxInvalidParameterException(paramName, e); }
+                            var paramName = parameters[i].Name;
+                            if (parameters[i].IsOptional && !json.ContainsKey(paramName))
+                                arr[i] = parameters[i].DefaultValue;
+                            else if (!json.ContainsKey(paramName))
+                                throw new AjaxMissingParameterException(paramName);
+                            else if (_converterFunctions.TryGetValue(parameters[i].ParameterType, out var inner) && (inner.TryGetValue(paramName, out var tup) || inner.TryGetValue("*", out tup)))
+                            {
+                                object deserialized;
+                                try { deserialized = ClassifyJson.Deserialize(tup.serializedType, json[paramName]); }
+                                catch (Exception e) { throw new AjaxInvalidParameterException(paramName, json[paramName], tup.serializedType, e); }
+                                arr[i] = tup.converter(deserialized, api);
+                            }
+                            else
+                            {
+                                try { arr[i] = ClassifyJson.Deserialize(parameters[i].ParameterType, json[paramName]); }
+                                catch (Exception e) { throw new AjaxInvalidParameterException(paramName, json[paramName], parameters[i].ParameterType, e); }
+                            }
                         }
-                    }
 
-                    object result;
-                    if (_options == AjaxHandlerOptions.PropagateExceptions)
-                        result = method.InvokeDirect(api, arr);
-                    else
-                        try { result = method.Invoke(api, arr); }
-                        catch (Exception e) { throw new AjaxException("Error invoking the AJAX method.", e); }
+                        object result;
+                        if (_options == AjaxHandlerOptions.PropagateExceptions)
+                            result = method.InvokeDirect(api, arr);
+                        else
+                            try { result = method.Invoke(api, arr); }
+                            catch (Exception e) { throw new AjaxException("Error invoking the AJAX method.", e); }
 
-                    if (result is JsonValue value)
-                        return value;
+                        if (result is JsonValue value)
+                            return value;
 
-                    try { return ClassifyJson.Serialize(returnType, result); }
-                    catch (Exception e) { throw new AjaxInvalidReturnValueException(result, returnType, e); }
-                });
+                        try { return ClassifyJson.Serialize(returnType, result); }
+                        catch (Exception e) { throw new AjaxInvalidReturnValueException(result, returnType, e); }
+                    });
+                }
+
+                var converterAttr = method.GetCustomAttribute<AjaxConverterAttribute>();
+                if (converterAttr != null)
+                {
+                    var ps = method.GetParameters();
+                    if (ps.Length != 1 || method.ReturnType == typeof(void))
+                        throw new InvalidOperationException($"A method with an [AjaxConverter] attribute may have only one parameter, and must have a return type other than void. (Method: {method.DeclaringType.FullName}.{method.Name})");
+                    if (!_converterFunctions.TryGetValue(method.ReturnType, out var inner))
+                        inner = _converterFunctions[method.ReturnType] = new Dictionary<string, (Type serializedType, Func<object, TApi, object> converter)>();
+                    if (inner.ContainsKey(ps[0].Name))
+                        throw new InvalidOperationException($"There is a duplicate conversion for “{ps[0].Name}” to type “{method.ReturnType.FullName}”. (Method: {method.DeclaringType.FullName}.{method.Name})");
+                    inner[ps[0].Name] = (ps[0].ParameterType, new Func<object, TApi, object>((obj, api) =>
+                    {
+                        if (_options == AjaxHandlerOptions.PropagateExceptions)
+                            return method.InvokeDirect(api, obj);
+                        try { return method.Invoke(api, new[] { obj }); }
+                        catch (Exception e) { throw new AjaxException("Error invoking an AJAX conversion method.", e); }
+                    }));
+                }
             }
         }
 
@@ -114,13 +145,13 @@ namespace RT.Servers
     public enum AjaxHandlerOptions
     {
         /// <summary>
-        ///     Exceptions thrown by an AJAX method (or the wrapper) are returned to the client as simply <c>{ "status": "error"
-        ///     }</c>.</summary>
+        ///     Exceptions thrown by an AJAX method (or the wrapper) are returned to the client as simply <c>{ "status":
+        ///     "error" }</c>.</summary>
         ReturnExceptionsWithoutMessages,
         /// <summary>
-        ///     Exceptions thrown by an AJAX method (or the wrapper) are returned to the client including their exception messages
-        ///     as <c>{ "status": "error", "message": "{0} ({1})" }</c>, where <c>{0}</c> is the exception message and <c>{1}</c>
-        ///     the exception type.</summary>
+        ///     Exceptions thrown by an AJAX method (or the wrapper) are returned to the client including their exception
+        ///     messages as <c>{ "status": "error", "message": "{0} ({1})" }</c>, where <c>{0}</c> is the exception message
+        ///     and <c>{1}</c> the exception type.</summary>
         ReturnExceptionsWithMessages,
         /// <summary>
         ///     <see cref="AjaxHandler{TApi}"/> does not catch exceptions thrown by the API functions. If you do not catch the
@@ -180,7 +211,8 @@ namespace RT.Servers
         }
     }
 
-    /// <summary>Indicates that, during processing of an AJAX request, the value for a method parameter could not be deseralized.</summary>
+    /// <summary>
+    ///     Indicates that, during processing of an AJAX request, the value for a method parameter could not be deseralized.</summary>
     public class AjaxInvalidParameterException : Exception
     {
         /// <summary>Gets the name of the parameter that could not be deserialized.</summary>
@@ -190,37 +222,42 @@ namespace RT.Servers
         ///     Constructor.</summary>
         /// <param name="parameterName">
         ///     Name of the parameter that could not be deserialized.</param>
-        public AjaxInvalidParameterException(string parameterName) : this(parameterName, (Exception) null) { }
-        /// <summary>
-        ///     Constructor.</summary>
-        /// <param name="parameterName">
-        ///     Name of the parameter that could not be deserialized.</param>
-        /// <param name="message">
-        ///     Exception message.</param>
-        public AjaxInvalidParameterException(string parameterName, string message) : this(parameterName, message, null) { }
-        /// <summary>
-        ///     Constructor.</summary>
-        /// <param name="parameterName">
-        ///     Name of the parameter that could not be deserialized.</param>
+        /// <param name="targetType">
+        ///     Type that the value was attempted to be deserialized as.</param>
+        /// <param name="json">
+        ///     The JSON value that was attempted to be deserialized.</param>
         /// <param name="inner">
         ///     Inner exception.</param>
-        public AjaxInvalidParameterException(string parameterName, Exception inner) : this(parameterName, "The parameter {0} could not be deseralized.".Fmt(parameterName), inner) { }
-        /// <summary>
-        ///     Constructor.</summary>
-        /// <param name="parameterName">
-        ///     Name of the parameter that could not be deserialized.</param>
-        /// <param name="message">
-        ///     Exception message.</param>
-        /// <param name="inner">
-        ///     Inner exception.</param>
-        public AjaxInvalidParameterException(string parameterName, string message, Exception inner)
-            : base(message, inner)
+        public AjaxInvalidParameterException(string parameterName, JsonValue json, Type targetType, Exception inner)
+            : base("The parameter {0} could not be deseralized into type {1}. JSON: {2}".Fmt(parameterName, targetType.FullName, JsonValue.ToString(json)), inner)
         {
             ParameterName = parameterName;
         }
     }
 
-    /// <summary>Indicates that, during processing of an AJAX request, the data containing the method parameters could not be parsed.</summary>
+    /// <summary>
+    ///     Indicates that, during processing of an AJAX request, a non-optional method parameter was missing from the JSON.</summary>
+    public class AjaxMissingParameterException : Exception
+    {
+        /// <summary>Gets the name of the parameter that was missing.</summary>
+        public string ParameterName { get; private set; }
+
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="parameterName">
+        ///     Name of the parameter that was missing.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
+        public AjaxMissingParameterException(string parameterName)
+            : base("The parameter “{0}” is not optional and was not specified.".Fmt(parameterName))
+        {
+            ParameterName = parameterName;
+        }
+    }
+
+    /// <summary>
+    ///     Indicates that, during processing of an AJAX request, the data containing the method parameters could not be
+    ///     parsed.</summary>
     public class AjaxInvalidParameterDataException : Exception
     {
         /// <summary>Gets the raw data that could not be parsed.</summary>
@@ -230,31 +267,10 @@ namespace RT.Servers
         ///     Constructor.</summary>
         /// <param name="parameterData">
         ///     The raw data that could not be parsed.</param>
-        public AjaxInvalidParameterDataException(string parameterData) : this(parameterData, (Exception) null) { }
-        /// <summary>
-        ///     Constructor.</summary>
-        /// <param name="parameterData">
-        ///     The raw data that could not be parsed.</param>
-        /// <param name="message">
-        ///     Exception message.</param>
-        public AjaxInvalidParameterDataException(string parameterData, string message) : this(parameterData, message, null) { }
-        /// <summary>
-        ///     Constructor.</summary>
-        /// <param name="parameterData">
-        ///     The raw data that could not be parsed.</param>
         /// <param name="inner">
         ///     Inner exception.</param>
-        public AjaxInvalidParameterDataException(string parameterData, Exception inner) : this(parameterData, "The provided JSON for the method paramters is not a valid JSON dictionary.", inner) { }
-        /// <summary>
-        ///     Constructor.</summary>
-        /// <param name="parameterData">
-        ///     The raw data that could not be parsed.</param>
-        /// <param name="message">
-        ///     Exception message.</param>
-        /// <param name="inner">
-        ///     Inner exception.</param>
-        public AjaxInvalidParameterDataException(string parameterData, string message, Exception inner)
-            : base(message, inner)
+        public AjaxInvalidParameterDataException(string parameterData, Exception inner)
+            : base("The provided JSON for the method parameters is not a valid JSON dictionary. JSON: {0}".Fmt(parameterData), inner)
         {
             ParameterData = parameterData;
         }
