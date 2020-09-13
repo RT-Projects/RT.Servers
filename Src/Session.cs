@@ -199,7 +199,8 @@ namespace RT.Servers
 
         /// <summary>
         ///     Enables the use of sessions in an HTTP request handler. Use this if your session class implements <see
-        ///     cref="ISessionEquatable{TSession}"/> and has a default constructor.</summary>
+        ///     cref="ISessionEquatable{TSession}"/>. If your session class does not have a default constructor, use <see
+        ///     cref="SessionExtensions.EnableAutomatic{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>.</summary>
         /// <typeparam name="TSession">
         ///     The type of session to be used.</typeparam>
         /// <param name="req">
@@ -223,7 +224,9 @@ namespace RT.Servers
         /// <summary>
         ///     Enables the use of sessions in an HTTP request handler. Use this if your session class does not implement <see
         ///     cref="ISessionEquatable{TSession}"/>; your class will have to manually set <see cref="SessionModified"/> to
-        ///     <c>true</c> before the request handler returns if any change was made to the session.</summary>
+        ///     <c>true</c> before the request handler returns if any change was made to the session. If your session class
+        ///     does not have a default constructor, use <see cref="SessionExtensions.EnableManual{TSession}(TSession,
+        ///     HttpRequest, Func{TSession, HttpResponse})"/>.</summary>
         /// <typeparam name="TSession">
         ///     The type of session to be used.</typeparam>
         /// <param name="req">
@@ -234,6 +237,7 @@ namespace RT.Servers
         ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
         /// <seealso cref="EnableAutomatic{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
         /// <seealso cref="SessionExtensions.EnableAutomatic{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
+        /// <seealso cref="SessionExtensions.EnableManual{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
         public static HttpResponse EnableManual<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, new()
         {
             var session = new TSession();
@@ -318,7 +322,7 @@ namespace RT.Servers
         ///     See the remarks section in the <see cref="Session"/> documentation for usage guidelines.</remarks>
         /// <seealso cref="Session.EnableManual{TSession}(HttpRequest, Func{TSession, HttpResponse})"/>
         /// <seealso cref="SessionExtensions.EnableAutomatic{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
-        public static HttpResponse EnableManual<TSession>(this TSession session, HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, new()
+        public static HttpResponse EnableManual<TSession>(this TSession session, HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session
         {
             session.InitializeFromRequest(req);
             var response = handler(session);
