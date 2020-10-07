@@ -7,11 +7,14 @@ using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
-    /// <summary>Provides a handler for <see cref="HttpServer"/> that can return files and list the contents of directories on the local file system.</summary>
+    /// <summary>
+    ///     Provides a handler for <see cref="HttpServer"/> that can return files and list the contents of directories on the
+    ///     local file system.</summary>
     public class FileSystemHandler
     {
         private static FileSystemOptions _defaultOptions;
-        /// <summary>Specifies the default options to fall back to whenever an instance of this class has no options of its own.</summary>
+        /// <summary>
+        ///     Specifies the default options to fall back to whenever an instance of this class has no options of its own.</summary>
         public static FileSystemOptions DefaultOptions
         {
             get
@@ -24,7 +27,9 @@ namespace RT.Servers
 
         /// <summary>Specifies the options associated with this instance, or null to use the <see cref="DefaultOptions"/>.</summary>
         public FileSystemOptions Options { get; set; }
-        /// <summary>Specifies the directory in the local file system from which files are served and directory contents are listed.</summary>
+        /// <summary>
+        ///     Specifies the directory in the local file system from which files are served and directory contents are
+        ///     listed.</summary>
         public string BaseDirectory
         {
             get { return _baseDirectory; }
@@ -39,20 +44,28 @@ namespace RT.Servers
         }
         private string _baseDirectory;
 
-        /// <summary>Initializes a new instance of <see cref="FileSystemHandler"/>.</summary>
-        /// <param name="baseDir">Specifies the directory in the local file system from which files are served and directory contents are listed.</param>
-        /// <param name="options">Specifies the options associated with this instance, or null to use the <see cref="DefaultOptions"/>.</param>
+        /// <summary>
+        ///     Initializes a new instance of <see cref="FileSystemHandler"/>.</summary>
+        /// <param name="baseDir">
+        ///     Specifies the directory in the local file system from which files are served and directory contents are
+        ///     listed.</param>
+        /// <param name="options">
+        ///     Specifies the options associated with this instance, or null to use the <see cref="DefaultOptions"/>.</param>
         public FileSystemHandler(string baseDir, FileSystemOptions options = null)
         {
             Options = options;
             BaseDirectory = baseDir;
         }
 
-        /// <summary>Returns an <see cref="HttpResponse"/> that handles the specified request, either by delivering a file from the local file system,
-        /// or by listing the contents of a directory in the local file system. The file or directory served is determined from the configured
-        /// <see cref="BaseDirectory"/> and the <see cref="HttpRequest.Url"/> of the specified <paramref name="request"/>.</summary>
-        /// <param name="request">HTTP request from the client.</param>
-        /// <returns>An <see cref="HttpResponse"/> encapsulating the file transfer or directory listing.</returns>
+        /// <summary>
+        ///     Returns an <see cref="HttpResponse"/> that handles the specified request, either by delivering a file from the
+        ///     local file system, or by listing the contents of a directory in the local file system. The file or directory
+        ///     served is determined from the configured <see cref="BaseDirectory"/> and the <see cref="HttpRequest.Url"/> of
+        ///     the specified <paramref name="request"/>.</summary>
+        /// <param name="request">
+        ///     HTTP request from the client.</param>
+        /// <returns>
+        ///     An <see cref="HttpResponse"/> encapsulating the file transfer or directory listing.</returns>
         public HttpResponse Handle(HttpRequest request)
         {
             if (request.Url.Path == "/$/directory-listing/xsl")
@@ -76,23 +89,7 @@ namespace RT.Servers
                 if (piece == "..")
                     throw new HttpException(HttpStatusCode._403_Forbidden);
 
-                // Tolerate variant file extensions
-                var candidateFiles = new List<string> { piece };
-                if (piece.EndsWith(".htm"))
-                    candidateFiles.Add(piece + "l");
-                else if (piece.EndsWith(".html"))
-                    candidateFiles.Add(piece.Substring(0, piece.Length - 1));
-                else if (piece.EndsWith(".jpg"))
-                    candidateFiles.Add(piece.Substring(0, piece.Length - 1) + "eg");
-                else if (piece.EndsWith(".jpeg"))
-                    candidateFiles.Add(piece.Substring(0, piece.Length - 2) + "g");
-
-                // Tolerate double-encoded URLs (e.g., %2520 instead of %20)
-                for (int cfIx = candidateFiles.Count - 1; cfIx >= 0; cfIx--)
-                    if (candidateFiles[cfIx].Contains("%"))
-                        try { candidateFiles.Add(candidateFiles[cfIx].UrlUnescape()); } catch { }
-
-                foreach (var suitablePiece in candidateFiles)
+                foreach (var suitablePiece in getCandidates(piece))
                 {
                     string nextSoFar = soFar + Path.DirectorySeparatorChar + suitablePiece;
                     string curPath = p + nextSoFar;
@@ -142,13 +139,57 @@ namespace RT.Servers
                     }
                     if (!Directory.Exists(p + soFar))
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
-                    return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url, soFarUrl + "/"), "application/xml; charset=utf-8");
+                    return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url), "application/xml; charset=utf-8");
                 default:
                     throw new InvalidOperationException("Invalid directory listing style: " + (int) dirStyle);
             }
         }
 
-        private static IEnumerable<string> generateDirectoryXml(string localPath, IHttpUrl url, string urlPath)
+        /// <summary>
+        ///     Generates candidate variant filenames. For example, if the user is looking for a <c>.htm</c> file but an
+        ///     otherwise equivalent <c>.html</c> file exists, <see cref="FileSystemHandler"/> returns an appropriate redirect
+        ///     (assuming directory listings are allowed). This method does not take care of the <c>*</c> wildcard (that
+        ///     happens in <see cref="Handle(HttpRequest)"/>).</summary>
+        private IEnumerable<string> getCandidates(string piece)
+        {
+            yield return piece;
+
+            var candidates = new List<string> { piece };
+
+            // WARNING: Code further down assumes that this only modifies the end of ‘piece’ in such a way that it cannot add or remove apostrophes or shift their indices.
+            if (piece.EndsWith(".htm"))
+                candidates.Add(piece + "l");
+            else if (piece.EndsWith(".html"))
+                candidates.Add(piece.Remove(piece.Length - 1));
+            else if (piece.EndsWith(".jpg"))
+                candidates.Add(piece.Insert(piece.Length - 1, "e"));
+            else if (piece.EndsWith(".jpeg"))
+                candidates.Add(piece.Remove(piece.Length - 2, 1));
+
+            // Tolerate apostrophe variations (' U+0027 vs. ’ U+2019), but only up to a point
+            if (!(piece.Contains('\'') || piece.Contains('’')) || piece.Count(ch => ch == '\'' || ch == '’') > 8)
+            {
+                if (candidates.Count == 1)
+                    yield break;
+                foreach (var candidate in candidates.Skip(1))
+                    yield return candidate;
+            }
+            else
+            {
+                // WARNING: This relies on the assumption mentioned above.
+                var apos = piece.SelectIndexWhere(ch => ch == '\'' || ch == '’').ToArray();
+                foreach (var candidate in candidates)
+                    for (var bits = 0; bits < 1 << apos.Length; bits++)
+                    {
+                        var pi = candidate;
+                        for (var n = 0; n < apos.Length; n++)
+                            pi = pi.Remove(apos[n], 1).Insert(apos[n], (bits & (1 << n)) != 0 ? "’" : "'");
+                        yield return pi;
+                    }
+            }
+        }
+
+        private static IEnumerable<string> generateDirectoryXml(string localPath, IHttpUrl url)
         {
             List<DirectoryInfo> dirs = new List<DirectoryInfo>();
             List<FileInfo> files = new List<FileInfo>();
@@ -177,9 +218,8 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// XSL to use for directory listings. This will be converted to UTF-8, whitespace-optimised and cached before being output.
-        /// This is the file that is returned at the URL /$/directory-listing/xsl.
-        /// </summary>
+        ///     XSL to use for directory listings. This will be converted to UTF-8, whitespace-optimised and cached before
+        ///     being output. This is the file that is returned at the URL /$/directory-listing/xsl.</summary>
         private static string _directoryListingXslString = @"<?xml version=""1.0"" encoding=""UTF-8""?>
 
             <xsl:stylesheet version=""1.0"" xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" xmlns=""http://www.w3.org/1999/xhtml"">
@@ -255,13 +295,13 @@ namespace RT.Servers
             </xsl:stylesheet>
         ";
 
-        /// <summary>
-        /// Caches the UTF-8-encoded version of the directory-listing XSL file.
-        /// </summary>
+        /// <summary>Caches the UTF-8-encoded version of the directory-listing XSL file.</summary>
         private static byte[] _directoryListingXslByteArray = null;
 
-        /// <summary>Returns a byte array containing the UTF-8-encoded directory-listing XSL.</summary>
-        /// <returns>A byte array containing the UTF-8-encoded directory-listing XSL.</returns>
+        /// <summary>
+        ///     Returns a byte array containing the UTF-8-encoded directory-listing XSL.</summary>
+        /// <returns>
+        ///     A byte array containing the UTF-8-encoded directory-listing XSL.</returns>
         private static byte[] DirectoryListingXsl
         {
             get
@@ -276,10 +316,11 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Returns a byte array representing an icon in PNG format that corresponds to the specified file extension.
-        /// </summary>
-        /// <param name="extension">The file extension for which to retrieve an icon in PNG format.</param>
-        /// <returns>A byte array representing an icon in PNG format that corresponds to the specified file extension.</returns>
+        ///     Returns a byte array representing an icon in PNG format that corresponds to the specified file extension.</summary>
+        /// <param name="extension">
+        ///     The file extension for which to retrieve an icon in PNG format.</param>
+        /// <returns>
+        ///     A byte array representing an icon in PNG format that corresponds to the specified file extension.</returns>
         private static byte[] GetDirectoryListingIcon(string extension)
         {
             if (extension == "folder") return Resources.folder_16;
@@ -306,10 +347,13 @@ namespace RT.Servers
         }
 
         /// <summary>
-        /// Returns a file extension whose icon is used in directory listings to represent files of the specified file extension.
-        /// </summary>
-        /// <param name="extension">The extension of the actual file for which to display an icon.</param>
-        /// <returns>The file extension whose icon is used in directory listings to represent files of the specified file extension.</returns>
+        ///     Returns a file extension whose icon is used in directory listings to represent files of the specified file
+        ///     extension.</summary>
+        /// <param name="extension">
+        ///     The extension of the actual file for which to display an icon.</param>
+        /// <returns>
+        ///     The file extension whose icon is used in directory listings to represent files of the specified file
+        ///     extension.</returns>
         private static string GetDirectoryListingIconStr(string extension)
         {
             if (extension == "folder") return extension;
