@@ -246,8 +246,6 @@ namespace RT.Servers
         ///     Constructor.</summary>
         /// <param name="parameterName">
         ///     Name of the parameter that was missing.</param>
-        /// <param name="inner">
-        ///     Inner exception.</param>
         public AjaxMissingParameterException(string parameterName)
             : base("The parameter “{0}” is not optional and was not specified.".Fmt(parameterName))
         {

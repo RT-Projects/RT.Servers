@@ -520,8 +520,8 @@ namespace RT.Servers
                 // See http://stackoverflow.com/questions/16550606/
                 try
                 {
-                    if (_stream is NetworkStream && ((NetworkStream) _stream).DataAvailable)
-                        _bufferDataLength = ((NetworkStream) _stream).Read(_buffer, 0, _buffer.Length);
+                    if (_stream is NetworkStream stream && stream.DataAvailable)
+                        _bufferDataLength = stream.Read(_buffer, 0, _buffer.Length);
                 }
                 catch (SocketException) { Socket.Close(); cleanupIfDone(); return; }
                 catch (IOException) { Socket.Close(); cleanupIfDone(); return; }
