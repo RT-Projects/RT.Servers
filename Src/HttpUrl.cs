@@ -706,7 +706,7 @@ namespace RT.Servers
                 throw new ArgumentNullException("names");
             _names = names;
         }
-        public UrlWithoutQueryMultiple(IHttpUrl source, IEnumerable<string> names) : this(source, names.ToHashSet()) { }
+        public UrlWithoutQueryMultiple(IHttpUrl source, IEnumerable<string> names) : this(source, new HashSet<string>(names)) { }
 
         protected override string GetValue(string name)
         {
