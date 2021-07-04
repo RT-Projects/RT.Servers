@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="RT.Serialization" Version="2.0.1683" />
+    <PackageReference Include="RT.Serialization" Version="2.0.1693" />
     <PackageReference Include="RT.Json" version="2.0.1693" />
     <PackageReference Include="RT.PostBuild" version="2.0.1693" />
     <PackageReference Include="RT.Serialization" version="2.0.1693" />
