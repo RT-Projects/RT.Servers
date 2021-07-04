@@ -126,7 +126,7 @@ namespace RT.Servers
             // Return
             il.Emit(OpCodes.Ret);
 
-            return typeBuilder.CreateType();
+            return typeBuilder.CreateTypeInfo();
         }
 
         private static Type createDelegateType(MethodInfo method, int counter)
@@ -141,14 +141,14 @@ namespace RT.Servers
                 MethodAttributes.FamANDAssem | MethodAttributes.Family | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
                 CallingConventions.Standard, Type.EmptyTypes);
             delegateConstructor.SetImplementationFlags(MethodImplAttributes.CodeTypeMask);
-            return delegateBuilder.CreateType();
+            return delegateBuilder.CreateTypeInfo();
         }
 
         private static void createAssembly()
         {
             if (asmBuilder == null)
             {
-                asmBuilder = Thread.GetDomain().DefineDynamicAssembly(new AssemblyName("RT.Servers.InvokeDirect.DynamicAssembly"), AssemblyBuilderAccess.Run);
+                asmBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("RT.Servers.InvokeDirect.DynamicAssembly"), AssemblyBuilderAccess.Run);
                 modBuilder = asmBuilder.DefineDynamicModule("RT.Servers.InvokeDirect.DynamicAssembly.Module");
             }
         }

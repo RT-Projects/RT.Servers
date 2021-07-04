@@ -1,7 +1,6 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net.Sockets;
-using System.Runtime.Remoting;
 using System.Security.Permissions;
 using RT.Util;
 using RT.Util.ExtensionMethods;
@@ -276,13 +275,11 @@ namespace RT.Servers
                 catch (IOException) { }
                 catch (ObjectDisposedException) { }
 
-                try { _client.OnEndConnection(); }
-                catch (RemotingException) { }
+                _client.OnEndConnection();
             }
             finally
             {
                 _ended = true;
-                RemotingServices.Disconnect(this);
             }
         }
     }

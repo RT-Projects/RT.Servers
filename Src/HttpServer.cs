@@ -6,7 +6,6 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
-using System.Runtime.Remoting;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
@@ -707,11 +706,7 @@ namespace RT.Servers
                     catch (IOException) { Socket.Close(); return; }
                     catch (ObjectDisposedException) { return; }
 
-                    // If ‘response’ is a transparent proxy, this will take a copy of the headers object because HttpResponseHeaders is serialized.
-                    var headers = response.Headers;
-                    // If it is NOT a transparent proxy, we need to take such a copy ourselves.
-                    if (!RemotingServices.IsTransparentProxy(response))
-                        headers = headers.Clone();
+                    var headers = response.Headers.Clone();
                     _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
 
                     if (response is HttpResponseWebSocket)
