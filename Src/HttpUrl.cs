@@ -393,9 +393,11 @@ namespace RT.Servers
         ///     unless it is at the TLD level, in which case it must be non-empty and not end with a dot.</summary>
         public static IHttpUrl WithDomain(this IHttpUrl url, string domain) { return new UrlWithDomain(url, domain); }
         /// <summary>
-        ///     Returns a new URL such that the <see cref="IHttpUrl.Domain"/> includes the part matched by the most recent URL
+        ///     Returns a new, equivalent URL such that the <see cref="IHttpUrl.Domain"/> includes the part matched by the most recent URL
         ///     resolver.</summary>
         public static IHttpUrl WithDomainParent(this IHttpUrl url) { return new UrlWithDomainParent(url); }
+        /// <summary>Returns a new, equivalent URL whose <see cref="IHttpUrl.Domain"/> is empty (treating it like the result of a nested URL resolver).</summary>
+        public static IHttpUrl WithDomainChild(this IHttpUrl url) { return new UrlWithDomainChild(url); }
         /// <summary>
         ///     Returns a new URL with the <see cref="IHttpUrl.Path"/> changed. The path must be empty or begin with a forward
         ///     slash, and must not contain a query string.</summary>
@@ -405,9 +407,11 @@ namespace RT.Servers
         ///     empty or begin with a forward slash, and must not contain a query string.</summary>
         public static IHttpUrl WithPathOnly(this IHttpUrl url, string path) { return new UrlWithPathOnly(url, path); }
         /// <summary>
-        ///     Returns a new URL such that the <see cref="IHttpUrl.Path"/> includes the part matched by the most recent URL
-        ///     resolver.</summary>
+        ///     Returns a new, equivalent URL such that the <see cref="IHttpUrl.Path"/> includes the part matched by the most
+        ///     recent URL resolver.</summary>
         public static IHttpUrl WithPathParent(this IHttpUrl url) { return new UrlWithPathParent(url); }
+        /// <summary>Returns a new, equivalent URL whose <see cref="IHttpUrl.Path"/> is empty (treating it like the result of a nested URL resolver).</summary>
+        public static IHttpUrl WithPathChild(this IHttpUrl url) { return new UrlWithPathChild(url); }
         /// <summary>Returns a new URL consisting of the specified URL without the query string.</summary>
         public static IHttpUrl WithoutQuery(this IHttpUrl url) { return new UrlWithoutQueryAll(url); }
         /// <summary>Returns a new URL consisting of the specified URL with the specified query parameter removed.</summary>
@@ -619,6 +623,20 @@ namespace RT.Servers
         }
     }
 
+    internal class UrlWithDomainChild : UrlWithNoChanges
+    {
+        private readonly string[] _parentDomains;
+        public UrlWithDomainChild(IHttpUrl source)
+            : base(source)
+        {
+            _parentDomains = new string[source.ParentDomains.Length + 1];
+            Array.Copy(source.ParentDomains, 0, _parentDomains, 0, source.ParentDomains.Length);
+            _parentDomains[source.ParentDomains.Length] = source.Domain;
+        }
+        public override string Domain => "";
+        public override string[] ParentDomains => _parentDomains;
+    }
+
     internal class UrlWithPathParent : UrlWithNoChanges
     {
         private string _path;
@@ -652,6 +670,20 @@ namespace RT.Servers
                 return _parentPaths;
             }
         }
+    }
+
+    internal class UrlWithPathChild : UrlWithNoChanges
+    {
+        private readonly string[] _parentPaths;
+        public UrlWithPathChild(IHttpUrl source)
+            : base(source)
+        {
+            _parentPaths = new string[source.ParentPaths.Length + 1];
+            Array.Copy(source.ParentPaths, 0, _parentPaths, 0, source.ParentPaths.Length);
+            _parentPaths[source.ParentPaths.Length] = source.Path;
+        }
+        public override string Path => "";
+        public override string[] ParentPaths => _parentPaths;
     }
 
     internal class UrlWithoutQueryAll : UrlWithNoChanges
