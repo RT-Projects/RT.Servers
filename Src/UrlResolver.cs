@@ -87,7 +87,7 @@ namespace RT.Servers
                 req.Url = url;
                 var response = mapping.Handler(req);
                 if (response == null && !mapping.Skippable)
-                    throw new InvalidOperationException("The handler of a non-skippable handler returned null. Mapping: {0}".Fmt(mapping));
+                    throw new InvalidOperationException("The handler of a non-skippable URL mapping returned null. Mapping: {0}".Fmt(mapping));
                 if (response != null)
                     return response;
                 req.Url = originalUrl;

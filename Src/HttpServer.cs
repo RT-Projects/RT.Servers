@@ -45,6 +45,7 @@ namespace RT.Servers
         public HttpServer(int port, HttpServerOptions options = null)
         {
             _opt = options ?? new HttpServerOptions();
+            _opt.Endpoints.Clear();
             _opt.AddEndpoint("*", null, port);
             Stats = new Statistics(this);
         }
