@@ -96,7 +96,7 @@ namespace RT.Servers
         ///         request handler returns.</para>
         ///     <para>
         ///         The default implementation returns <c>DateTime.MaxValue</c>.</para></remarks>
-        protected virtual DateTime CookieExpires { get { return DateTime.MaxValue; } }
+        protected virtual DateTime CookieExpires => DateTime.MaxValue;
 
         /// <summary>Returns a string representation of this session object.</summary>
         public override string ToString()
@@ -184,7 +184,7 @@ namespace RT.Servers
                 case SessionAction.Save:
                     if (wasModified)
                         SaveSession();
-                    if (CookieModified)
+                    if (CookieModified && (wasModified || _hadSession))
                         saveCookie(response);
                     break;
 
