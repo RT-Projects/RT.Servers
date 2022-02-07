@@ -712,7 +712,7 @@ namespace RT.Servers
 
                     if (response is HttpResponseWebSocket)
                     {
-                        if (!originalRequest.Headers.Connection.HasFlag(HttpConnection.Upgrade) || !"websocket".EqualsNoCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out var webSocketKey))
+                        if (!originalRequest.Headers.Connection.HasFlag(HttpConnection.Upgrade) || !"websocket".EqualsIgnoreCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out var webSocketKey))
                         {
                             response = HttpResponse.Html("<h1>Websocket expected</h1><p>The server expected a WebSocket upgrade request.</p>", HttpStatusCode._400_BadRequest);
                             goto notWebsocket;

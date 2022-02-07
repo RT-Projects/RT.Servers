@@ -109,9 +109,9 @@ namespace RT.Servers
         /// <summary>Parses the Content-Encoding header. Returns null if the value is not valid.</summary>
         public static HttpContentEncoding? ParseHttpContentEncoding(string value)
         {
-            if (value.EqualsNoCase("gzip")) return HttpContentEncoding.Gzip;
-            else if (value.EqualsNoCase("compress")) return HttpContentEncoding.Compress;
-            else if (value.EqualsNoCase("deflate")) return HttpContentEncoding.Deflate;
+            if (value.EqualsIgnoreCase("gzip")) return HttpContentEncoding.Gzip;
+            else if (value.EqualsIgnoreCase("compress")) return HttpContentEncoding.Compress;
+            else if (value.EqualsIgnoreCase("deflate")) return HttpContentEncoding.Deflate;
             else return null;
         }
 
@@ -123,11 +123,11 @@ namespace RT.Servers
             HttpConnection result = 0;
             foreach (var str in Regex.Split(value.Trim(), @"\s*,\s*"))
             {
-                if (str.EqualsNoCase("close"))
+                if (str.EqualsIgnoreCase("close"))
                     result |= HttpConnection.Close;
-                else if (str.EqualsNoCase("keep-alive"))
+                else if (str.EqualsIgnoreCase("keep-alive"))
                     result |= HttpConnection.KeepAlive;
-                else if (str.EqualsNoCase("upgrade"))
+                else if (str.EqualsIgnoreCase("upgrade"))
                     result |= HttpConnection.Upgrade;
             }
             return result;
