@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using RT.Serialization;
 using RT.TagSoup;
-using RT.Util;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
