@@ -161,7 +161,7 @@ namespace RT.Servers
                 Path = CookiePath,
                 Expires = delete ? DateTime.Today - TimeSpan.FromDays(300) : CookieExpires,
                 HttpOnly = true,
-                SameSite = HttpCookieSameSite.Strict
+                SameSite = HttpCookieSameSite.Lax
             });
         }
 
