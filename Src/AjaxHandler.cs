@@ -36,6 +36,10 @@ namespace RT.Servers
                     var parameters = method.GetParameters();
                     var returnType = method.ReturnType;
 
+                    foreach (var parameter in parameters)
+                        if (parameter.GetCustomAttribute<AjaxRequestAttribute>() != null && !parameter.ParameterType.IsAssignableFrom(typeof(HttpRequest)))
+                            throw new AjaxMethodInvalidException(method.Name, $"The parameter {parameter.Name} has {nameof(AjaxRequestAttribute)} but does not accept an object of type {nameof(HttpRequest)}.");
+
                     _apiFunctions.Add(method.Name, (req, api) =>
                     {
                         JsonDict json;
@@ -46,7 +50,9 @@ namespace RT.Servers
                         for (int i = 0; i < parameters.Length; i++)
                         {
                             var paramName = parameters[i].Name;
-                            if (parameters[i].IsOptional && !json.ContainsKey(paramName))
+                            if (parameters[i].GetCustomAttribute<AjaxRequestAttribute>() != null)
+                                arr[i] = req;
+                            else if (parameters[i].IsOptional && !json.ContainsKey(paramName))
                                 arr[i] = parameters[i].DefaultValue;
                             else if (!json.ContainsKey(paramName))
                                 throw new AjaxMissingParameterException(paramName);
@@ -123,7 +129,7 @@ namespace RT.Servers
                 var error = new JsonDict { { "status", "error" } };
                 if (_options == AjaxHandlerOptions.ReturnExceptionsWithMessages)
                     error.Add("message", "{0} ({1})".Fmt(e.Message, e.GetType().Name));
-                return HttpResponse.Json(error);
+                return HttpResponse.Json(error, (e as AjaxException)?.Status ?? HttpStatusCode._400_BadRequest);
             }
         }
 
@@ -162,24 +168,66 @@ namespace RT.Servers
     /// <summary>Indicates that an error occurred during processing of an AJAX request.</summary>
     public class AjaxException : Exception
     {
+        /// <summary>HTTP status code.</summary>
+        public HttpStatusCode Status { get; private set; } = HttpStatusCode._400_BadRequest;
+
         /// <summary>Constructor.</summary>
-        public AjaxException() { }
+        /// <param name="status">
+        ///     HTTP status code.</param>
+        public AjaxException(HttpStatusCode status = HttpStatusCode._400_BadRequest) { Status = status; }
         /// <summary>
         ///     Constructor.</summary>
         /// <param name="message">
         ///     Exception message.</param>
-        public AjaxException(string message) : base(message) { }
+        /// <param name="status">
+        ///     HTTP status code.</param>
+        public AjaxException(string message, HttpStatusCode status = HttpStatusCode._400_BadRequest) : base(message) { Status = status; }
         /// <summary>
         ///     Constructor.</summary>
         /// <param name="message">
         ///     Exception message.</param>
         /// <param name="inner">
         ///     Inner exception.</param>
-        public AjaxException(string message, Exception inner) : base(message, inner) { }
+        /// <param name="status">
+        ///     HTTP status code.</param>
+        public AjaxException(string message, Exception inner, HttpStatusCode status = HttpStatusCode._400_BadRequest) : base(message, inner) { Status = status; }
+    }
+
+    /// <summary>Indicates that an AJAX method declaration is invalid.</summary>
+    public class AjaxMethodInvalidException : AjaxException
+    {
+        /// <summary>Gets the name of the requested method that is invalid.</summary>
+        public string AjaxMethodName { get; private set; }
+
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="ajaxMethodName">
+        ///     Name of the requested method that is invalid.</param>
+        public AjaxMethodInvalidException(string ajaxMethodName) : this(ajaxMethodName, "The declaration of the specified AJAX method {0} is invalid.".Fmt(ajaxMethodName), null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="ajaxMethodName">
+        ///     Name of the requested method that is invalid.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
+        public AjaxMethodInvalidException(string ajaxMethodName, string message) : this(ajaxMethodName, message, null) { }
+        /// <summary>
+        ///     Constructor.</summary>
+        /// <param name="ajaxMethodName">
+        ///     Name of the requested method that is invalid.</param>
+        /// <param name="message">
+        ///     Exception message.</param>
+        /// <param name="inner">
+        ///     Inner exception.</param>
+        public AjaxMethodInvalidException(string ajaxMethodName, string message, Exception inner)
+            : base(message, inner, HttpStatusCode._500_InternalServerError)
+        {
+            AjaxMethodName = ajaxMethodName;
+        }
     }
 
     /// <summary>Indicates that an AJAX method was requested that does not exist.</summary>
-    public class AjaxMethodNotFoundException : Exception
+    public class AjaxMethodNotFoundException : AjaxException
     {
         /// <summary>Gets the name of the requested method that does not exist.</summary>
         public string AjaxMethodName { get; private set; }
@@ -205,7 +253,7 @@ namespace RT.Servers
         /// <param name="inner">
         ///     Inner exception.</param>
         public AjaxMethodNotFoundException(string ajaxMethodName, string message, Exception inner)
-            : base(message, inner)
+            : base(message, inner, HttpStatusCode._404_NotFound)
         {
             AjaxMethodName = ajaxMethodName;
         }
@@ -213,7 +261,7 @@ namespace RT.Servers
 
     /// <summary>
     ///     Indicates that, during processing of an AJAX request, the value for a method parameter could not be deseralized.</summary>
-    public class AjaxInvalidParameterException : Exception
+    public class AjaxInvalidParameterException : AjaxException
     {
         /// <summary>Gets the name of the parameter that could not be deserialized.</summary>
         public string ParameterName { get; private set; }
@@ -237,7 +285,7 @@ namespace RT.Servers
 
     /// <summary>
     ///     Indicates that, during processing of an AJAX request, a non-optional method parameter was missing from the JSON.</summary>
-    public class AjaxMissingParameterException : Exception
+    public class AjaxMissingParameterException : AjaxException
     {
         /// <summary>Gets the name of the parameter that was missing.</summary>
         public string ParameterName { get; private set; }
@@ -256,7 +304,7 @@ namespace RT.Servers
     /// <summary>
     ///     Indicates that, during processing of an AJAX request, the data containing the method parameters could not be
     ///     parsed.</summary>
-    public class AjaxInvalidParameterDataException : Exception
+    public class AjaxInvalidParameterDataException : AjaxException
     {
         /// <summary>Gets the raw data that could not be parsed.</summary>
         public string ParameterData { get; private set; }
@@ -275,7 +323,7 @@ namespace RT.Servers
     }
 
     /// <summary>Indicates that the value returned by an AJAX method could not be serialized.</summary>
-    public class AjaxInvalidReturnValueException : Exception
+    public class AjaxInvalidReturnValueException : AjaxException
     {
         /// <summary>Gets the return value that could not be serialized.</summary>
         public object ReturnValue { get; private set; }
@@ -318,7 +366,7 @@ namespace RT.Servers
         /// <param name="inner">
         ///     Inner exception.</param>
         public AjaxInvalidReturnValueException(object returnValue, Type returnType, string message, Exception inner)
-            : base(message, inner)
+            : base(message, inner, HttpStatusCode._500_InternalServerError)
         {
             ReturnValue = returnValue;
             ReturnType = returnType;
