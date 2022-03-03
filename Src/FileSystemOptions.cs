@@ -70,8 +70,7 @@ namespace RT.Servers
             if (extension.Length > 1)
                 extension = extension.Substring(1).ToLowerInvariant();
 
-            string mime;
-            if (MimeTypeOverrides != null && MimeTypeOverrides.TryGetValue(extension, out mime))
+            if (MimeTypeOverrides != null && MimeTypeOverrides.TryGetValue(extension, out var mime))
                 return mime;
 
             return GetDefaultMimeType(extension);
