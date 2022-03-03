@@ -92,7 +92,7 @@ namespace RT.Servers
 
         /// <summary>
         /// Specifies the value for the CacheControl max-age header on the files served by the file system handler, in seconds. Set to null to prevent this header being
-        /// sent, which will result in the browser revalidating the file on every request. The If-Modified-Since mechanism is always used regardless of this setting.
+        /// sent, which will result in the browser caching the file indefinitely. The If-Modified-Since mechanism is always used regardless of this setting.
         /// </summary>
         public int? MaxAge = 3600;
     }
