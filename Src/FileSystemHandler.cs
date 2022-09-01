@@ -57,6 +57,13 @@ namespace RT.Servers
             BaseDirectory = baseDir;
         }
 
+        private HttpResponse HandleHeaderProcessor(FileSystemResponseType type, HttpResponse response)
+        {
+            if (Options != null && Options.ResponseHeaderProcessor != null)
+                Options.ResponseHeaderProcessor(response.Headers, type);
+            return response;
+        }
+
         /// <summary>
         ///     Returns an <see cref="HttpResponse"/> that handles the specified request, either by delivering a file from the
         ///     local file system, or by listing the contents of a directory in the local file system. The file or directory
@@ -69,10 +76,10 @@ namespace RT.Servers
         public HttpResponse Handle(HttpRequest request)
         {
             if (request.Url.Path == "/$/directory-listing/xsl")
-                return HttpResponse.Create(new MemoryStream(DirectoryListingXsl), "application/xml; charset=utf-8");
+                return HandleHeaderProcessor(FileSystemResponseType.Internal, HttpResponse.Create(new MemoryStream(DirectoryListingXsl), "application/xml; charset=utf-8"));
 
             if (request.Url.Path.StartsWith("/$/directory-listing/icons/" /* watch out for the hardcoded length below */))
-                return HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.Url.Path.Substring(27))), "image/png");
+                return HandleHeaderProcessor(FileSystemResponseType.Internal, HttpResponse.Create(new MemoryStream(GetDirectoryListingIcon(request.Url.Path.Substring(27))), "image/png"));
 
             if (request.Url.Path.StartsWith("/$/"))
                 throw new HttpNotFoundException();
@@ -102,10 +109,10 @@ namespace RT.Servers
                         soFarUrl += "/" + new DirectoryInfo(p + soFar).GetFiles(suitablePiece)[0].Name.UrlEscape();
 
                         if (request.Url.Path != soFarUrl)
-                            return HttpResponse.Redirect(request.Url.WithPath(soFarUrl));
+                            return HandleHeaderProcessor(FileSystemResponseType.Redirect, HttpResponse.Redirect(request.Url.WithPath(soFarUrl)));
 
                         var opts = Options ?? DefaultOptions;
-                        return HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince);
+                        return HandleHeaderProcessor(FileSystemResponseType.File, HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince));
                     }
                     else if (Directory.Exists(curPath))
                     {
@@ -123,7 +130,7 @@ namespace RT.Servers
 
             // If this point is reached, it’s a directory
             if (request.Url.Path != soFarUrl + "/")
-                return HttpResponse.Redirect(request.Url.WithPath(soFarUrl + "/"));
+                return HandleHeaderProcessor(FileSystemResponseType.Redirect, HttpResponse.Redirect(request.Url.WithPath(soFarUrl + "/")));
 
             switch (dirStyle)
             {
@@ -139,7 +146,7 @@ namespace RT.Servers
                     }
                     if (!Directory.Exists(p + soFar))
                         throw new FileNotFoundException("Directory does not exist.", p + soFar);
-                    return HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url), "application/xml; charset=utf-8");
+                    return HandleHeaderProcessor(FileSystemResponseType.Directory, HttpResponse.Create(generateDirectoryXml(p + soFar, request.Url), "application/xml; charset=utf-8"));
                 default:
                     throw new InvalidOperationException("Invalid directory listing style: " + (int) dirStyle);
             }
