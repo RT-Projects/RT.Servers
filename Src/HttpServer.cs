@@ -605,7 +605,7 @@ namespace RT.Servers
                 }
                 else
                     processHeaderData();
-            }
+                }
 
             /// <summary>
             ///     Checks whether there are any outstanding async receives, and if not, cleans up / winds down this
@@ -1252,14 +1252,10 @@ namespace RT.Servers
                 _server.Log.Info(1, "{0:X8} Request: {1} {2}".Fmt(_requestId, req.Method, url.ToFull()));
                 req.Url = url;
 
-                if (req.Method == HttpMethod.Post || req.Method == HttpMethod.Put || req.Method == HttpMethod.Patch)
-                {
-                    // This returns null in case of success and an error response in case of error
-                    var result = processRequestBody(req);
-                    if (result != null)
-                        return result;
-                }
-
+                // This returns null in case of success and an error response in case of error
+                var result = processRequestBody(req);
+                if (result != null)
+                    return result;
                 return requestToResponse(req);
             }
 
@@ -1321,16 +1317,16 @@ namespace RT.Servers
 
             private HttpResponse processRequestBody(HttpRequest req)
             {
+                var contentLength = req.Headers.ContentLength ?? 0;
+
                 // Some validity checks
-                if (req.Headers.ContentLength == null)
-                    return errorParsingRequest(req, HttpStatusCode._411_LengthRequired);
-                if (req.Headers.ContentLength.Value > _server.Options.MaxSizePostContent)
+                if (contentLength > _server.Options.MaxSizePostContent)
                     return errorParsingRequest(req, HttpStatusCode._413_RequestEntityTooLarge);
                 if (req.Headers.ContentType == null)
                 {
-                    if (req.Headers.ContentLength != 0)
-                        return errorParsingRequest(req, HttpStatusCode._400_BadRequest, @"""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.");
-                    // Tolerate empty bodies without Content-Type (seems that jQuery generates those)
+                    if (contentLength != 0)
+                        return errorParsingRequest(req, HttpStatusCode._400_BadRequest, @"For requests with a body, ""Content-Type"" must be specified. Moreover, only ""application/x-www-form-urlencoded"" and ""multipart/form-data"" are supported.");
+                    // Tolerate empty bodies without Content-Type (e.g. GET requests)
                     req.Headers.ContentType = HttpPostContentType.ApplicationXWwwFormUrlEncoded;
                 }
 
@@ -1340,15 +1336,20 @@ namespace RT.Servers
 
                 // Read the contents of the request body
                 Stream contentStream;
-                if (_bufferDataLength >= req.Headers.ContentLength.Value)
+                if (contentLength == 0)
                 {
-                    contentStream = new MemoryStream(_buffer, _bufferDataOffset, (int) req.Headers.ContentLength.Value, false);
-                    _bufferDataOffset += (int) req.Headers.ContentLength.Value;
-                    _bufferDataLength -= (int) req.Headers.ContentLength.Value;
+                    contentStream = null;
+                }
+                else if (_bufferDataLength >= contentLength)
+                {
+                    // Conversion to int is safe because _bufferDataLength is int and we checked that contentLength is less or equal
+                    contentStream = new MemoryStream(_buffer, _bufferDataOffset, (int) contentLength, false);
+                    _bufferDataOffset += (int) contentLength;
+                    _bufferDataLength -= (int) contentLength;
                 }
                 else
                 {
-                    contentStream = new Substream(_stream, req.Headers.ContentLength.Value, _buffer, _bufferDataOffset, _bufferDataLength);
+                    contentStream = new Substream(_stream, contentLength, _buffer, _bufferDataOffset, _bufferDataLength);
                     _bufferDataOffset = 0;
                     _bufferDataLength = 0;
                 }

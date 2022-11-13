@@ -21,7 +21,7 @@ namespace RT.Servers.Tests
         private void testRequest(string testName, int storeFileUploadInFileAtSize, string request, Action<string[], byte[]> verify)
         {
             var requestBytes = request.ToUtf8();
-            for (int chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Rnd.Next(1, 64).ClipMax(requestBytes.Length - chunkSize).ClipMin(1))
+            for (int chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Rnd.Next(2, 64).ClipMax(requestBytes.Length - chunkSize).ClipMin(2))
             {
                 if (chunkSize == 0)
                     continue;
@@ -106,16 +106,7 @@ namespace RT.Servers.Tests
                     Assert.AreEqual("GET:\nx => [\"y\"]\nz => [\" \"]\nzig => [\"==\"]\n", content.FromUtf8());
                 });
 
-                testRequest("GET test #5 (actually a POST)", store, "POST /static HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
-                {
-                    Assert.AreEqual("HTTP/1.1 411 Length Required", headers[0]);
-                    Assert.IsTrue(headers.Contains("Content-Type: text/html; charset=utf-8"));
-                    Assert.IsTrue(headers.Contains("Connection: close"));
-                    Assert.IsTrue(headers.Contains("Content-Length: " + content.Length));
-                    Assert.IsTrue(content.FromUtf8().Contains("411"));
-                });
-
-                testRequest("GET test #6", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
+                testRequest("GET test #5", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                     Assert.IsTrue(headers.Contains("Content-Type: application/octet-stream"));
@@ -126,7 +117,7 @@ namespace RT.Servers.Tests
                         Assert.AreEqual(content[i], (byte) (i % 256));
                 });
 
-                testRequest("GET test #7", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=23459-38274\r\n\r\n", (headers, content) =>
+                testRequest("GET test #6", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=23459-38274\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 206 Partial Content", headers[0]);
                     Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
@@ -137,7 +128,7 @@ namespace RT.Servers.Tests
                         Assert.AreEqual((byte) ((163 + i) % 256), content[i]);
                 });
 
-                testRequest("GET test #8", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=65-65,67-67\r\n\r\n", (headers, content) =>
+                testRequest("GET test #7", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=65-65,67-67\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 206 Partial Content", headers[0]);
                     Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
@@ -150,7 +141,7 @@ namespace RT.Servers.Tests
                         Assert.AreEqual(expectedContent[i], content[i]);
                 });
 
-                testRequest("GET test #9", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n", (headers, content) =>
+                testRequest("GET test #8", store, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n", (headers, content) =>
                 {
                     Assert.AreEqual("HTTP/1.1 200 OK", headers[0]);
                     Assert.IsTrue(headers.Contains("Accept-Ranges: bytes"));
@@ -163,10 +154,10 @@ namespace RT.Servers.Tests
                     Assert.AreEqual(-1, gz.ReadByte());
                 });
 
-                testRequest("GET test #10", store, "GET /dynamic HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
-                testRequest("GET test #11", store, "INVALID /request HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
-                testRequest("GET test #12", store, "GET  HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
-                testRequest("GET test #13", store, "!\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #9", store, "GET /dynamic HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #10", store, "INVALID /request HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #11", store, "GET  HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
+                testRequest("GET test #12", store, "!\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
             }
             finally
             {

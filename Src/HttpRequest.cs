@@ -86,7 +86,7 @@ namespace RT.Servers
             _fileUploads.Clear();
             _postFields.Clear();
 
-            if (Method != HttpMethod.Post)
+            if (body == null)
                 return;
 
             if (Headers.ContentType == HttpPostContentType.ApplicationXWwwFormUrlEncoded)
@@ -98,7 +98,7 @@ namespace RT.Servers
 
             // An excessively long boundary is going to screw up the following algorithm.
             // (Actually a limit of up to bufferSize - 8 would work, but I think 1024 is more than enough.)
-            if (body == null || Headers.ContentMultipartBoundary == null || Headers.ContentMultipartBoundary.Length > 1024)
+            if (Headers.ContentMultipartBoundary == null || Headers.ContentMultipartBoundary.Length > 1024)
                 return;
 
             if (tempPath == null)
