@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using RT.Json;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 
@@ -10,6 +11,26 @@ namespace RT.Servers
     /// <summary>
     ///     Provides a handler for <see cref="HttpServer"/> that can return files and list the contents of directories on the
     ///     local file system.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The behavior of <see cref="FileSystemHandler"/> can be configured by placing a file called
+    ///         <c>folder_config.json</c> in a folder. The following options are supported:</para>
+    ///     <list type="bullet">
+    ///         <item><term>
+    ///             <c>redirect_to</c> (string)</term>
+    ///         <description>
+    ///             If the user accesses the folder itself directly, HttpServer will redirect the user to the specified
+    ///             sub-URL. This effectively prevents the user from seeing a directory listing even if this would otherwise
+    ///             be allowed. The value must be a non-empty string, not begin with <c>/</c> and not contain a <c>..</c> path
+    ///             segment.</description></item>
+    ///         <item><term>
+    ///             <c>wildcards</c> (bool)</term>
+    ///         <description>
+    ///             Specifies whether the user may access files using wildcards (for example, <c>/foo*.txt</c> will access the
+    ///             first file in the folder that matches this pattern). If not specified, the default is <c>false</c> if <see
+    ///             cref="FileSystemOptions.DirectoryListingStyle"/> is <see cref="DirectoryListingStyle.Forbidden"/> and
+    ///             <c>true</c> otherwise. If specified, it applies recursively to all subfolders (except those that override
+    ///             it again).</description></item></list></remarks>
     public class FileSystemHandler
     {
         private static FileSystemOptions _defaultOptions;
@@ -86,12 +107,28 @@ namespace RT.Servers
 
             var dirStyle = (Options ?? DefaultOptions).DirectoryListingStyle;
             var dirAuth = (Options ?? DefaultOptions).DirectoryListingAuth;
+            var allowWildcards = dirStyle != DirectoryListingStyle.Forbidden;
+            JsonDict lastConfig = null;
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string[] urlPieces = request.Url.Path.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
             string soFarUrl = "";
+
+            void processConfig()
+            {
+                var configFile = Path.Combine(p + soFar, "folder_config.json");
+                if (File.Exists(configFile) && JsonDict.TryParse(File.ReadAllText(configFile), out var cfg))
+                {
+                    if (cfg.ContainsKey("wildcards") && cfg["wildcards"].GetBoolSafe() is bool wildcards)
+                        allowWildcards = wildcards;
+                    lastConfig = cfg;
+                }
+            }
+            processConfig();
+
             for (int i = 0; i < urlPieces.Length; i++)
             {
+                lastConfig = null;
                 string piece = urlPieces[i].UrlUnescape();
                 if (piece == "..")
                     throw new HttpException(HttpStatusCode._403_Forbidden);
@@ -101,7 +138,7 @@ namespace RT.Servers
                     string nextSoFar = soFar + Path.DirectorySeparatorChar + suitablePiece;
                     string curPath = p + nextSoFar;
 
-                    if (!File.Exists(curPath) && !Directory.Exists(curPath) && curPath.Contains('*') && dirStyle != DirectoryListingStyle.Forbidden && (dirAuth == null || dirAuth(request) == null))
+                    if (allowWildcards && !File.Exists(curPath) && !Directory.Exists(curPath) && curPath.Contains('*') && (dirAuth == null || dirAuth(request) == null))
                         curPath = new DirectoryInfo(p + soFar).GetFileSystemInfos(suitablePiece).Select(fs => fs.FullName).FirstOrDefault() ?? curPath;
 
                     if (File.Exists(curPath))
@@ -118,6 +155,7 @@ namespace RT.Servers
                     {
                         soFarUrl += "/" + new DirectoryInfo(p + soFar).GetDirectories(suitablePiece)[0].Name.UrlEscape();
                         soFar = nextSoFar;
+                        processConfig();
                         goto foundOne;
                     }
                 }
@@ -128,7 +166,13 @@ namespace RT.Servers
                 foundOne:;
             }
 
-            // If this point is reached, it’s a directory
+            // If this point is reached, it’s a directory.
+
+            if (lastConfig != null && lastConfig.ContainsKey("redirect_to")
+                    && lastConfig["redirect_to"].GetStringSafe() is string redirectTo
+                    && redirectTo.Length > 0 && !redirectTo.StartsWith("/") && !redirectTo.Contains("/..") && !redirectTo.Contains("../") && redirectTo.Trim() != "..")
+                return HandleHeaderProcessor(FileSystemResponseType.Redirect, HttpResponse.Redirect(request.Url.WithPath(soFarUrl + "/" + redirectTo)));
+
             if (request.Url.Path != soFarUrl + "/")
                 return HandleHeaderProcessor(FileSystemResponseType.Redirect, HttpResponse.Redirect(request.Url.WithPath(soFarUrl + "/")));
 
