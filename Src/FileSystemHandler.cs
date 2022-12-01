@@ -30,7 +30,12 @@ namespace RT.Servers
     ///             first file in the folder that matches this pattern). If not specified, the default is <c>false</c> if <see
     ///             cref="FileSystemOptions.DirectoryListingStyle"/> is <see cref="DirectoryListingStyle.Forbidden"/> and
     ///             <c>true</c> otherwise. If specified, it applies recursively to all subfolders (except those that override
-    ///             it again).</description></item></list></remarks>
+    ///             it again).</description></item>
+    ///         <item><term>
+    ///             <c>404</c> (string)</term>
+    ///         <description>
+    ///             Specifies a file (must be in the same folder) that is returned with 404 errors (when the user requests a
+    ///             URL that isn’t a file or directory).</description></item></list></remarks>
     public class FileSystemHandler
     {
         private static FileSystemOptions _defaultOptions;
@@ -109,6 +114,9 @@ namespace RT.Servers
             var dirAuth = (Options ?? DefaultOptions).DirectoryListingAuth;
             var allowWildcards = dirStyle != DirectoryListingStyle.Forbidden;
             JsonDict lastConfig = null;
+            string file404 = null;
+            string file404type = null;
+
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string[] urlPieces = request.Url.Path.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
             string soFar = "";
@@ -121,6 +129,16 @@ namespace RT.Servers
                 {
                     if (cfg.ContainsKey("wildcards") && cfg["wildcards"].GetBoolSafe() is bool wildcards)
                         allowWildcards = wildcards;
+                    if (cfg.Safe["404"] is JsonDict dic && dic.Safe["file"].GetStringSafe() is string file)
+                    {
+                        file404 = Path.Combine(p + soFar, file);
+                        file404type = dic.Safe["type"].GetStringSafe();
+                    }
+                    else if (cfg.Safe["404"].GetStringSafe() is string file2)
+                    {
+                        file404 = file2;
+                        file404type = null;
+                    }
                     lastConfig = cfg;
                 }
             }
@@ -161,6 +179,8 @@ namespace RT.Servers
                 }
 
                 // The specified piece is neither a file nor a directory.
+                if (file404 != null && File.Exists(file404))
+                    return HttpResponse.Create(File.Open(file404, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), file404type, HttpStatusCode._404_NotFound);
                 throw new HttpNotFoundException(request.Url.WithPathOnly(soFarUrl + "/" + piece).ToHref());
 
                 foundOne:;
