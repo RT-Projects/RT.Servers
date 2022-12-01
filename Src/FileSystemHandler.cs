@@ -32,10 +32,10 @@ namespace RT.Servers
     ///             <c>true</c> otherwise. If specified, it applies recursively to all subfolders (except those that override
     ///             it again).</description></item>
     ///         <item><term>
-    ///             <c>404</c> (string)</term>
+    ///             <c>404</c> (string or object: <c>{ "file": string, "type": string }</c>)</term>
     ///         <description>
     ///             Specifies a file (must be in the same folder) that is returned with 404 errors (when the user requests a
-    ///             URL that isn’t a file or directory).</description></item></list></remarks>
+    ///             URL that isn’t a file or directory). The <c>type</c> option specifies the MIME type for the file.</description></item></list></remarks>
     public class FileSystemHandler
     {
         private static FileSystemOptions _defaultOptions;
@@ -136,7 +136,7 @@ namespace RT.Servers
                     }
                     else if (cfg.Safe["404"].GetStringSafe() is string file2)
                     {
-                        file404 = file2;
+                        file404 = Path.Combine(p + soFar, file2);
                         file404type = null;
                     }
                     lastConfig = cfg;
