@@ -29,13 +29,13 @@ namespace RT.Servers
     ///             Specifies whether the user may access files using wildcards (for example, <c>/foo*.txt</c> will access the
     ///             first file in the folder that matches this pattern). If not specified, the default is <c>false</c> if <see
     ///             cref="FileSystemOptions.DirectoryListingStyle"/> is <see cref="DirectoryListingStyle.Forbidden"/> and
-    ///             <c>true</c> otherwise. If specified, it applies recursively to all subfolders (except those that override
-    ///             it again).</description></item>
+    ///             <c>true</c> otherwise. Applies recursively to subfolders.</description></item>
     ///         <item><term>
     ///             <c>404</c> (string or object: <c>{ "file": string, "type": string }</c>)</term>
     ///         <description>
     ///             Specifies a file (must be in the same folder) that is returned with 404 errors (when the user requests a
-    ///             URL that isn’t a file or directory). The <c>type</c> option specifies the MIME type for the file.</description></item></list></remarks>
+    ///             URL that isn’t a file or directory). The <c>type</c> option specifies the MIME type for the file. Applies
+    ///             recursively to subfolders.</description></item></list></remarks>
     public class FileSystemHandler
     {
         private static FileSystemOptions _defaultOptions;
