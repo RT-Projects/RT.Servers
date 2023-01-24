@@ -231,26 +231,24 @@ namespace RT.Servers
             if (handshakeType != 1)
                 return null;
 
-            //var handshakeLength = converter.???(buffer.ReadBytes(3));
-            buffer.ReadBytes(3); // handshake length
-
-            var protocol = $"{buffer.ReadByte()}.{buffer.ReadByte()}";
-            buffer.ReadBytes(32); // timestamp / random
+            buffer.SkipBytes(3 + 2 + 32); // handshake length (3 bytes) + version number (2 bytes) + timestamp / random (32 bytes)
 
             byte sessionIdLength = buffer.ReadByte();
-            buffer.ReadBytes(sessionIdLength); // session id
+            buffer.SkipBytes(sessionIdLength); // session id
 
             ushort cipherSuitesLength = buffer.ReadUInt16();
-            buffer.ReadBytes(cipherSuitesLength);
+            buffer.SkipBytes(cipherSuitesLength);
 
             byte compressionMethodsLength = buffer.ReadByte();
-            buffer.ReadBytes(compressionMethodsLength);
+            buffer.SkipBytes(compressionMethodsLength);
 
             bool extensionsPresent = buffer.Position < buffer.Length;
             if (!extensionsPresent)
                 return null;
 
             ushort extensionsLength = buffer.ReadUInt16();
+            if (buffer.Position + extensionsLength != buffer.Length)
+                return null;
 
             while (buffer.Position < buffer.Length)
             {
@@ -271,6 +269,7 @@ namespace RT.Servers
                         return Encoding.ASCII.GetString(sniBytes);
                     }
                 }
+                buffer.SkipBytes(extensionDataLength);
             }
 
             return null;
@@ -311,6 +310,11 @@ namespace RT.Servers
                 this.Position = position + 1;
                 int index = position;
                 return numArray[index];
+            }
+
+            public void SkipBytes(int length)
+            {
+                Position += length;
             }
 
             public byte[] ReadBytes(int length)
