@@ -46,6 +46,11 @@ namespace RT.Servers
                 case "svg": return "image/svg+xml";
                 case "ico": return "image/x-icon";
 
+                // Audio
+                case "mp3": return "audio/mpeg";
+                case "ogg": return "audio/ogg";
+                case "wav": return "audio/wav";
+
                 // Fonts
                 case "ttf": return "font/ttf";
                 case "otf": return "font/otf";
@@ -56,8 +61,6 @@ namespace RT.Servers
 
                 // Etc.
                 case "pdf": return "application/pdf";
-                case "mp3": return "audio/mpeg";
-                case "ogg": return "audio/ogg";
                 case "wasm": return "application/wasm";
 
                 default: return null;
