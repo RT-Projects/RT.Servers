@@ -35,7 +35,12 @@ namespace RT.Servers
     ///         <description>
     ///             Specifies a file (must be in the same folder) that is returned with 404 errors (when the user requests a
     ///             URL that isn’t a file or directory). The <c>type</c> option specifies the MIME type for the file. Applies
-    ///             recursively to subfolders.</description></item></list></remarks>
+    ///             recursively to subfolders.</description></item>
+    ///         <item><term>
+    ///             <c>require_query</c> (object)</term>
+    ///         <description>
+    ///             Provides a very rudimentary access control mechanism. Access to the folder is only granted if the URL
+    ///             query parameters contain all of the key/value pairs specified in the object.</description></item></list></remarks>
     public class FileSystemHandler
     {
         private static FileSystemOptions _defaultOptions;
@@ -116,6 +121,7 @@ namespace RT.Servers
             JsonDict lastConfig = null;
             string file404 = null;
             string file404type = null;
+            var reqQuerySatisfied = true;
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string[] urlPieces = request.Url.Path.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
@@ -129,6 +135,7 @@ namespace RT.Servers
                 {
                     if (cfg.ContainsKey("wildcards") && cfg["wildcards"].GetBoolSafe() is bool wildcards)
                         allowWildcards = wildcards;
+
                     if (cfg.Safe["404"] is JsonDict dic && dic.Safe["file"].GetStringSafe() is string file)
                     {
                         file404 = Path.Combine(p + soFar, file);
@@ -139,6 +146,10 @@ namespace RT.Servers
                         file404 = Path.Combine(p + soFar, file2);
                         file404type = null;
                     }
+
+                    if (cfg.Safe["require_query"].GetDictSafe() is JsonDict reqQuery && !reqQuery.All(kvp => request.Url.QueryValues(kvp.Key).Contains(kvp.Value.GetStringLenientSafe())))
+                        throw new HttpException(HttpStatusCode._403_Forbidden, userMessage: "Access parameters not satisfied.");
+
                     lastConfig = cfg;
                 }
             }
