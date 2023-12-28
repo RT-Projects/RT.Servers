@@ -49,7 +49,25 @@ namespace RT.Servers
                 // Audio
                 case "mp3": return "audio/mpeg";
                 case "ogg": return "audio/ogg";
+                case "oga": return "audio/ogg";
                 case "wav": return "audio/wav";
+
+                // Video
+                case "avi": return "video/x-msvideo";
+                case "divx": return "video/divx";
+                case "flv": return "video/flv";
+                case "m2ts": return "video/mp2t";
+                case "ts": return "video/mp2t";
+                case "m4v": return "video/m4v";
+                case "mkv": return "video/x-matroska";
+                case "mov": return "video/mov";
+                case "mp4": return "video/mp4";
+                case "mpeg": return "video/mpeg";
+                case "mpg": return "video/mpeg";
+                case "mts": return "video/mp2t";
+                case "ogv": return "video/ogg";
+                case "webm": return "video/webm";
+                case "wmv": return "video/wmv";
 
                 // Fonts
                 case "ttf": return "font/ttf";
