@@ -121,7 +121,6 @@ namespace RT.Servers
             JsonDict lastConfig = null;
             string file404 = null;
             string file404type = null;
-            var reqQuerySatisfied = true;
 
             string p = BaseDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()) ? BaseDirectory.Remove(BaseDirectory.Length - 1) : BaseDirectory;
             string[] urlPieces = request.Url.Path.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
