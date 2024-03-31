@@ -154,10 +154,12 @@ namespace RT.Servers
             }
             processConfig();
 
-            for (int i = 0; i < urlPieces.Length; i++)
+            for (var i = 0; i < urlPieces.Length; i++)
             {
                 lastConfig = null;
-                string piece = urlPieces[i].UrlUnescape();
+                string piece = null;
+                try { piece = urlPieces[i].UrlUnescape(); }
+                catch (ArgumentException) { throw new HttpException(HttpStatusCode._400_BadRequest, userMessage: "The URL escaping format is not valid."); }
                 if (piece == "..")
                     throw new HttpException(HttpStatusCode._403_Forbidden);
 
