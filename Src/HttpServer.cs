@@ -97,11 +97,11 @@ namespace RT.Servers
         ///     is initially un-signalled; starting the server resets it, stopping the server sets it as soon as the last
         ///     active connection is terminated. Starting the server again before the previous shutdown is complete will
         ///     result in this event not being raised at all for the previous shutdown.</summary>
-        public readonly ManualResetEvent ShutdownComplete = new ManualResetEvent(false);
+        public readonly ManualResetEvent ShutdownComplete = new(false);
 
-        private Dictionary<string, HttpEndpoint> _listeningSockets = new Dictionary<string, HttpEndpoint>();
+        private readonly Dictionary<string, HttpEndpoint> _listeningSockets = [];
+        private readonly HashSet<ConnectionHandler> _activeConnectionHandlers = [];
         private HttpServerOptions _opt;
-        private HashSet<ConnectionHandler> _activeConnectionHandlers = new HashSet<ConnectionHandler>();
 
         /// <summary>
         ///     Specifies the HTTP request handler for this server.</summary>
@@ -318,8 +318,8 @@ namespace RT.Servers
         private HttpResponse defaultErrorHandler(Exception exception, Exception exInErrorHandler = null)
         {
             var statusCode = HttpStatusCode._500_InternalServerError;
-            if (exception is HttpException)
-                statusCode = ((HttpException) exception).StatusCode;
+            if (exception is HttpException exc)
+                statusCode = exc.StatusCode;
 
             var statusCodeNameHtml = (((int) statusCode) + " " + statusCode.ToText()).HtmlEscape();
             var contentHtml = "<!DOCTYPE html>"
@@ -605,7 +605,7 @@ namespace RT.Servers
                 }
                 else
                     processHeaderData();
-                }
+            }
 
             /// <summary>
             ///     Checks whether there are any outstanding async receives, and if not, cleans up / winds down this
@@ -710,7 +710,7 @@ namespace RT.Servers
                     var headers = response.Headers.Clone();
                     _server.Log.Info(2, "{0:X8} Handled: {1:000} {2}".Fmt(_requestId, (int) response.Status, headers.ContentType));
 
-                    if (response is HttpResponseWebSocket)
+                    if (response is HttpResponseWebSocket responseWebsocket)
                     {
                         if (!originalRequest.Headers.Connection.HasFlag(HttpConnection.Upgrade) || !"websocket".EqualsIgnoreCase(originalRequest.Headers.Upgrade) || !originalRequest.Headers.TryGetValue("Sec-WebSocket-Key", out var webSocketKey))
                         {
@@ -718,7 +718,6 @@ namespace RT.Servers
                             goto notWebsocket;
                         }
 
-                        var responseWebsocket = (HttpResponseWebSocket) response;
                         WebSocket websocket;
                         try { websocket = responseWebsocket.Websocket; }
                         catch (Exception e)
@@ -729,7 +728,7 @@ namespace RT.Servers
 
                         headers.Connection = HttpConnection.Upgrade;
                         headers.Upgrade = "websocket";
-                        headers.AdditionalHeaders = (headers.AdditionalHeaders ?? new Dictionary<string, string>());
+                        headers.AdditionalHeaders ??= [];
                         headers.AdditionalHeaders.Add("Sec-WebSocket-Accept", Convert.ToBase64String(SHA1.Create().ComputeHash((webSocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").ToUtf8())));
                         var subprotocol = responseWebsocket.Subprotocol;
                         if (subprotocol != null)
@@ -758,11 +757,7 @@ namespace RT.Servers
                     catch (SocketException) { Socket.Close(); return; }
                     catch (IOException) { Socket.Close(); return; }
                     catch (ObjectDisposedException) { return; }
-                    finally
-                    {
-                        if (contentStream != null)
-                            contentStream.Close();
-                    }
+                    finally { contentStream?.Close(); }
                 }
                 finally
                 {
@@ -866,7 +861,7 @@ namespace RT.Servers
                     }
 
                     // If no Content-Type is given, use default
-                    headers.ContentType = headers.ContentType ?? _server.Options.DefaultContentType;
+                    headers.ContentType ??= _server.Options.DefaultContentType;
 
                     // If we know the content length and the stream can seek, then we can support Ranges - but it's not worth it for less than 16 KB
                     if (originalRequest.HttpVersion == HttpProtocolVersion.Http11 && contentLengthKnown && contentLength > 16 * 1024 && status == HttpStatusCode._200_OK && contentStream.CanSeek)
@@ -1048,7 +1043,7 @@ namespace RT.Servers
                             try { bytesRead = contentStream.Read(buffer, 0, bufferSize); }
                             catch (Exception e)
                             {
-                                if (!(e is SocketException) && _server.Options.OutputExceptionInformation)
+                                if (e is not SocketException && _server.Options.OutputExceptionInformation)
                                     output.Write((headers.ContentType.StartsWith("text/html") ? exceptionToHtml(e) : exceptionToPlaintext(e)).ToUtf8());
                                 _server.ResponseExceptionHandler?.Invoke(originalRequest, e, response);
                                 output.Close();
@@ -1151,7 +1146,7 @@ namespace RT.Servers
                 byte[] buffer = new byte[65536];
                 foreach (var r in ranges)
                 {
-                    _stream.Write(new byte[] { (byte) '-', (byte) '-' });
+                    _stream.Write([(byte) '-', (byte) '-']);
                     _stream.Write(boundary);
                     _stream.Write(("\r\nContent-Range: bytes " + r.Key.ToString() + "-" + r.Value.ToString() + "/" + totalFileSize.ToString() + "\r\n\r\n").ToUtf8());
 
@@ -1164,11 +1159,11 @@ namespace RT.Servers
                         bytesMissing -= bytesRead;
                         bytesRead = (bytesMissing > 0) ? contentStream.Read(buffer, 0, (int) Math.Min(65536, bytesMissing)) : 0;
                     }
-                    _stream.Write(new byte[] { 13, 10 });
+                    _stream.Write([13, 10]);
                 }
-                _stream.Write(new byte[] { (byte) '-', (byte) '-' });
+                _stream.Write([(byte) '-', (byte) '-']);
                 _stream.Write(boundary);
-                _stream.Write(new byte[] { (byte) '-', (byte) '-', 13, 10 });
+                _stream.Write([(byte) '-', (byte) '-', 13, 10]);
             }
 
             private HttpResponse errorParsingRequest(HttpRequest req, HttpStatusCode status, string userMessage = null)
@@ -1262,12 +1257,9 @@ namespace RT.Servers
             private HttpResponse requestToResponse(HttpRequest req)
             {
                 var handler = _server.Handler;
-                if (handler == null)
-                    throw new HttpNotFoundException();
-                var response = handler(req);
-                if (response == null)
-                    throw new InvalidOperationException("The response is null.");
-                return response;
+                return handler == null
+                    ? throw new HttpNotFoundException()
+                    : handler(req) ?? throw new InvalidOperationException("The response is null.");
             }
 
             private HttpResponse exceptionToResponse(HttpRequest req, Exception exInHandler)
@@ -1367,25 +1359,20 @@ namespace RT.Servers
         }
 
         /// <summary>Keeps track of and exposes getters for various server performance statistics.</summary>
-        public sealed class Statistics
+        public sealed class Statistics(HttpServer server)
         {
-            private HttpServer _server;
-
-            /// <summary>Constructor.</summary>
-            public Statistics(HttpServer server) { _server = server; }
-
             /// <summary>
             ///     Gets the number of connections which are currently alive, that is receiving data, waiting to receive data,
             ///     or sending a response.</summary>
-            public int ActiveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Count(r => !r.KeepAliveActive); } } }
+            public int ActiveHandlers { get { lock (server._activeConnectionHandlers) { return server._activeConnectionHandlers.Count(r => !r.KeepAliveActive); } } }
 
             /// <summary>
             ///     Gets the number of request processing threads which have completed a request but are being kept alive.</summary>
-            public int KeepAliveHandlers { get { lock (_server._activeConnectionHandlers) { return _server._activeConnectionHandlers.Count(r => r.KeepAliveActive); } } }
+            public int KeepAliveHandlers { get { lock (server._activeConnectionHandlers) { return server._activeConnectionHandlers.Count(r => r.KeepAliveActive); } } }
 
             private long _totalConnectionsReceived = 0;
             /// <summary>Gets the total number of connections received by the server.</summary>
-            public long TotalConnectionsReceived { get { return Interlocked.Read(ref _totalConnectionsReceived); } }
+            public long TotalConnectionsReceived => Interlocked.Read(ref _totalConnectionsReceived);
             /// <summary>Used internally to count a received connection.</summary>
             internal void AddConnectionReceived() { Interlocked.Increment(ref _totalConnectionsReceived); }
 

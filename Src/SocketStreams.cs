@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using RT.Util.ExtensionMethods;
 using System.IO;
 using System.Net.Sockets;
@@ -6,25 +6,14 @@ using System.Text;
 
 namespace RT.Servers
 {
-    /// <summary>Performs the HTTP Transfer-Encoding “chunked”. This is a write-only stream.</summary>
-    sealed class ChunkedEncodingStream : Stream
+    /// <summary>
+    ///     Performs the HTTP Transfer-Encoding “chunked”. This is a write-only stream.</summary>
+    /// <param name="inner">
+    ///     The underlying stream to write all the output to.</param>
+    /// <param name="leaveInnerOpen">
+    ///     If true, the inner stream is not closed when this stream is closed.</param>
+    sealed class ChunkedEncodingStream(Stream inner, bool leaveInnerOpen = false) : Stream
     {
-        private Stream _inner;
-        private bool _leaveOpen;
-
-        /// <summary>
-        ///     Constructs a <see cref="ChunkedEncodingStream"/> object that encodes output in the HTTP Transfer-Encoding
-        ///     “chunked”.</summary>
-        /// <param name="inner">
-        ///     The underlying stream to write all the output to.</param>
-        /// <param name="leaveInnerOpen">
-        ///     If true, the inner stream is not closed when this stream is closed.</param>
-        public ChunkedEncodingStream(Stream inner, bool leaveInnerOpen = false)
-        {
-            _inner = inner;
-            _leaveOpen = leaveInnerOpen;
-        }
-
         /// <summary>
         ///     Writes the specified data to the underlying <see cref="Socket"/> as a single chunk.</summary>
         /// <param name="buffer">
@@ -35,9 +24,9 @@ namespace RT.Servers
         ///     Number of bytes to read from buffer and send to the socket.</param>
         public override void Write(byte[] buffer, int offset, int count)
         {
-            _inner.Write(Encoding.UTF8.GetBytes(count.ToString("X") + "\r\n"));
-            _inner.Write(buffer, offset, count);
-            _inner.Write(new byte[] { 13, 10 }); // "\r\n"
+            inner.Write(Encoding.UTF8.GetBytes(count.ToString("X") + "\r\n"));
+            inner.Write(buffer, offset, count);
+            inner.Write([13, 10]); // "\r\n"
         }
 
         /// <summary>
@@ -45,21 +34,19 @@ namespace RT.Servers
         ///     trailing null chunk to the socket, indicating the end of the data.</summary>
         public override void Close()
         {
-            _inner.Write(new byte[] { (byte) '0', 13, 10, 13, 10 }); // "0\r\n\r\n"
-            _inner.Flush();
-            if (!_leaveOpen)
-                _inner.Close();
+            inner.Write([(byte) '0', 13, 10, 13, 10]); // "0\r\n\r\n"
+            inner.Flush();
+            if (!leaveInnerOpen)
+                inner.Close();
         }
 
-#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
-
         // Stuff you can't do
-        public override bool CanRead { get { return false; } }
-        public override bool CanSeek { get { return false; } }
-        public override bool CanWrite { get { return true; } }
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
         public override void Flush() { }
 
-        public override long Length { get { throw new NotSupportedException(); } }
+        public override long Length => throw new NotSupportedException();
         public override long Position
         {
             get { throw new NotSupportedException(); }
@@ -68,18 +55,16 @@ namespace RT.Servers
         public override int Read(byte[] buffer, int offset, int count) { throw new NotSupportedException(); }
         public override long Seek(long offset, SeekOrigin origin) { throw new NotSupportedException(); }
         public override void SetLength(long value) { throw new NotSupportedException(); }
-
-#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
     }
 
     /// <summary>
-    ///     Reads a fixed amount of data from a stream. The client code encounters the end of this stream after said fixed amount
-    ///     of data is retrieved, even if the underlying stream does not actually end there. This class also allows you to provide
-    ///     data from a buffer to “prepend” to the data from the stream (in case you already read a bit too much from the
-    ///     underlying stream).</summary>
+    ///     Reads a fixed amount of data from a stream. The client code encounters the end of this stream after said fixed
+    ///     amount of data is retrieved, even if the underlying stream does not actually end there. This class also allows you
+    ///     to provide data from a buffer to “prepend” to the data from the stream (in case you already read a bit too much
+    ///     from the underlying stream).</summary>
     sealed class Substream : Stream
     {
-        private Stream _inner;
+        private readonly Stream _inner;
         private long _maxBytesToRead;
         private byte[] _lastRead;
         private int _lastReadOffset;
@@ -103,16 +88,16 @@ namespace RT.Servers
         }
 
         /// <summary>
-        ///     Constructs a <see cref="Substream"/> object that reads from a given bit of initial data, and then continues on to
-        ///     read from the underlying stream.</summary>
+        ///     Constructs a <see cref="Substream"/> object that reads from a given bit of initial data, and then continues on
+        ///     to read from the underlying stream.</summary>
         /// <param name="inner">
         ///     The underlying stream to read from.</param>
         /// <param name="maxBytesToRead">
-        ///     Maximum number of bytes to read from the initial data plus the underlying stream. After this, the stream pretends
-        ///     to have reached the end.</param>
+        ///     Maximum number of bytes to read from the initial data plus the underlying stream. After this, the stream
+        ///     pretends to have reached the end.</param>
         /// <param name="initialBuffer">
-        ///     Buffer containing the initial data. The buffer is not copied, so make sure you don't modify the contents of the
-        ///     buffer before it is consumed by reading.</param>
+        ///     Buffer containing the initial data. The buffer is not copied, so make sure you don't modify the contents of
+        ///     the buffer before it is consumed by reading.</param>
         /// <param name="initialBufferOffset">
         ///     Offset into the buffer where the initial data starts.</param>
         /// <param name="initialBufferCount">
@@ -146,17 +131,15 @@ namespace RT.Servers
             }
         }
 
-#pragma warning disable 1591    // Missing XML comment for publicly visible type or member
-        public override bool CanRead { get { return true; } }
-        public override bool CanSeek { get { return false; } }
-        public override bool CanWrite { get { return false; } }
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
         public override void Flush() { }
-        public override long Length { get { throw new NotSupportedException(); } }
-        public override long Position { get { throw new NotSupportedException(); } set { throw new NotSupportedException(); } }
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set { throw new NotSupportedException(); } }
         public override long Seek(long offset, SeekOrigin origin) { throw new NotSupportedException(); }
         public override void SetLength(long value) { throw new NotSupportedException(); }
         public override void Write(byte[] buffer, int offset, int count) { throw new NotSupportedException(); }
-#pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
         /// <summary>
         ///     Reads up to the specified number of bytes from the underlying socket.</summary>

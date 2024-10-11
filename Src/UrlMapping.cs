@@ -29,13 +29,8 @@ namespace RT.Servers
         ///     If <c>true</c>, the handler may be skipped if it returns <c>null</c>.</param>
         public UrlMapping(UrlHook hook, Func<HttpRequest, HttpResponse> handler, bool skippable = false)
         {
-            if (hook == null)
-                throw new ArgumentNullException("mapping");
-            if (handler == null)
-                throw new ArgumentNullException("handler");
-
-            Hook = hook;
-            Handler = handler;
+            Hook = hook ?? throw new ArgumentNullException("mapping");
+            Handler = handler ?? throw new ArgumentNullException("handler");
             Skippable = skippable;
         }
 
@@ -61,11 +56,8 @@ namespace RT.Servers
         ///     If <c>true</c>, the handler may be skipped if it returns <c>null</c>.</param>
         public UrlMapping(Func<HttpRequest, HttpResponse> handler, string domain = null, int? port = null, string path = null, bool specificDomain = false, bool specificPath = false, bool skippable = false)
         {
-            if (handler == null)
-                throw new ArgumentNullException("handler");
-
             Hook = new UrlHook(domain, port, path, specificDomain, specificPath);
-            Handler = handler;
+            Handler = handler ?? throw new ArgumentNullException("handler");
             Skippable = skippable;
         }
 
@@ -96,10 +88,9 @@ namespace RT.Servers
         ///     equal; <see cref="Handler"/> is ignored.</summary>
         public override bool Equals(object obj)
         {
-            var other = obj as UrlMapping;
-            if (other == null)
+            if (obj is not UrlMapping other)
                 return false; // could be an actual null or just a different type
-            return this.Equals(other);
+            return Equals(other);
         }
 
         /// <summary>

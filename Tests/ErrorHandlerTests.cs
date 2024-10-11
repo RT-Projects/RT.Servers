@@ -38,14 +38,14 @@ namespace RT.Servers.Tests
                 Assert.AreEqual(HttpStatusCode._404_NotFound, resp.Item1);
 
                 // Test that having only an error handler works as expected
-                instance.ErrorHandler = (req, err) => { return HttpResponse.Create("blah", "text/plain", HttpStatusCode._407_ProxyAuthenticationRequired); };
+                instance.ErrorHandler = (req, err) => HttpResponse.Create("blah", "text/plain", HttpStatusCode._407_ProxyAuthenticationRequired);
                 resp = getResponse();
                 Assert.AreEqual(HttpStatusCode._407_ProxyAuthenticationRequired, resp.Item1);
                 Assert.AreEqual("blah", resp.Item2);
 
                 // Test that having no error handler uses the default one
                 instance.ErrorHandler = null;
-                instance.Handler = req => { throw new HttpException(HttpStatusCode._305_UseProxy); };
+                instance.Handler = req => throw new HttpException(HttpStatusCode._305_UseProxy);
                 resp = getResponse();
                 Assert.AreEqual(HttpStatusCode._305_UseProxy, resp.Item1);
 
@@ -59,15 +59,15 @@ namespace RT.Servers.Tests
                 Assert.IsTrue(ok);
 
                 // Test that exception in error handler invokes the default one, and uses the *original* status code
-                instance.Handler = req => { throw new HttpException(HttpStatusCode._201_Created); };
-                instance.ErrorHandler = (req, ex) => { throw new HttpException(HttpStatusCode._403_Forbidden); };
+                instance.Handler = req => throw new HttpException(HttpStatusCode._201_Created);
+                instance.ErrorHandler = (req, ex) => throw new HttpException(HttpStatusCode._403_Forbidden);
                 resp = getResponse();
                 Assert.AreEqual(HttpStatusCode._201_Created, resp.Item1);
 
                 // Test that a non-HttpException is properly handled
                 ok = false;
-                instance.Handler = req => { throw storedEx = new Exception("Blah!"); };
-                instance.ErrorHandler = (req, ex) => { ok = object.ReferenceEquals(ex, storedEx); return HttpResponse.Create("blah", "text/plain"); };
+                instance.Handler = req => throw (storedEx = new Exception("Blah!"));
+                instance.ErrorHandler = (req, ex) => { ok = ReferenceEquals(ex, storedEx); return HttpResponse.Create("blah", "text/plain"); };
                 resp = getResponse();
                 Assert.IsTrue(ok);
                 Assert.AreEqual(HttpStatusCode._200_OK, resp.Item1);
@@ -77,15 +77,15 @@ namespace RT.Servers.Tests
                 Assert.AreEqual(HttpStatusCode._500_InternalServerError, resp.Item1);
 
                 // Test that the main handler returning null results in a 500 error (via InvalidOperationException)
-                instance.Handler = req => { return null; };
+                instance.Handler = req => null;
                 instance.ErrorHandler = (req, ex) => { storedEx = ex; throw new HttpException(HttpStatusCode._203_NonAuthoritativeInformation); };
                 resp = getResponse();
                 Assert.IsTrue(storedEx is InvalidOperationException);
                 Assert.AreEqual(HttpStatusCode._500_InternalServerError, resp.Item1);
 
                 // Test that the error handler returning null invokes the default error handler
-                instance.Handler = req => { throw new HttpException(HttpStatusCode._201_Created); };
-                instance.ErrorHandler = (req, ex) => { return null; };
+                instance.Handler = req => throw new HttpException(HttpStatusCode._201_Created);
+                instance.ErrorHandler = (req, ex) => null;
                 resp = getResponse();
                 Assert.AreEqual(HttpStatusCode._201_Created, resp.Item1);
 
@@ -108,7 +108,7 @@ namespace RT.Servers.Tests
                 // Test that an exception in the response stream is sent to the response exception handler
                 var excp = new Exception("Blam!");
                 HttpResponse storedRsp1 = null, storedRsp2 = null;
-                instance.Handler = req => { return storedRsp1 = HttpResponse.Create(new DynamicContentStream(enumerableWithException(excp)), "text/plain"); };
+                instance.Handler = req => storedRsp1 = HttpResponse.Create(new DynamicContentStream(enumerableWithException(excp)), "text/plain");
                 bool ok1 = true, ok2 = false;
                 instance.ErrorHandler = (req, ex) => { ok1 = false; return null; };
                 instance.ResponseExceptionHandler = (req, ex, rsp) => { ok2 = true; storedEx = ex; storedRsp2 = rsp; };

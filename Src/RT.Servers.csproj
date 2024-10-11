@@ -6,6 +6,7 @@
     <IntermediateOutputPath>$(BaseIntermediateOutputPath)\$(Configuration)-$(TargetFramework)$(RuntimeIdentifier)\</IntermediateOutputPath>
     <DocumentationFile>$(OutputPath)\$(AssemblyName).xml</DocumentationFile>
     <Configurations>Debug;Release</Configurations>
+    <LangVersion>12</LangVersion>
 
     <Version>1.0.0.9999</Version>
     <Authors>rstarkov;Timwi</Authors>
@@ -25,13 +26,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="RT.Json" version="2.0.1768" />
-    <PackageReference Include="RT.PostBuild" version="2.0.1768" />
-    <PackageReference Include="RT.Serialization" version="2.0.1768" />
-    <PackageReference Include="RT.Serialization.Json" version="2.0.1768" />
-    <PackageReference Include="RT.Serialization.Xml" version="2.0.1768" />
+    <PackageReference Include="RT.Json" version="2.0.1776" />
+    <PackageReference Include="RT.PostBuild" version="2.0.1776" />
+    <PackageReference Include="RT.Serialization" version="2.0.1776" />
+    <PackageReference Include="RT.Serialization.Json" version="2.0.1776" />
+    <PackageReference Include="RT.Serialization.Xml" version="2.0.1776" />
     <PackageReference Include="RT.TagSoup" version="1.0.1634" />
-    <PackageReference Include="RT.Util.Core" version="2.0.1768" />
+    <PackageReference Include="RT.Util.Core" version="2.0.1776" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
   </ItemGroup>

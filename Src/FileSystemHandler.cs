@@ -46,15 +46,7 @@ namespace RT.Servers
         private static FileSystemOptions _defaultOptions;
         /// <summary>
         ///     Specifies the default options to fall back to whenever an instance of this class has no options of its own.</summary>
-        public static FileSystemOptions DefaultOptions
-        {
-            get
-            {
-                if (_defaultOptions == null)
-                    _defaultOptions = new FileSystemOptions();
-                return _defaultOptions;
-            }
-        }
+        public static FileSystemOptions DefaultOptions => _defaultOptions ??= new FileSystemOptions();
 
         /// <summary>Specifies the options associated with this instance, or null to use the <see cref="DefaultOptions"/>.</summary>
         public FileSystemOptions Options { get; set; }
@@ -274,8 +266,8 @@ namespace RT.Servers
 
         private static IEnumerable<string> generateDirectoryXml(string localPath, IHttpUrl url)
         {
-            List<DirectoryInfo> dirs = new List<DirectoryInfo>();
-            List<FileInfo> files = new List<FileInfo>();
+            List<DirectoryInfo> dirs = [];
+            List<FileInfo> files = [];
             DirectoryInfo dirInfo = new DirectoryInfo(localPath);
             foreach (var d in dirInfo.GetDirectories())
                 dirs.Add(d);

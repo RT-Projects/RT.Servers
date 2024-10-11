@@ -108,7 +108,7 @@ namespace RT.Servers
             }
         }
 
-        private List<UrlMapping> _mappings = new List<UrlMapping>();
+        private List<UrlMapping> _mappings = [];
 
         /// <summary>Gets a value indicating the number of mappings in this collection.</summary>
         public int Count
@@ -141,7 +141,7 @@ namespace RT.Servers
         public void CopyTo(UrlMapping[] array, int arrayIndex) { throw new NotImplementedException(); }
 
         /// <summary>Returns false.</summary>
-        public bool IsReadOnly { get { return false; } }
+        public bool IsReadOnly => false;
 
         /// <summary>Removes all mappings from this collection.</summary>
         public void Clear()

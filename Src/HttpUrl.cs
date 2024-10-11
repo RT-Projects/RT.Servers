@@ -192,7 +192,7 @@ namespace RT.Servers
                 }
                 else
                 {
-                    _query = Enumerable.Empty<KeyValuePair<string, string>>();
+                    _query = [];
                     _queryString = "";
                 }
             }
@@ -201,17 +201,10 @@ namespace RT.Servers
         /// <summary>Implements <see cref="IHttpUrl.Query"/>.</summary>
         public IEnumerable<KeyValuePair<string, string>> Query
         {
-            get
-            {
-                if (_query == null)
-                    _query = HttpHelper.ParseQueryString(_queryString);
-                return _query;
-            }
+            get => _query ??= HttpHelper.ParseQueryString(_queryString);
             set
             {
-                if (value == null)
-                    throw new ArgumentNullException("value");
-                _query = value;
+                _query = value ?? throw new ArgumentNullException("value");
                 _hasQuery = value.Any();
                 _queryString = null;
             }
@@ -220,12 +213,7 @@ namespace RT.Servers
         /// <summary>Implements <see cref="IHttpUrl.QueryString"/>.</summary>
         public string QueryString
         {
-            get
-            {
-                if (_queryString == null)
-                    _queryString = HttpHelper.MakeQueryString(_hasQuery, _query);
-                return _queryString;
-            }
+            get => _queryString ??= HttpHelper.MakeQueryString(_hasQuery, _query);
             set
             {
                 if (value == null || (value.Length > 0 && !value.StartsWith('?')))
@@ -255,7 +243,7 @@ namespace RT.Servers
             {
                 Path = location;
                 _hasQuery = false;
-                _query = Enumerable.Empty<KeyValuePair<string, string>>();
+                _query = [];
                 _queryString = "";
             }
             else
@@ -286,8 +274,7 @@ namespace RT.Servers
                     Domain = host.Substring(0, colonPos - 1);
                 else
                     Domain = host.Substring(0, colonPos);
-                int port;
-                if (!int.TryParse(host.Substring(colonPos + 1), out port))
+                if (!int.TryParse(host.Substring(colonPos + 1), out var port))
                     throw new ArgumentException();
                 Port = port;
             }
@@ -509,39 +496,31 @@ namespace RT.Servers
 
     #region IHttpUrl manipulator classes
 
-    internal abstract class UrlWithNoChanges : IHttpUrl
+    internal abstract class UrlWithNoChanges(IHttpUrl source) : IHttpUrl
     {
-        protected IHttpUrl _source;
-        public UrlWithNoChanges(IHttpUrl source) { _source = source; }
-
-        public virtual bool Https { get { return _source.Https; } }
-        public virtual int Port { get { return _source.Port; } }
-        public virtual string[] ParentDomains { get { return _source.ParentDomains; } }
-        public virtual string Domain { get { return _source.Domain; } }
-        public virtual string[] ParentPaths { get { return _source.ParentPaths; } }
-        public virtual string Path { get { return _source.Path; } }
-        public virtual bool HasQuery { get { return _source.HasQuery; } }
-        public virtual IEnumerable<KeyValuePair<string, string>> Query { get { return _source.Query; } }
-        public virtual string QueryString { get { return _source.QueryString; } }
-        public virtual string this[string name] { get { return _source[name]; } }
-        public virtual IEnumerable<string> QueryValues(string name) { return _source.QueryValues(name); }
-        public virtual void AppendQueryString(StringBuilder sb, bool first) { _source.AppendQueryString(sb, first); }
+        protected IHttpUrl _source = source;
+        public virtual bool Https => _source.Https;
+        public virtual int Port => _source.Port;
+        public virtual string[] ParentDomains => _source.ParentDomains;
+        public virtual string Domain => _source.Domain;
+        public virtual string[] ParentPaths => _source.ParentPaths;
+        public virtual string Path => _source.Path;
+        public virtual bool HasQuery => _source.HasQuery;
+        public virtual IEnumerable<KeyValuePair<string, string>> Query => _source.Query;
+        public virtual string QueryString => _source.QueryString;
+        public virtual string this[string name] => _source[name];
+        public virtual IEnumerable<string> QueryValues(string name) => _source.QueryValues(name);
+        public virtual void AppendQueryString(StringBuilder sb, bool first) => _source.AppendQueryString(sb, first);
     }
 
-    internal class UrlWithHttps : UrlWithNoChanges
+    internal class UrlWithHttps(IHttpUrl source, bool https) : UrlWithNoChanges(source)
     {
-        private bool _https;
-        public UrlWithHttps(IHttpUrl source, bool https)
-            : base(source)
-        {
-            _https = https;
-        }
-        public override bool Https { get { return _https; } }
+        public override bool Https => https;
     }
 
     internal class UrlWithDomain : UrlWithNoChanges
     {
-        private string _domain;
+        private readonly string _domain;
         public UrlWithDomain(IHttpUrl source, string domain)
             : base(source)
         {
@@ -553,12 +532,12 @@ namespace RT.Servers
                 throw new ArgumentException("The domain name must be empty or end with a dot.");
             _domain = domain;
         }
-        public override string Domain { get { return _domain; } }
+        public override string Domain => _domain;
     }
 
     internal class UrlWithPath : UrlWithNoChanges
     {
-        private string _path;
+        private readonly string _path;
         public UrlWithPath(IHttpUrl source, string path)
             : base(source)
         {
@@ -570,12 +549,12 @@ namespace RT.Servers
                 throw new ArgumentException("The Path must start with a forward slash.");
             _path = path;
         }
-        public override string Path { get { return _path; } }
+        public override string Path => _path;
     }
 
     internal class UrlWithPathOnly : UrlWithoutQueryAll
     {
-        private string _path;
+        private readonly string _path;
         public UrlWithPathOnly(IHttpUrl source, string path)
             : base(source)
         {
@@ -585,7 +564,7 @@ namespace RT.Servers
                 throw new ArgumentException("The specified path must either be empty or begin with a slash ('/') character.", "path");
             _path = path;
         }
-        public override string Path { get { return _path; } }
+        public override string Path => _path;
     }
 
     internal class UrlWithDomainParent : UrlWithNoChanges
@@ -595,20 +574,12 @@ namespace RT.Servers
         public UrlWithDomainParent(IHttpUrl source)
             : base(source)
         {
-            if (source.ParentDomains.Length == 0)
+            if (_source.ParentDomains.Length == 0)
                 throw new ArgumentException();
-            if (source.ParentDomains.Length == 1)
+            if (_source.ParentDomains.Length == 1)
                 _parentDomains = HttpHelper.EmptyStrings;
         }
-        public override string Domain
-        {
-            get
-            {
-                if (_domain == null)
-                    _domain = _source.ParentDomains[_source.ParentDomains.Length - 1] + _source.Domain;
-                return _domain;
-            }
-        }
+        public override string Domain => _domain ??= _source.ParentDomains[_source.ParentDomains.Length - 1] + _source.Domain;
         public override string[] ParentDomains
         {
             get
@@ -649,15 +620,7 @@ namespace RT.Servers
             if (source.ParentPaths.Length == 1)
                 _parentPaths = HttpHelper.EmptyStrings;
         }
-        public override string Path
-        {
-            get
-            {
-                if (_path == null)
-                    _path = _source.ParentPaths[_source.ParentPaths.Length - 1] + _source.Path;
-                return _path;
-            }
-        }
+        public override string Path => _path ??= _source.ParentPaths[_source.ParentPaths.Length - 1] + _source.Path;
         public override string[] ParentPaths
         {
             get
@@ -686,37 +649,25 @@ namespace RT.Servers
         public override string[] ParentPaths => _parentPaths;
     }
 
-    internal class UrlWithoutQueryAll : UrlWithNoChanges
+    internal class UrlWithoutQueryAll(IHttpUrl source) : UrlWithNoChanges(source)
     {
-        public UrlWithoutQueryAll(IHttpUrl source) : base(source) { }
-        public override bool HasQuery { get { return false; } }
-        public override IEnumerable<KeyValuePair<string, string>> Query { get { return Enumerable.Empty<KeyValuePair<string, string>>(); } }
-        public override string QueryString { get { return ""; } }
-        public override string this[string name] { get { return null; } }
-        public override IEnumerable<string> QueryValues(string name) { return Enumerable.Empty<string>(); }
+        public override bool HasQuery => false;
+        public override IEnumerable<KeyValuePair<string, string>> Query => [];
+        public override string QueryString => "";
+        public override string this[string name] => null;
+        public override IEnumerable<string> QueryValues(string name) => [];
         public override void AppendQueryString(StringBuilder sb, bool first) { }
     }
 
-    internal abstract class UrlWithQueryRemovals : UrlWithNoChanges
+    internal abstract class UrlWithQueryRemovals(IHttpUrl source) : UrlWithNoChanges(source)
     {
         private string _queryString = null;
-        public UrlWithQueryRemovals(IHttpUrl source) : base(source) { }
         protected abstract string GetValue(string name);
         protected abstract IEnumerable<KeyValuePair<string, string>> GetQuery();
-        public override IEnumerable<KeyValuePair<string, string>> Query { get { return _source.HasQuery ? GetQuery() : Enumerable.Empty<KeyValuePair<string, string>>(); } }
-        public override string this[string name] { get { return _source.HasQuery ? GetValue(name) : null; } }
-        public override string QueryString
-        {
-            get
-            {
-                if (!_source.HasQuery)
-                    return "";
-                if (_queryString == null)
-                    _queryString = HttpHelper.MakeQueryString(null, Query);
-                return _queryString;
-            }
-        }
-        public override bool HasQuery { get { return _source.HasQuery ? QueryString.Length > 0 : false; } }
+        public override IEnumerable<KeyValuePair<string, string>> Query => _source.HasQuery ? GetQuery() : [];
+        public override string this[string name] => _source.HasQuery ? GetValue(name) : null;
+        public override string QueryString => _source.HasQuery ? (_queryString ??= HttpHelper.MakeQueryString(null, Query)) : "";
+        public override bool HasQuery => _source.HasQuery && QueryString.Length > 0;
         public override void AppendQueryString(StringBuilder sb, bool first)
         {
             if (!_source.HasQuery)
@@ -728,54 +679,22 @@ namespace RT.Servers
         }
     }
 
-    internal class UrlWithoutQueryMultiple : UrlWithQueryRemovals
+    internal class UrlWithoutQueryMultiple(IHttpUrl source, HashSet<string> names) : UrlWithQueryRemovals(source)
     {
-        private HashSet<string> _names;
-        public UrlWithoutQueryMultiple(IHttpUrl source, HashSet<string> names)
-            : base(source)
-        {
-            if (names == null)
-                throw new ArgumentNullException("names");
-            _names = names;
-        }
+        private readonly HashSet<string> _names = names ?? throw new ArgumentNullException("names");
+
         public UrlWithoutQueryMultiple(IHttpUrl source, IEnumerable<string> names) : this(source, new HashSet<string>(names)) { }
 
-        protected override string GetValue(string name)
-        {
-            return _names.Contains(name) ? null : _source[name];
-        }
-
-        protected override IEnumerable<KeyValuePair<string, string>> GetQuery()
-        {
-            return _source.Query.Where(kvp => !_names.Contains(kvp.Key));
-        }
-
-        public override IEnumerable<string> QueryValues(string name)
-        {
-            return _names.Contains(name) ? Enumerable.Empty<string>() : _source.QueryValues(name);
-        }
+        protected override string GetValue(string name) => _names.Contains(name) ? null : _source[name];
+        protected override IEnumerable<KeyValuePair<string, string>> GetQuery() => _source.Query.Where(kvp => !_names.Contains(kvp.Key));
+        public override IEnumerable<string> QueryValues(string name) => _names.Contains(name) ? [] : _source.QueryValues(name);
     }
 
-    internal class UrlWithQueryWhere : UrlWithQueryRemovals
+    internal class UrlWithQueryWhere(IHttpUrl source, Func<string, bool> nameFilter) : UrlWithQueryRemovals(source)
     {
-        private Func<string, bool> _nameFilter;
-        public UrlWithQueryWhere(IHttpUrl source, Func<string, bool> nameFilter)
-            : base(source)
-        {
-            if (nameFilter == null)
-                throw new ArgumentException();
-            _nameFilter = nameFilter;
-        }
-
-        protected override string GetValue(string name)
-        {
-            return _nameFilter(name) ? _source[name] : null;
-        }
-
-        protected override IEnumerable<KeyValuePair<string, string>> GetQuery()
-        {
-            return _source.Query.Where(kvp => _nameFilter(kvp.Key));
-        }
+        private readonly Func<string, bool> _nameFilter = nameFilter ?? throw new ArgumentException();
+        protected override string GetValue(string name) => _nameFilter(name) ? _source[name] : null;
+        protected override IEnumerable<KeyValuePair<string, string>> GetQuery() => _source.Query.Where(kvp => _nameFilter(kvp.Key));
 
         public override IEnumerable<string> QueryValues(string name)
         {
@@ -786,16 +705,9 @@ namespace RT.Servers
         }
     }
 
-    internal class UrlWithQueryWhereValues : UrlWithQueryRemovals
+    internal class UrlWithQueryWhereValues(IHttpUrl source, Func<string, string, bool> nameValueFilter) : UrlWithQueryRemovals(source)
     {
-        private Func<string, string, bool> _nameValueFilter;
-        public UrlWithQueryWhereValues(IHttpUrl source, Func<string, string, bool> nameValueFilter)
-            : base(source)
-        {
-            if (nameValueFilter == null)
-                throw new ArgumentException();
-            _nameValueFilter = nameValueFilter;
-        }
+        private readonly Func<string, string, bool> _nameValueFilter = nameValueFilter ?? throw new ArgumentException();
 
         protected override string GetValue(string name)
         {
@@ -819,17 +731,10 @@ namespace RT.Servers
         }
     }
 
-    internal abstract class UrlWithQueryChanges : UrlWithNoChanges
+    internal abstract class UrlWithQueryChanges(IHttpUrl source) : UrlWithNoChanges(source)
     {
         private string _queryString = null;
-        public UrlWithQueryChanges(IHttpUrl source) : base(source) { }
-        public override string QueryString
-        {
-            get
-            {
-                return _queryString ?? (_queryString = HttpHelper.MakeQueryString(null, Query));
-            }
-        }
+        public override string QueryString => _queryString ??= HttpHelper.MakeQueryString(null, Query);
         public override void AppendQueryString(StringBuilder sb, bool first)
         {
             if (HasQuery)
@@ -837,18 +742,10 @@ namespace RT.Servers
         }
     }
 
-    internal class UrlWithQuerySingle : UrlWithQueryChanges
+    internal class UrlWithQuerySingle(IHttpUrl source, string name, string value) : UrlWithQueryChanges(source)
     {
-        private string _name, _value;
-        public UrlWithQuerySingle(IHttpUrl source, string name, string value)
-            : base(source)
-        {
-            if (name == null)
-                throw new ArgumentException();
-            _name = name;
-            _value = value;
-        }
-        public override bool HasQuery { get { return _value != null ? true : !_source.HasQuery ? false : QueryString.Length > 0; } }
+        private readonly string _name = name ?? throw new ArgumentException();
+        public override bool HasQuery => value != null || (_source.HasQuery && QueryString.Length > 0);
         public override IEnumerable<KeyValuePair<string, string>> Query
         {
             get
@@ -856,34 +753,27 @@ namespace RT.Servers
                 foreach (var kvp in _source.Query)
                     if (kvp.Key != _name)
                         yield return kvp;
-                if (_value != null)
-                    yield return new KeyValuePair<string, string>(_name, _value);
+                if (value != null)
+                    yield return new KeyValuePair<string, string>(_name, value);
             }
         }
-        public override string this[string name] { get { return name == _name ? _value : _source[name]; } }
+        public override string this[string name] => name == _name ? value : _source[name];
         private string[] _valueAsArray;
         public override IEnumerable<string> QueryValues(string name)
         {
             return
                 _name != name ? _source.QueryValues(name) :
-                _value == null ? Enumerable.Empty<string>() :
-                (_valueAsArray ?? (_valueAsArray = new[] { _value }));
+                value == null ? Enumerable.Empty<string>() :
+                (_valueAsArray ??= [value]);
         }
     }
 
-    internal class UrlWithQueryMultiple : UrlWithQueryChanges
+    internal class UrlWithQueryMultiple(IHttpUrl source, string name, IEnumerable<string> values) : UrlWithQueryChanges(source)
     {
-        private string _name;
-        private IEnumerable<string> _values;
-        public UrlWithQueryMultiple(IHttpUrl source, string name, IEnumerable<string> values)
-            : base(source)
-        {
-            if (name == null)
-                throw new ArgumentException();
-            _name = name;
-            _values = values ?? Enumerable.Empty<string>();
-        }
-        public override bool HasQuery { get { return _source.HasQuery || _values.Any(v => v != null); } }
+        private readonly string _name = name ?? throw new ArgumentException();
+        private readonly IEnumerable<string> _values = values ?? [];
+
+        public override bool HasQuery => _source.HasQuery || _values.Any(v => v != null);
         public override IEnumerable<KeyValuePair<string, string>> Query
         {
             get
@@ -896,11 +786,8 @@ namespace RT.Servers
                         yield return new KeyValuePair<string, string>(_name, value);
             }
         }
-        public override string this[string name] { get { return name == _name ? _values.FirstOrDefault(v => v != null) : _source[name]; } }
-        public override IEnumerable<string> QueryValues(string name)
-        {
-            return _name != name ? _source.QueryValues(name) : _values.Where(v => v != null);
-        }
+        public override string this[string name] => name == _name ? _values.FirstOrDefault(v => v != null) : _source[name];
+        public override IEnumerable<string> QueryValues(string name) => _name != name ? _source.QueryValues(name) : _values.Where(v => v != null);
     }
 
     #endregion

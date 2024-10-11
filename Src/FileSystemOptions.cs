@@ -18,71 +18,71 @@ namespace RT.Servers
         /// <summary>Returns a default MIME type for the specified extension.</summary>
         public static string GetDefaultMimeType(string extension)
         {
-            switch (extension)
+            return extension switch
             {
                 // Plain text and data formats
-                case "txt": return "text/plain; charset=utf-8";
-                case "csv": return "text/csv; charset=utf-8";
-                case "json": return "application/json; charset=utf-8";
+                "txt" => "text/plain; charset=utf-8",
+                "csv" => "text/csv; charset=utf-8",
+                "json" => "application/json; charset=utf-8",
 
                 // HTML and dependencies
-                case "htm": return "text/html; charset=utf-8";
-                case "html": return "text/html; charset=utf-8";
-                case "css": return "text/css; charset=utf-8";
-                case "js": return "text/javascript; charset=utf-8";
+                "htm" => "text/html; charset=utf-8",
+                "html" => "text/html; charset=utf-8",
+                "css" => "text/css; charset=utf-8",
+                "js" => "text/javascript; charset=utf-8",
 
                 // XML and stuff
-                case "xhtml": return "application/xhtml+xml; charset=utf-8";
-                case "xml": return "application/xml; charset=utf-8";
-                case "xsl": return "application/xml; charset=utf-8";
+                "xhtml" => "application/xhtml+xml; charset=utf-8",
+                "xml" => "application/xml; charset=utf-8",
+                "xsl" => "application/xml; charset=utf-8",
 
                 // Images
-                case "gif": return "image/gif";
-                case "png": return "image/png";
-                case "jp2": return "image/jp2";
-                case "jpg": return "image/jpeg";
-                case "jpeg": return "image/jpeg";
-                case "bmp": return "image/bmp";
-                case "svg": return "image/svg+xml";
-                case "ico": return "image/x-icon";
+                "gif" => "image/gif",
+                "png" => "image/png",
+                "jp2" => "image/jp2",
+                "jpg" => "image/jpeg",
+                "jpeg" => "image/jpeg",
+                "bmp" => "image/bmp",
+                "svg" => "image/svg+xml",
+                "ico" => "image/x-icon",
 
                 // Audio
-                case "mp3": return "audio/mpeg";
-                case "ogg": return "audio/ogg";
-                case "oga": return "audio/ogg";
-                case "wav": return "audio/wav";
+                "mp3" => "audio/mpeg",
+                "ogg" => "audio/ogg",
+                "oga" => "audio/ogg",
+                "wav" => "audio/wav",
 
                 // Video
-                case "avi": return "video/x-msvideo";
-                case "divx": return "video/divx";
-                case "flv": return "video/flv";
-                case "m2ts": return "video/mp2t";
-                case "ts": return "video/mp2t";
-                case "m4v": return "video/m4v";
-                case "mkv": return "video/x-matroska";
-                case "mov": return "video/mov";
-                case "mp4": return "video/mp4";
-                case "mpeg": return "video/mpeg";
-                case "mpg": return "video/mpeg";
-                case "mts": return "video/mp2t";
-                case "ogv": return "video/ogg";
-                case "webm": return "video/webm";
-                case "wmv": return "video/wmv";
+                "avi" => "video/x-msvideo",
+                "divx" => "video/divx",
+                "flv" => "video/flv",
+                "m2ts" => "video/mp2t",
+                "ts" => "video/mp2t",
+                "m4v" => "video/m4v",
+                "mkv" => "video/x-matroska",
+                "mov" => "video/mov",
+                "mp4" => "video/mp4",
+                "mpeg" => "video/mpeg",
+                "mpg" => "video/mpeg",
+                "mts" => "video/mp2t",
+                "ogv" => "video/ogg",
+                "webm" => "video/webm",
+                "wmv" => "video/wmv",
 
                 // Fonts
-                case "ttf": return "font/ttf";
-                case "otf": return "font/otf";
-                case "sfnt": return "font/sfnt";
-                case "woff": return "font-woff";
-                case "woff2": return "font/woff2";
-                case "eot": return "application/vnd.ms-fontobject";
+                "ttf" => "font/ttf",
+                "otf" => "font/otf",
+                "sfnt" => "font/sfnt",
+                "woff" => "font-woff",
+                "woff2" => "font/woff2",
+                "eot" => "application/vnd.ms-fontobject",
 
                 // Etc.
-                case "pdf": return "application/pdf";
-                case "wasm": return "application/wasm";
+                "pdf" => "application/pdf",
+                "wasm" => "application/wasm",
 
-                default: return null;
-            }
+                _ => null,
+            };
         }
 
         /// <summary>Returns the MIME type for the specified local file.</summary>

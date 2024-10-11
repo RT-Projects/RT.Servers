@@ -52,8 +52,7 @@ namespace RT.Servers.Tests
                 content = content.Subarray(pos + 4);
 
                 var headers = headersRaw.FromUtf8().Split(new string[] { "\r\n" }, StringSplitOptions.None);
-                if (verify != null)
-                    verify(headers, content);
+                verify?.Invoke(headers, content);
             }
         }
 
@@ -303,7 +302,6 @@ namespace RT.Servers.Tests
             }
             Assert.IsTrue(response.Contains("\r\n\r\n"));
             int pos = response.IndexOf("\r\n\r\n");
-            string headersStr = response.Substring(0, pos);
             string[] headers = response.Split(new string[] { "\r\n" }, StringSplitOptions.None);
             Assert.IsTrue(headers.Contains("Connection: keep-alive"));
             Assert.IsTrue(headers.Contains("Transfer-Encoding: chunked"));
@@ -318,7 +316,7 @@ namespace RT.Servers.Tests
             }
 
             string reconstruct = "";
-            int chunkLen = 0;
+            int chunkLen;
             do
             {
                 var m = Regex.Match(response, @"^([0-9a-fA-F]+)\r\n");
@@ -327,7 +325,8 @@ namespace RT.Servers.Tests
                 reconstruct += response.Substring(m.Length, chunkLen);
                 Assert.AreEqual("\r\n", response.Substring(m.Length + chunkLen, 2));
                 response = response.Substring(m.Length + chunkLen + 2);
-            } while (chunkLen > 0);
+            }
+            while (chunkLen > 0);
 
             Assert.AreEqual("", response);
             Assert.AreEqual("GET:\naktion => [\"list\"]\nshowonly => [\"scheduled\", \"recordings\"]\nlimitStart => [\"0\"]\nfiltermask_t => [\"\"]\nfiltermask_g => [\"\"]\nfiltermask_s => [\"\"]\nsize_max => [\"*\"]\nsize_min => [\"*\"]\nlang => [\"\", \"\"]\narchivemonth => [\"200709\", \"200709\"]\nformat_wmv => [\"true\", \"true\"]\nformat_avi => [\"true\", \"true\"]\nformat_hq => [\"\", \"\"]\nformat_mp4 => [\"\", \"\"]\norderby => [\"time_desc\"]\n", reconstruct);

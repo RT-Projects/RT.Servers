@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Security.Cryptography;
 using RT.TagSoup;
 using RT.Util;
@@ -6,28 +6,17 @@ using RT.Util.ExtensionMethods;
 
 namespace RT.Servers
 {
-    /// <summary>Provides functionality for a login system.</summary>
-    public abstract class Authenticator
+    /// <summary>
+    ///     Provides functionality for a login system.</summary>
+    /// <param name="defaultReturnTo">
+    ///     Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET
+    ///     parameter.</param>
+    /// <param name="appName">
+    ///     Name of the application which uses this authentication handler.</param>
+    public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, string appName)
     {
-        private Func<IHttpUrl, string> _defaultReturnTo;
-        private string _appName;
-
-        /// <summary>
-        ///     Constructor.</summary>
-        /// <param name="defaultReturnTo">
-        ///     Default URL to redirect to when a login attempt is successful. This can be overridden by a "returnto" GET
-        ///     parameter.</param>
-        /// <param name="appName">
-        ///     Name of the application which uses this authentication handler.</param>
-        public Authenticator(Func<IHttpUrl, string> defaultReturnTo, string appName)
-        {
-            if (defaultReturnTo == null)
-                throw new ArgumentNullException("defaultReturnTo");
-            if (appName == null)
-                throw new ArgumentNullException("appName");
-            _defaultReturnTo = defaultReturnTo;
-            _appName = appName;
-        }
+        private readonly Func<IHttpUrl, string> _defaultReturnTo = defaultReturnTo ?? throw new ArgumentNullException("defaultReturnTo");
+        private readonly string _appName = appName ?? throw new ArgumentNullException("appName");
 
         /// <summary>
         ///     Handles a request.</summary>
@@ -128,9 +117,7 @@ namespace RT.Servers
             if (username == null || password == null)
                 return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo));
 
-            string passwordHash;
-            bool canCreateUsers;
-            if (getUser(ref username, out passwordHash, out canCreateUsers) && verifyHash(password, passwordHash))
+            if (getUser(ref username, out var passwordHash, out var canCreateUsers) && verifyHash(password, passwordHash))
             {
                 // Login successful!
                 setUsername(username);
@@ -180,9 +167,7 @@ namespace RT.Servers
                 // if returnTo is null, this removes the query parameter
                 return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo));
 
-            string passwordHash;
-            bool canCreateUsers;
-            if (!getUser(ref loggedInUserName, out passwordHash, out canCreateUsers) || !canCreateUsers)
+            if (!getUser(ref loggedInUserName, out var passwordHash, out var canCreateUsers) || !canCreateUsers)
                 throw new HttpException(HttpStatusCode._401_Unauthorized);
 
             if (newpassword2 != newpassword)
@@ -231,10 +216,10 @@ namespace RT.Servers
                                 returnto == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnto },
                                 new P("Please log in to access ", _appName, "."),
                                 failed ? new P("The specified username and/or password has not been recognised.") { class_ = "error" } : null,
-                                HtmlTag.HtmlTable(null,
-                                    new object[] { "Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username } },
-                                    new object[] { "Password:", new INPUT { name = "password", type = itype.password, size = 60, value = password } },
-                                    new[] { null, new INPUT { value = "Log in", type = itype.submit } }
+                                Tag.HtmlTable(null,
+                                    ["Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username }],
+                                    ["Password:", new INPUT { name = "password", type = itype.password, size = 60, value = password }],
+                                    [null, new INPUT { value = "Log in", type = itype.submit }]
                                 )
                             )
                         )
@@ -259,11 +244,11 @@ namespace RT.Servers
                                 new P("To create a new user, type the desired username and the new password twice."),
                                 userAlreadyExists ? new P("The specified username is already in use.") { class_ = "error" } : null,
                                 passwordsDiffer ? new P("The specified new passwords do not match. You have to type the same new password twice.") { class_ = "error" } : null,
-                                HtmlTag.HtmlTable(null,
-                                    new object[] { "Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username } },
-                                    new object[] { "New password (1):", new INPUT { name = "newpassword1", type = itype.password, size = 60, value = newpassword1 } },
-                                    new object[] { "New password (2):", new INPUT { name = "newpassword2", type = itype.password, size = 60, value = newpassword2 } },
-                                    new[] { null, new INPUT { value = "Create user", type = itype.submit } }
+                                Tag.HtmlTable(null,
+                                    ["Username:", new INPUT { name = "username", type = itype.text, size = 60, value = username }],
+                                    ["New password (1):", new INPUT { name = "newpassword1", type = itype.password, size = 60, value = newpassword1 }],
+                                    ["New password (2):", new INPUT { name = "newpassword2", type = itype.password, size = 60, value = newpassword2 }],
+                                    [null, new INPUT { value = "Create user", type = itype.submit }]
                                 )
                             )
                         )
@@ -272,37 +257,27 @@ namespace RT.Servers
             );
         }
 
-        private HttpResponse changePasswordForm(string loggedInUser, string returnTo, bool loginFailed, bool passwordsDiffer, string oldpassword, string newpassword1, string newpassword2, IHttpUrl formSubmitUrl)
-        {
-            return HttpResponse.Html(
-                new HTML(
-                    new HEAD(
-                        new TITLE("Change Password"),
-                        new STYLELiteral(_formCss),
-                        new META { name = "viewport", content = "width=device-width,initial-scale=1.0" }
-                    ),
-                    new BODY(
-                        new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
-                            new DIV(
-                                returnTo == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnTo },
-                                new P("To change your password, type your old password, and then the new password twice."),
-                                loginFailed ? new P("The specified old password is wrong.") { class_ = "error" } : null,
-                                passwordsDiffer ? new P("The specified new passwords do not match. You have to type the same new password twice.") { class_ = "error" } : null,
-                                HtmlTag.HtmlTable(null,
-                                    new object[] { "Username:", new STRONG(loggedInUser) },
-                                    new object[] { "Old password:", new INPUT { name = "password", type = itype.password, size = 60, value = oldpassword } },
-                                    new object[] { "New password (1):", new INPUT { name = "newpassword1", type = itype.password, size = 60, value = newpassword1 } },
-                                    new object[] { "New password (2):", new INPUT { name = "newpassword2", type = itype.password, size = 60, value = newpassword2 } },
-                                    new[] { null, new INPUT { value = "Change password", type = itype.submit } }
-                                )
-                            )
-                        )
-                    )
-                )
-            );
-        }
+        private HttpResponse changePasswordForm(string loggedInUser, string returnTo, bool loginFailed, bool passwordsDiffer, string oldpassword, string newpassword1, string newpassword2, IHttpUrl formSubmitUrl) => HttpResponse.Html(
+            new HTML(
+                new HEAD(
+                    new TITLE("Change Password"),
+                    new STYLELiteral(_formCss),
+                    new META { name = "viewport", content = "width=device-width,initial-scale=1.0" }),
+                new BODY(
+                    new FORM { method = method.post, action = formSubmitUrl.ToHref() }._(
+                        new DIV(
+                            returnTo == null ? null : new INPUT { type = itype.hidden, name = "returnto", value = returnTo },
+                            new P("To change your password, type your old password, and then the new password twice."),
+                            loginFailed ? new P("The specified old password is wrong.") { class_ = "error" } : null,
+                            passwordsDiffer ? new P("The specified new passwords do not match. You have to type the same new password twice.") { class_ = "error" } : null,
+                            Tag.HtmlTable(null,
+                                ["Username:", new STRONG(loggedInUser)],
+                                ["Old password:", new INPUT { name = "password", type = itype.password, size = 60, value = oldpassword }],
+                                ["New password (1):", new INPUT { name = "newpassword1", type = itype.password, size = 60, value = newpassword1 }],
+                                ["New password (2):", new INPUT { name = "newpassword2", type = itype.password, size = 60, value = newpassword2 }],
+                                [null, new INPUT { value = "Change password", type = itype.submit }]))))));
 
-        private static string _formCss = @"
+        private static readonly string _formCss = @"
             * { font-family: ""Calibri"", ""Verdana"", ""Arial"", sans-serif; }
             div { border: 1px solid black; -moz-border-radius: 1.4em 1.4em 1.4em 1.4em; width: auto; margin: 5em auto; display: inline-block; background: #def; padding: 0.3em 2em; }
             p { background: #bdf; padding: 0.3em 0.7em; -moz-border-radius: 0.7em 0.7em 0.7em 0.7em; }
