@@ -2,28 +2,16 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
-    <OutputPath>..\Builds\$(Configuration)-$(TargetFramework)$(RuntimeIdentifier)\</OutputPath>
-    <IntermediateOutputPath>$(BaseIntermediateOutputPath)\$(Configuration)-$(TargetFramework)$(RuntimeIdentifier)\</IntermediateOutputPath>
+    <LangVersion>latest</LangVersion>
     <DocumentationFile>$(OutputPath)\$(AssemblyName).xml</DocumentationFile>
-    <Configurations>Debug;Release</Configurations>
-    <LangVersion>12</LangVersion>
 
-    <Version>1.0.0.9999</Version>
-    <Authors>rstarkov;Timwi</Authors>
+    <Authors>Timwi;rstarkov</Authors>
     <Description>An in-process HTTP server.</Description>
     <PackageTags>C#;Http;Server</PackageTags>
-
-    <RepositoryUrl>https://github.com/RT-Projects/RT.Servers</RepositoryUrl>
-    <PackageIconUrl>https://avatars0.githubusercontent.com/u/14182444?v=3&amp;s=200</PackageIconUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Tests\**" />
-    <EmbeddedResource Remove="Tests\**" />
-    <None Remove="Tests\**" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="RT.Json" version="2.0.1776" />
