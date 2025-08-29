@@ -1,25 +1,86 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29306.81
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36310.24
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers.Tests", "Tests\RT.Servers.Tests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers", "Src\RT.Servers.csproj", "{A7333C19-56A9-4A8E-A196-7648666EF26A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Json", "..\RT.Util\RT.Json\RT.Json.csproj", "{F0BE6EDB-2FAF-87D9-6136-4CE1236DF0AF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.PostBuild", "..\RT.Util\RT.PostBuild\RT.PostBuild.csproj", "{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Serialization", "..\RT.Util\RT.Serialization\RT.Serialization.csproj", "{A8AF4D43-0B8E-C450-615E-359760C39298}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Serialization.Json", "..\RT.Util\RT.Serialization.Json\RT.Serialization.Json.csproj", "{76D1A32D-9517-0EA6-E30E-4AD373155FDD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Serialization.Xml", "..\RT.Util\RT.Serialization.Xml\RT.Serialization.Xml.csproj", "{8CC207AC-3E9C-2C68-130B-3BCF02860A43}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Util.Core", "..\RT.Util\RT.Util.Core\RT.Util.Core.csproj", "{45112116-A549-97E2-5AB1-8CDC7AE4B250}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.TagSoup", "..\RT.TagSoup\Src\RT.TagSoup.csproj", "{76229D48-99C5-AAC0-C9CA-595B7AFD4BAD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
+		Debug-locallibs|Any CPU = Debug-locallibs|Any CPU
+		Debug-Nuget|Any CPU = Debug-Nuget|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{BA03D048-E465-4B80-B12A-93D21C485678}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BA03D048-E465-4B80-B12A-93D21C485678}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA03D048-E465-4B80-B12A-93D21C485678}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA03D048-E465-4B80-B12A-93D21C485678}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{BA03D048-E465-4B80-B12A-93D21C485678}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA03D048-E465-4B80-B12A-93D21C485678}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
 		{BA03D048-E465-4B80-B12A-93D21C485678}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BA03D048-E465-4B80-B12A-93D21C485678}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Debug-locallibs|Any CPU.ActiveCfg = Debug-locallibs|Any CPU
+		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Debug-locallibs|Any CPU.Build.0 = Debug-locallibs|Any CPU
+		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Debug-Nuget|Any CPU.ActiveCfg = Debug-Nuget|Any CPU
+		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Debug-Nuget|Any CPU.Build.0 = Debug-Nuget|Any CPU
 		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A7333C19-56A9-4A8E-A196-7648666EF26A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F0BE6EDB-2FAF-87D9-6136-4CE1236DF0AF}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0BE6EDB-2FAF-87D9-6136-4CE1236DF0AF}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{F0BE6EDB-2FAF-87D9-6136-4CE1236DF0AF}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0BE6EDB-2FAF-87D9-6136-4CE1236DF0AF}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{F0BE6EDB-2FAF-87D9-6136-4CE1236DF0AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F0BE6EDB-2FAF-87D9-6136-4CE1236DF0AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Release|Any CPU.Build.0 = Release|Any CPU
+		{76D1A32D-9517-0EA6-E30E-4AD373155FDD}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{76D1A32D-9517-0EA6-E30E-4AD373155FDD}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{76D1A32D-9517-0EA6-E30E-4AD373155FDD}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{76D1A32D-9517-0EA6-E30E-4AD373155FDD}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{76D1A32D-9517-0EA6-E30E-4AD373155FDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{76D1A32D-9517-0EA6-E30E-4AD373155FDD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8CC207AC-3E9C-2C68-130B-3BCF02860A43}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CC207AC-3E9C-2C68-130B-3BCF02860A43}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{8CC207AC-3E9C-2C68-130B-3BCF02860A43}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CC207AC-3E9C-2C68-130B-3BCF02860A43}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{8CC207AC-3E9C-2C68-130B-3BCF02860A43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8CC207AC-3E9C-2C68-130B-3BCF02860A43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45112116-A549-97E2-5AB1-8CDC7AE4B250}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{45112116-A549-97E2-5AB1-8CDC7AE4B250}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{45112116-A549-97E2-5AB1-8CDC7AE4B250}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{45112116-A549-97E2-5AB1-8CDC7AE4B250}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{45112116-A549-97E2-5AB1-8CDC7AE4B250}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45112116-A549-97E2-5AB1-8CDC7AE4B250}.Release|Any CPU.Build.0 = Release|Any CPU
+		{76229D48-99C5-AAC0-C9CA-595B7AFD4BAD}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
+		{76229D48-99C5-AAC0-C9CA-595B7AFD4BAD}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
+		{76229D48-99C5-AAC0-C9CA-595B7AFD4BAD}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
+		{76229D48-99C5-AAC0-C9CA-595B7AFD4BAD}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{76229D48-99C5-AAC0-C9CA-595B7AFD4BAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{76229D48-99C5-AAC0-C9CA-595B7AFD4BAD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

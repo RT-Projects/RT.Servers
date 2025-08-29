@@ -2,9 +2,9 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <Configurations>Debug-Nuget;Debug-locallibs;Release</Configurations>
     <LangVersion>latest</LangVersion>
     <DocumentationFile>$(OutputPath)\$(AssemblyName).xml</DocumentationFile>
-
     <Authors>Timwi;rstarkov</Authors>
     <Description>An in-process HTTP server.</Description>
     <PackageTags>C#;Http;Server</PackageTags>
@@ -13,7 +13,17 @@
     <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug-locallibs'">
+    <ProjectReference Include="..\..\RT.TagSoup\Src\RT.TagSoup.csproj" />
+    <ProjectReference Include="..\..\RT.Util\RT.Json\RT.Json.csproj" />
+    <ProjectReference Include="..\..\RT.Util\RT.PostBuild\RT.PostBuild.csproj" />
+    <ProjectReference Include="..\..\RT.Util\RT.Serialization.Json\RT.Serialization.Json.csproj" />
+    <ProjectReference Include="..\..\RT.Util\RT.Serialization.Xml\RT.Serialization.Xml.csproj" />
+    <ProjectReference Include="..\..\RT.Util\RT.Serialization\RT.Serialization.csproj" />
+    <ProjectReference Include="..\..\RT.Util\RT.Util.Core\RT.Util.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Debug-locallibs'">
     <PackageReference Include="RT.Json" version="2.0.1776" />
     <PackageReference Include="RT.PostBuild" version="2.0.1776" />
     <PackageReference Include="RT.Serialization" version="2.0.1776" />
@@ -21,6 +31,9 @@
     <PackageReference Include="RT.Serialization.Xml" version="2.0.1776" />
     <PackageReference Include="RT.TagSoup" version="1.0.1634" />
     <PackageReference Include="RT.Util.Core" version="2.0.1776" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
   </ItemGroup>
