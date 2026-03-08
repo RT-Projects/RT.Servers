@@ -38,10 +38,10 @@ jobs:
           dotnet-quality: 'ga'
 
       - name: dotnet restore
-        run: dotnet restore
+        run: dotnet msbuild /t:restore /p:Configuration=Release Src
 
       - name: dotnet test
-        run: dotnet test
+        run: dotnet test Src
 
       - name: "dotnet pack: ${{ env.VER_STR }}"
         run: dotnet pack Src/RT.Servers.csproj --configuration Release -p:InformationalVersion="${{env.VER_STR}}" -p:VersionPrefix=${{env.VER_NUM}} -p:VersionSuffix=${{env.VER_SUF}} -p:FileVersion=${{env.VER_NUM}} -p:AssemblyVersion=${{env.VER_NUM}} -o Publish
