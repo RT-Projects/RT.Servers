@@ -24,7 +24,7 @@ namespace RT.Servers.Tests
         [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestMidResponseSocketClosure()
         {
-            var instance = new HttpServer(TestHelpers.Port)
+            var instance = new HttpServer(TestHelpers.Port + 1)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => { return HttpResponse.Create(enumInfinite(), "text/plain"); }, path: "/infinite-and-slow")
@@ -38,8 +38,8 @@ namespace RT.Servers.Tests
                 {
                     for (int i = 0; i < 20; i++)
                     {
-                        TcpClient cl = new TcpClient();
-                        cl.Connect("localhost", TestHelpers.Port);
+                        TcpClient cl = new();
+                        cl.Connect("localhost", TestHelpers.Port + 1);
                         cl.ReceiveTimeout = 1000; // 1 sec
                         Socket sck = cl.Client;
                         sck.Send("GET /infinite-and-slow HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToUtf8());
@@ -65,7 +65,7 @@ namespace RT.Servers.Tests
         [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestHalfOpenConnection()
         {
-            var instance = new HttpServer(TestHelpers.Port, new HttpServerOptions { OutputExceptionInformation = true });
+            var instance = new HttpServer(TestHelpers.Port + 2, new HttpServerOptions { OutputExceptionInformation = true });
             instance.Handler = req => HttpResponse.PlainText(" thingy stuff ");
             try
             {
@@ -75,7 +75,7 @@ namespace RT.Servers.Tests
                 using (var cl = new TcpClient())
                 {
                     cl.ReceiveTimeout = 1000; // 1 sec
-                    cl.Connect("localhost", TestHelpers.Port);
+                    cl.Connect("localhost", TestHelpers.Port + 2);
                     cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".ToUtf8());
                     cl.Client.Shutdown(SocketShutdown.Send);
                     var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
@@ -88,7 +88,7 @@ namespace RT.Servers.Tests
                 // An incomplete request ending in a half closed connection
                 using (var cl = new TcpClient())
                 {
-                    cl.Connect("localhost", TestHelpers.Port);
+                    cl.Connect("localhost", TestHelpers.Port + 2);
                     cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close".ToUtf8());
                     cl.Client.Shutdown(SocketShutdown.Send);
                     var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
@@ -98,7 +98,7 @@ namespace RT.Servers.Tests
                 // A malformed request ending in a half closed connection
                 using (var cl = new TcpClient())
                 {
-                    cl.Connect("localhost", TestHelpers.Port);
+                    cl.Connect("localhost", TestHelpers.Port + 2);
                     cl.Client.Send("xz".ToUtf8());
                     cl.Client.Shutdown(SocketShutdown.Send);
                     var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());

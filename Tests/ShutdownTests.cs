@@ -12,7 +12,7 @@ namespace RT.Servers.Tests
         [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestAbortedEndReceive()
         {
-            var instance = new HttpServer(TestHelpers.Port)
+            var instance = new HttpServer(TestHelpers.Port + 8)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
@@ -22,8 +22,8 @@ namespace RT.Servers.Tests
             {
                 instance.StartListening();
 
-                TcpClient cl = new TcpClient();
-                cl.Connect("localhost", TestHelpers.Port);
+                TcpClient cl = new();
+                cl.Connect("localhost", TestHelpers.Port + 8);
                 cl.ReceiveTimeout = 1000; // 1 sec
                 Socket sck = cl.Client;
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
@@ -41,7 +41,7 @@ namespace RT.Servers.Tests
         [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestKeepaliveShutdownGentle()
         {
-            var instance = new HttpServer(TestHelpers.Port)
+            var instance = new HttpServer(TestHelpers.Port + 9)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
@@ -51,8 +51,8 @@ namespace RT.Servers.Tests
             {
                 instance.StartListening();
 
-                TcpClient cl = new TcpClient();
-                cl.Connect("localhost", TestHelpers.Port);
+                TcpClient cl = new();
+                cl.Connect("localhost", TestHelpers.Port + 9);
                 cl.ReceiveTimeout = 1000; // 1 sec
                 Socket sck = cl.Client;
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
@@ -79,7 +79,7 @@ namespace RT.Servers.Tests
         [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestActiveShutdownGentle()
         {
-            var instance = new HttpServer(TestHelpers.Port)
+            var instance = new HttpServer(TestHelpers.Port + 10)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
@@ -89,8 +89,8 @@ namespace RT.Servers.Tests
             {
                 instance.StartListening();
 
-                TcpClient cl = new TcpClient();
-                cl.Connect("localhost", TestHelpers.Port);
+                TcpClient cl = new();
+                cl.Connect("localhost", TestHelpers.Port + 10);
                 cl.ReceiveTimeout = 10000; // 10 sec
                 Socket sck = cl.Client;
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
@@ -121,7 +121,7 @@ namespace RT.Servers.Tests
         [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestActiveShutdownBrutal()
         {
-            var instance = new HttpServer(TestHelpers.Port)
+            var instance = new HttpServer(TestHelpers.Port + 11)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
@@ -131,8 +131,8 @@ namespace RT.Servers.Tests
             {
                 instance.StartListening();
 
-                TcpClient cl = new TcpClient();
-                cl.Connect("localhost", TestHelpers.Port);
+                TcpClient cl = new();
+                cl.Connect("localhost", TestHelpers.Port + 11);
                 cl.ReceiveTimeout = 10000; // 10 sec
                 Socket sck = cl.Client;
                 sck.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());

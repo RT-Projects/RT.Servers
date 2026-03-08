@@ -12,7 +12,7 @@ namespace RT.Servers.Tests
         public void TestClientIPAddress()
         {
             HttpRequest request = null;
-            var instance = new HttpServer(TestHelpers.Port)
+            var instance = new HttpServer(TestHelpers.Port + 12)
             {
                 Handler = new UrlResolver(
                     new UrlMapping(req => { request = req; return HttpResponse.PlainText("blah"); }, path: "/static")
@@ -22,8 +22,8 @@ namespace RT.Servers.Tests
             {
                 instance.StartListening();
 
-                TcpClient cl = new TcpClient();
-                cl.Connect("localhost", TestHelpers.Port);
+                TcpClient cl = new();
+                cl.Connect("localhost", TestHelpers.Port + 12);
                 cl.ReceiveTimeout = 1000; // 1 sec
                 Socket sck = cl.Client;
 

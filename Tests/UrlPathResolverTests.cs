@@ -87,7 +87,7 @@ namespace RT.Servers.Tests
         [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestDomainCase()
         {
-            var instance = new HttpServer(TestHelpers.Port, new HttpServerOptions { OutputExceptionInformation = true });
+            var instance = new HttpServer(TestHelpers.Port + 13, new HttpServerOptions { OutputExceptionInformation = true });
             try
             {
                 bool ok;
@@ -97,8 +97,8 @@ namespace RT.Servers.Tests
 
                 var getResponse = Ut.Lambda((string host) =>
                 {
-                    TcpClient cl = new TcpClient();
-                    cl.Connect("localhost", TestHelpers.Port);
+                    TcpClient cl = new();
+                    cl.Connect("localhost", TestHelpers.Port + 13);
                     cl.ReceiveTimeout = 1000; // 1 sec
                     cl.Client.Send(("GET /static HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n").ToUtf8());
                     var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
