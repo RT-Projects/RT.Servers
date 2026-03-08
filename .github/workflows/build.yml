@@ -44,7 +44,7 @@ jobs:
         run: dotnet msbuild /t:restore /p:Configuration=Release Tests
 
       - name: dotnet test Tests
-        run: dotnet test Tests
+        run: dotnet test Tests --framework net481
 
       - name: "dotnet pack: ${{ env.VER_STR }}"
         run: dotnet pack Src/RT.Servers.csproj --configuration Release -p:InformationalVersion="${{env.VER_STR}}" -p:VersionPrefix=${{env.VER_NUM}} -p:VersionSuffix=${{env.VER_SUF}} -p:FileVersion=${{env.VER_NUM}} -p:AssemblyVersion=${{env.VER_NUM}} -o Publish
