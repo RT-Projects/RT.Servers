@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Net.Sockets;
 using System.Text;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers.Tests
 {
-    [TestFixture]
+    [TestClass]
     public sealed class UrlPathResolverTests
     {
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestNestedResolve()
         {
             var url = new HttpUrl();
@@ -84,10 +84,10 @@ namespace RT.Servers.Tests
             Assert.IsTrue(okDocGen);
         }
 
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestDomainCase()
         {
-            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { OutputExceptionInformation = true });
+            var instance = new HttpServer(TestHelpers.Port, new HttpServerOptions { OutputExceptionInformation = true });
             try
             {
                 bool ok;
@@ -98,7 +98,7 @@ namespace RT.Servers.Tests
                 var getResponse = Ut.Lambda((string host) =>
                 {
                     TcpClient cl = new TcpClient();
-                    cl.Connect("localhost", ProgramServersTests.Port);
+                    cl.Connect("localhost", TestHelpers.Port);
                     cl.ReceiveTimeout = 1000; // 1 sec
                     cl.Client.Send(("GET /static HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n").ToUtf8());
                     var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
@@ -132,7 +132,7 @@ namespace RT.Servers.Tests
             }
         }
 
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestSkippableHandlers()
         {
             var url = new HttpUrl();

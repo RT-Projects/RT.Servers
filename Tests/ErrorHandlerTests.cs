@@ -2,20 +2,20 @@
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 
 namespace RT.Servers.Tests
 {
-    [TestFixture]
+    [TestClass]
     public sealed class ErrorHandlerTests
     {
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestErrorHandlerExceptions()
         {
-            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { OutputExceptionInformation = true });
+            var instance = new HttpServer(TestHelpers.Port, new HttpServerOptions { OutputExceptionInformation = true });
             try
             {
                 instance.StartListening();
@@ -23,7 +23,7 @@ namespace RT.Servers.Tests
                 var getResponse = Ut.Lambda(() =>
                 {
                     TcpClient cl = new TcpClient();
-                    cl.Connect("localhost", ProgramServersTests.Port);
+                    cl.Connect("localhost", TestHelpers.Port);
                     cl.ReceiveTimeout = 1000; // 1 sec
                     cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".ToUtf8());
                     var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
@@ -93,7 +93,7 @@ namespace RT.Servers.Tests
                 instance.ErrorHandler = (req, ex) => { storedEx = ex; throw new HttpException(HttpStatusCode._204_NoContent); };
                 {
                     TcpClient cl = new TcpClient();
-                    cl.Connect("localhost", ProgramServersTests.Port);
+                    cl.Connect("localhost", TestHelpers.Port);
                     cl.ReceiveTimeout = 1000; // 1 sec
                     cl.Client.Send("xz\r\n\r\n".ToUtf8());
                     var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
@@ -136,10 +136,10 @@ namespace RT.Servers.Tests
             throw exception;
         }
 
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestErrorHandlerAndCleanUp()
         {
-            var instance = new HttpServer(ProgramServersTests.Port);
+            var instance = new HttpServer(TestHelpers.Port);
             try
             {
                 bool errorHandlerCalled = false;
@@ -163,7 +163,7 @@ namespace RT.Servers.Tests
                 };
 
                 TcpClient cl = new TcpClient();
-                cl.Connect("localhost", ProgramServersTests.Port);
+                cl.Connect("localhost", TestHelpers.Port);
                 cl.ReceiveTimeout = 1000000; // 1000 sec
                 cl.Client.Send("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n".ToUtf8());
                 var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());

@@ -9,13 +9,13 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RT.Util;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers.Tests
 {
-    [TestFixture]
+    [TestClass]
     public sealed class RequestResponseTests
     {
         private void testRequest(string testName, int storeFileUploadInFileAtSize, string request, Action<string[], byte[]> verify)
@@ -27,7 +27,7 @@ namespace RT.Servers.Tests
                     continue;
                 Console.WriteLine("{0}; SFUIFAS {3}; length {2}; chunk size {1}", testName, chunkSize, requestBytes.Length, storeFileUploadInFileAtSize);
                 TcpClient cl = new TcpClient();
-                cl.Connect("localhost", ProgramServersTests.Port);
+                cl.Connect("localhost", TestHelpers.Port);
                 cl.ReceiveTimeout = 1000; // 1 sec
                 Socket sck = cl.Client;
                 for (int j = 0; j < requestBytes.Length; j += chunkSize)
@@ -46,7 +46,7 @@ namespace RT.Servers.Tests
                 }
                 var content = response.ToArray();
                 int pos = content.IndexOfSubarray(new byte[] { 13, 10, 13, 10 }, 0, content.Length);
-                Assert.Greater(pos, -1);
+                Assert.IsGreaterThan(-1, pos);
 
                 var headersRaw = content.Subarray(0, pos);
                 content = content.Subarray(pos + 4);
@@ -56,11 +56,11 @@ namespace RT.Servers.Tests
             }
         }
 
-        [Test, Timeout(5 * 60 * 1000)]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestBasicRequestHandling()
         {
             var store = 1024 * 1024;
-            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { StoreFileUploadInFileAtSize = store })
+            var instance = new HttpServer(TestHelpers.Port, new HttpServerOptions { StoreFileUploadInFileAtSize = store })
             {
                 Handler = new UrlResolver(
                     new UrlMapping(handlerStatic, path: "/static"),
@@ -165,7 +165,7 @@ namespace RT.Servers.Tests
 
             foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
             {
-                instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize })
+                instance = new HttpServer(TestHelpers.Port, new HttpServerOptions { StoreFileUploadInFileAtSize = storeFileUploadInFileAtSize })
                 {
                     Handler = new UrlResolver(
                         new UrlMapping(handlerStatic, path: "/static"),
@@ -242,10 +242,10 @@ namespace RT.Servers.Tests
             }
         }
 
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestKeepaliveAndChunked()
         {
-            HttpServer instance = new HttpServer(ProgramServersTests.Port) { Handler = handlerDynamic };
+            HttpServer instance = new HttpServer(TestHelpers.Port) { Handler = handlerDynamic };
             try
             {
                 instance.StartListening();
@@ -254,7 +254,7 @@ namespace RT.Servers.Tests
                 Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
 
                 TcpClient cl = new TcpClient();
-                cl.Connect("localhost", ProgramServersTests.Port);
+                cl.Connect("localhost", TestHelpers.Port);
                 cl.ReceiveTimeout = 1000; // 1 sec
                 Socket sck = cl.Client;
 

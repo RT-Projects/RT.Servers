@@ -1,12 +1,12 @@
 ﻿using System.Linq;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace RT.Servers.Tests
 {
-    [TestFixture]
+    [TestClass]
     public sealed class HttpUrlTests
     {
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestUrlModification()
         {
             IHttpUrl url;

@@ -1,13 +1,13 @@
 ﻿using System.Linq;
 using System.Net.Sockets;
 using System.Text;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RT.Json;
 using RT.Util.ExtensionMethods;
 
 namespace RT.Servers.Tests
 {
-    [TestFixture]
+    [TestClass]
     public sealed class AjaxHandlerTests
     {
         sealed class TempObject { public int Value; }
@@ -30,10 +30,10 @@ namespace RT.Servers.Tests
             public TempObject ConvertTempObject(int tempObj) => new TempObject { Value = tempObj };
         }
 
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestErrorHandlerExceptions()
         {
-            var instance = new HttpServer(ProgramServersTests.Port, new HttpServerOptions { OutputExceptionInformation = true });
+            var instance = new HttpServer(TestHelpers.Port, new HttpServerOptions { OutputExceptionInformation = true });
             try
             {
                 var ajaxHandler = new AjaxHandler<Ajax>();
@@ -44,7 +44,7 @@ namespace RT.Servers.Tests
                 (HttpStatusCode status, string response) getResponse(string method, string payload)
                 {
                     TcpClient cl = new TcpClient();
-                    cl.Connect("localhost", ProgramServersTests.Port);
+                    cl.Connect("localhost", TestHelpers.Port);
                     cl.ReceiveTimeout = 1000; // 1 sec
                     var payloadFull = "data=" + payload.ToUtf8().Select(b => "%" + b.ToString("X2")).JoinString();
                     cl.Client.Send($"POST /{method} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {payloadFull.Utf8Length()}\r\n\r\n{payloadFull}".ToUtf8());

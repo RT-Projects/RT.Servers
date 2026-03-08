@@ -2,16 +2,16 @@
 using System.IO;
 using System.Linq;
 using System.Text;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RT.Util.ExtensionMethods;
 using RT.Util.Streams;
 
 namespace RT.Servers.Tests
 {
-    [TestFixture]
+    [TestClass]
     public sealed class RequestParseTests
     {
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestParseGet()
         {
             string testQueryString1 = "apple=bravery&cooking=dinner&elephant=foxtrot&ghost=hangman";
@@ -59,7 +59,7 @@ namespace RT.Servers.Tests
             }
         }
 
-        [Test]
+        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
         public void TestParsePost()
         {
             string inputStr = @"-----------------------------265001916915724
