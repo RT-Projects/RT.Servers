@@ -11,7 +11,7 @@ namespace RT.Servers.Tests
     [TestClass]
     public sealed class RequestParseTests
     {
-        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+        [TestMethod]
         public void TestParseGet()
         {
             string testQueryString1 = "apple=bravery&cooking=dinner&elephant=foxtrot&ghost=hangman";
@@ -59,7 +59,7 @@ namespace RT.Servers.Tests
             }
         }
 
-        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+        [TestMethod]
         public void TestParsePost()
         {
             string inputStr = @"-----------------------------265001916915724

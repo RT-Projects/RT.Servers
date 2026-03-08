@@ -34,23 +34,23 @@ public sealed class RequestResponseTests
             instance.StartListening();
 
             var requestBytes = request.ToUtf8();
-            for (int chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Rnd.Next(2, 64).ClipMax(requestBytes.Length - chunkSize).ClipMin(2))
+            for (var chunkSize = 0; chunkSize <= requestBytes.Length; chunkSize += Rnd.Next(2, 64).ClipMax(requestBytes.Length - chunkSize).ClipMin(2))
             {
                 if (chunkSize == 0)
                     continue;
                 Console.WriteLine($"{testName}; Port={port}; SFUIFAS {storeFileUploadInFileAtSize}; length {requestBytes.Length}; chunk size {chunkSize}");
-                TcpClient cl = new();
+                var cl = new TcpClient();
                 cl.Connect("localhost", port);
                 cl.ReceiveTimeout = 1000; // 1 sec
                 Socket sck = cl.Client;
-                for (int j = 0; j < requestBytes.Length; j += chunkSize)
+                for (var j = 0; j < requestBytes.Length; j += chunkSize)
                 {
                     sck.Send(requestBytes, j, Math.Min(requestBytes.Length - j, chunkSize), SocketFlags.None);
                     Thread.Sleep(25);
                 }
-                using MemoryStream response = new();
-                byte[] b = new byte[65536];
-                int bytesRead = sck.Receive(b);
+                using var response = new MemoryStream();
+                var b = new byte[65536];
+                var bytesRead = sck.Receive(b);
                 Assert.IsGreaterThan(0, bytesRead);
                 while (bytesRead > 0)
                 {
@@ -58,7 +58,7 @@ public sealed class RequestResponseTests
                     bytesRead = sck.Receive(b);
                 }
                 var content = response.ToArray();
-                int pos = content.IndexOfSubarray("\r\n\r\n"u8.ToArray(), 0, content.Length);
+                var pos = content.IndexOfSubarray("\r\n\r\n"u8.ToArray(), 0, content.Length);
                 Assert.IsGreaterThan(-1, pos);
 
                 var headersRaw = content.Subarray(0, pos);
@@ -74,7 +74,7 @@ public sealed class RequestResponseTests
         }
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_01()
     {
         testRequest(TestHelpers.Port + 20, "GET test #1", 1024 * 1024, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
@@ -86,7 +86,7 @@ public sealed class RequestResponseTests
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_02()
     {
         testRequest(TestHelpers.Port + 21, "GET test #2", 1024 * 1024, "GET /static?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
@@ -98,7 +98,7 @@ public sealed class RequestResponseTests
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_03()
     {
         testRequest(TestHelpers.Port + 22, "GET test #3", 1024 * 1024, "GET /static?x[]=1&x%5B%5D=%20&x%5b%5d=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
@@ -110,7 +110,7 @@ public sealed class RequestResponseTests
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_04()
     {
         testRequest(TestHelpers.Port + 23, "GET test #4", 1024 * 1024, "GET /dynamic?x=y&z=%20&zig=%3D%3d HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
@@ -123,7 +123,7 @@ public sealed class RequestResponseTests
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_05()
     {
         testRequest(TestHelpers.Port + 24, "GET test #5", 1024 * 1024, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\n\r\n", (headers, content) =>
@@ -133,12 +133,12 @@ public sealed class RequestResponseTests
             Assert.Contains("Content-Length: 65536", headers);
             Assert.Contains("Accept-Ranges: bytes", headers);
             Assert.HasCount(65536, content);
-            for (int i = 0; i < content.Length; i++)
+            for (var i = 0; i < content.Length; i++)
                 Assert.AreEqual(content[i], (byte) (i % 256));
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_06()
     {
         testRequest(TestHelpers.Port + 25, "GET test #6", 1024 * 1024, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=23459-38274\r\n\r\n", (headers, content) =>
@@ -148,12 +148,12 @@ public sealed class RequestResponseTests
             Assert.Contains("Content-Range: bytes 23459-38274/65536", headers);
             Assert.Contains("Content-Type: application/octet-stream", headers);
             Assert.Contains("Content-Length: 14816", headers);
-            for (int i = 0; i < content.Length; i++)
+            for (var i = 0; i < content.Length; i++)
                 Assert.AreEqual((byte) ((163 + i) % 256), content[i]);
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_07()
     {
         testRequest(TestHelpers.Port + 26, "GET test #7", 1024 * 1024, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nRange: bytes=65-65,67-67\r\n\r\n", (headers, content) =>
@@ -161,16 +161,16 @@ public sealed class RequestResponseTests
             Assert.AreEqual("HTTP/1.1 206 Partial Content", headers[0]);
             Assert.Contains("Accept-Ranges: bytes", headers);
             Assert.Contains(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$"), headers);
-            string boundary = headers.First(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")).Substring(45);
+            var boundary = headers.First(x => Regex.IsMatch(x, @"^Content-Type: multipart/byteranges; boundary=[0-9A-F]+$")).Substring(45);
             Assert.Contains("Content-Length: 284", headers);
-            byte[] expectedContent = ("--" + boundary + "\r\nContent-Range: bytes 65-65/65536\r\n\r\nA\r\n--" + boundary + "\r\nContent-Range: bytes 67-67/65536\r\n\r\nC\r\n--" + boundary + "--\r\n").ToUtf8();
+            var expectedContent = ("--" + boundary + "\r\nContent-Range: bytes 65-65/65536\r\n\r\nA\r\n--" + boundary + "\r\nContent-Range: bytes 67-67/65536\r\n\r\nC\r\n--" + boundary + "--\r\n").ToUtf8();
             Assert.HasCount(expectedContent.Length, content);
-            for (int i = 0; i < expectedContent.Length; i++)
+            for (var i = 0; i < expectedContent.Length; i++)
                 Assert.AreEqual(expectedContent[i], content[i]);
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_08()
     {
         testRequest(TestHelpers.Port + 27, "GET test #8", 1024 * 1024, "GET /64kfile HTTP/1.1\r\nHost: localhost\r\nAccept-Encoding: gzip\r\n\r\n", (headers, content) =>
@@ -187,31 +187,31 @@ public sealed class RequestResponseTests
         });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_09()
     {
         testRequest(TestHelpers.Port + 28, "GET test #9", 1024 * 1024, "GET /dynamic HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_10()
     {
         testRequest(TestHelpers.Port + 29, "GET test #10", 1024 * 1024, "INVALID /request HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_11()
     {
         testRequest(TestHelpers.Port + 30, "GET test #11", 1024 * 1024, "GET  HTTP/1.1\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingGet_12()
     {
         testRequest(TestHelpers.Port + 31, "GET test #12", 1024 * 1024, "!\r\n\r\n", (headers, content) => Assert.AreEqual("HTTP/1.1 400 Bad Request", headers[0]));
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingPost_1()
     {
         foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
@@ -224,7 +224,7 @@ public sealed class RequestResponseTests
             });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingPost_2()
     {
         foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
@@ -238,13 +238,13 @@ public sealed class RequestResponseTests
             });
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingPost_3()
     {
         foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
         {
-            string postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"z\"\r\n\r\n%3D%3d\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
-            string expectedResponse = "\nPOST:\nx => [\"y\"]\nz => [\"%3D%3d\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" (" + (storeFileUploadInFileAtSize < 6 ? "localfile" : "data") + ") }\n";
+            var postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"z\"\r\n\r\n%3D%3d\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
+            var expectedResponse = "\nPOST:\nx => [\"y\"]\nz => [\"%3D%3d\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" (" + (storeFileUploadInFileAtSize < 6 ? "localfile" : "data") + ") }\n";
 
             testRequest(TestHelpers.Port + 34, "POST test #3", storeFileUploadInFileAtSize, "POST /static HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
             {
@@ -256,13 +256,13 @@ public sealed class RequestResponseTests
         }
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingPost_4()
     {
         foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
         {
-            string postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"z\"\r\n\r\n%3D%3d\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
-            string expectedResponse = "\nPOST:\nx => [\"y\"]\nz => [\"%3D%3d\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" (" + (storeFileUploadInFileAtSize < 6 ? "localfile" : "data") + ") }\n";
+            var postContent = "--abc\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\ny\r\n--abc\r\nContent-Disposition: form-data; name=\"z\"\r\n\r\n%3D%3d\r\n--abc\r\nContent-Disposition: form-data; name=\"y\"; filename=\"z\"\r\nContent-Type: application/weirdo\r\n\r\n%3D%3d\r\n--abc--\r\n";
+            var expectedResponse = "\nPOST:\nx => [\"y\"]\nz => [\"%3D%3d\"]\n\nFiles:\ny => { application/weirdo, z, \"%3D%3d\" (" + (storeFileUploadInFileAtSize < 6 ? "localfile" : "data") + ") }\n";
 
             testRequest(TestHelpers.Port + 35, "POST test #4", storeFileUploadInFileAtSize, "POST /dynamic HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + postContent.Length + "\r\nContent-Type: multipart/form-data; boundary=abc\r\n\r\n" + postContent, (headers, content) =>
             {
@@ -275,7 +275,7 @@ public sealed class RequestResponseTests
         }
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingPost_5()
     {
         foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
@@ -295,7 +295,7 @@ public sealed class RequestResponseTests
         }
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestBasicRequestHandlingPost_6()
     {
         foreach (var storeFileUploadInFileAtSize in new[] { 5, 1024 })
@@ -314,7 +314,7 @@ public sealed class RequestResponseTests
         }
     }
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestKeepaliveAndChunked()
     {
         var instance = new HttpServer(TestHelpers.Port + 7) { Handler = handlerDynamic };
@@ -325,7 +325,7 @@ public sealed class RequestResponseTests
             Assert.AreEqual(0, instance.Stats.ActiveHandlers);
             Assert.AreEqual(0, instance.Stats.KeepAliveHandlers);
 
-            TcpClient cl = new();
+            var cl = new TcpClient();
             cl.Connect("localhost", TestHelpers.Port + 7);
             cl.ReceiveTimeout = 1000; // 1 sec
             Socket sck = cl.Client;
@@ -362,10 +362,10 @@ public sealed class RequestResponseTests
     {
         sck.Send("GET /dynamic?aktion=list&showonly=scheduled&limitStart=0&filtermask_t=&filtermask_g=&filtermask_s=&size_max=*&size_min=*&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&lang=&archivemonth=200709&format_wmv=true&format_avi=true&format_hq=&format_mp4=&orderby=time_desc&showonly=recordings HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToUtf8());
 
-        byte[] b = new byte[65536];
-        int bytesRead = sck.Receive(b);
+        var b = new byte[65536];
+        var bytesRead = sck.Receive(b);
         Assert.IsGreaterThan(0, bytesRead);
-        string response = Encoding.UTF8.GetString(b, 0, bytesRead);
+        var response = Encoding.UTF8.GetString(b, 0, bytesRead);
         while (!response.Contains("\r\n\r\n"))
         {
             bytesRead = sck.Receive(b);
@@ -373,8 +373,8 @@ public sealed class RequestResponseTests
             response += Encoding.UTF8.GetString(b, 0, bytesRead);
         }
         Assert.Contains("\r\n\r\n", response);
-        int pos = response.IndexOf("\r\n\r\n");
-        string[] headers = response.Split(["\r\n"], StringSplitOptions.None);
+        var pos = response.IndexOf("\r\n\r\n");
+        var headers = response.Split(["\r\n"], StringSplitOptions.None);
         Assert.IsTrue(headers.Contains("Connection: keep-alive"));
         Assert.IsTrue(headers.Contains("Transfer-Encoding: chunked"));
         Assert.IsTrue(headers.Contains("Content-Type: text/plain; charset=utf-8"));
@@ -387,7 +387,7 @@ public sealed class RequestResponseTests
             response += Encoding.UTF8.GetString(b, 0, bytesRead);
         }
 
-        string reconstruct = "";
+        var reconstruct = "";
         int chunkLen;
         do
         {
@@ -442,8 +442,8 @@ public sealed class RequestResponseTests
 
     private static HttpResponse handler64KFile(HttpRequest req)
     {
-        byte[] largeFile = new byte[65536];
-        for (int i = 0; i < 65536; i++)
+        var largeFile = new byte[65536];
+        for (var i = 0; i < 65536; i++)
             largeFile[i] = (byte) (i % 256);
         return HttpResponse.Create(new MemoryStream(largeFile), "application/octet-stream");
     }

@@ -14,7 +14,7 @@ static class TestHelpers
     public static byte[] ReceiveAllBytes(this Socket socket)
     {
         byte[] buffer = new byte[32768];
-        using MemoryStream ms = new();
+        using var ms = new MemoryStream();
         while (true)
         {
             int read = socket.Receive(buffer, 0, buffer.Length, SocketFlags.None);

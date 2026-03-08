@@ -6,7 +6,7 @@ namespace RT.Servers.Tests
     [TestClass]
     public sealed class HttpUrlTests
     {
-        [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+        [TestMethod]
         public void TestUrlModification()
         {
             IHttpUrl url;

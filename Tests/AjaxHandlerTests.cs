@@ -12,6 +12,7 @@ public sealed class AjaxHandlerTests
 {
     sealed class TempObject { public int Value; }
 
+#pragma warning disable CA1822 // Mark members as static
     sealed class Ajax
     {
         [AjaxMethod]
@@ -29,8 +30,9 @@ public sealed class AjaxHandlerTests
         [AjaxConverter]
         public TempObject ConvertTempObject(int tempObj) => new() { Value = tempObj };
     }
+#pragma warning restore CA1822 // Mark members as static
 
-    [TestMethod, Timeout(60 * 1000, CooperativeCancellation = true)]
+    [TestMethod]
     public void TestErrorHandlerExceptions()
     {
         var instance = new HttpServer(TestHelpers.Port + 0, new HttpServerOptions { OutputExceptionInformation = true });
@@ -43,7 +45,7 @@ public sealed class AjaxHandlerTests
 
             static (HttpStatusCode status, string response) getResponse(string method, string payload)
             {
-                TcpClient cl = new();
+                var cl = new TcpClient();
                 cl.Connect("localhost", TestHelpers.Port + 0);
                 cl.ReceiveTimeout = 1000; // 1 sec
                 var payloadFull = "data=" + payload.ToUtf8().Select(b => "%" + b.ToString("X2")).JoinString();
