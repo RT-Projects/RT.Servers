@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36310.24
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11415.280 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RT.Servers.Tests", "Tests\RT.Servers.Tests.csproj", "{BA03D048-E465-4B80-B12A-93D21C485678}"
 EndProject
@@ -51,10 +51,10 @@ Global
 		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
 		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F1977A9D-DE51-0354-3C51-C1D9DB4A5520}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
-		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-locallibs|Any CPU.Build.0 = Debug|Any CPU
-		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-Nuget|Any CPU.ActiveCfg = Debug|Any CPU
-		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-Nuget|Any CPU.Build.0 = Debug|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-locallibs|Any CPU.ActiveCfg = Debug-locallibs|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-locallibs|Any CPU.Build.0 = Debug-locallibs|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-Nuget|Any CPU.ActiveCfg = Debug-Nuget|Any CPU
+		{A8AF4D43-0B8E-C450-615E-359760C39298}.Debug-Nuget|Any CPU.Build.0 = Debug-Nuget|Any CPU
 		{A8AF4D43-0B8E-C450-615E-359760C39298}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A8AF4D43-0B8E-C450-615E-359760C39298}.Release|Any CPU.Build.0 = Release|Any CPU
 		{76D1A32D-9517-0EA6-E30E-4AD373155FDD}.Debug-locallibs|Any CPU.ActiveCfg = Debug|Any CPU
