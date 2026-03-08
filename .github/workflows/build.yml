@@ -44,13 +44,13 @@ jobs:
         run: dotnet msbuild /t:restore /p:Configuration=Release Tests
 
       - name: dotnet test Tests
-        run: dotnet test Tests --framework net481
+        run: dotnet test Tests
 
       - name: "dotnet pack: ${{ env.VER_STR }}"
-        run: dotnet pack Src/RT.Servers.csproj --configuration Release -p:InformationalVersion="${{env.VER_STR}}" -p:VersionPrefix=${{env.VER_NUM}} -p:VersionSuffix=${{env.VER_SUF}} -p:FileVersion=${{env.VER_NUM}} -p:AssemblyVersion=${{env.VER_NUM}} -o Publish
+        run: dotnet pack Src\RT.Servers.csproj --configuration Release -p:InformationalVersion="${{env.VER_STR}}" -p:VersionPrefix=${{env.VER_NUM}} -p:VersionSuffix=${{env.VER_SUF}} -p:FileVersion=${{env.VER_NUM}} -p:AssemblyVersion=${{env.VER_NUM}} -o Publish
 
       - name: Push to NuGet
-        run: dotnet nuget push Publish/*.nupkg -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json
+        run: dotnet nuget push Publish\*.nupkg -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
