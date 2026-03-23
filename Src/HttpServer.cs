@@ -449,7 +449,7 @@ namespace RT.Servers
                     _stream = secureStream;
 
                     secureStream.BeginAuthenticateAsServer(
-                        // select the most appropriate certificate.
+                        // Select the most appropriate certificate
                         serverCertificate: server.Options.CertificateResolver?.Invoke(sniHost)
                             ?? server.Options.Certificates?.Get(sniHost, null)?.GetCertificate()
                             ?? server.Options.Certificate?.GetCertificate(),
@@ -500,7 +500,6 @@ namespace RT.Servers
                 }
                 catch (Exception e)
                 {
-
                     Socket.Close();
                     _server.ResponseExceptionHandler?.Invoke(null, e, null);
                     return;
@@ -630,7 +629,7 @@ namespace RT.Servers
             ///     whatever got received.</summary>
             private void processHeaderData()
             {
-                start:;
+            start:;
 
                 // Request more header data if we have none
                 // (This only happens if we just finished a request and are in a keep-alive connection which has
@@ -751,7 +750,7 @@ namespace RT.Servers
                         return;
                     }
 
-                    notWebsocket:
+                notWebsocket:
                     var responseContent = (HttpResponseContent) response;
                     try { connectionKeepAlive = outputResponse(responseContent, responseContent.Status, headers, contentStream, responseContent.UseGzip, originalRequest); }
                     catch (SocketException) { Socket.Close(); return; }
