@@ -441,30 +441,46 @@ namespace RT.Servers
                     server._activeConnectionHandlers.Add(this);
 
                 _stream = new NetworkStream(socket, ownsSocket: true);
-                if (_secure)
+                if (!_secure)
+                    receiveMoreHeaderData();
+                else if (_server.PropagateExceptions)
+                    beginAuthenticateAsServer(server);
+                else
                 {
-                    var sniReader = new SniReaderStream(_stream);
-                    var sniHost = sniReader.PeekAtSniHost();
-                    var secureStream = new SslStream(sniReader);
-                    _stream = secureStream;
+                    try
+                    {
+                        beginAuthenticateAsServer(server);
+                    }
+                    catch (Exception e)
+                    {
+                        _server.Log.Exception(e);
+                        try { Socket.Close(); } catch { }
+                    }
+                }
+            }
 
-                    secureStream.BeginAuthenticateAsServer(
-                        // Select the most appropriate certificate
-                        serverCertificate: server.Options.CertificateResolver?.Invoke(sniHost)
-                            ?? server.Options.Certificates?.Get(sniHost, null)?.GetCertificate()
-                            ?? server.Options.Certificate?.GetCertificate(),
-                        enabledSslProtocols: SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12,
-                        clientCertificateRequired: false,
-                        checkCertificateRevocation: true,
-                        asyncState: null,
-                        asyncCallback: ar =>
+            private void beginAuthenticateAsServer(HttpServer server)
+            {
+                var sniReader = new SniReaderStream(_stream);
+                var sniHost = sniReader.PeekAtSniHost();
+                var secureStream = new SslStream(sniReader);
+                _stream = secureStream;
+
+                secureStream.BeginAuthenticateAsServer(
+                    // Select the most appropriate certificate
+                    serverCertificate: server.Options.CertificateResolver?.Invoke(sniHost)
+                        ?? server.Options.Certificates?.Get(sniHost, null)?.GetCertificate()
+                        ?? server.Options.Certificate?.GetCertificate(),
+                    enabledSslProtocols: SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12,
+                    clientCertificateRequired: false,
+                    checkCertificateRevocation: true,
+                    asyncState: null,
+                    asyncCallback: ar =>
+                    {
+                        if (_server.PropagateExceptions)
+                            asyncCallbackTryBlock(ar, secureStream);
+                        else
                         {
-                            if (_server.PropagateExceptions)
-                            {
-                                asyncCallbackTryBlock(ar, secureStream);
-                                return;
-                            }
-
                             try
                             {
                                 asyncCallbackTryBlock(ar, secureStream);
@@ -475,15 +491,10 @@ namespace RT.Servers
                                 // unexpected SocketExceptions; some of the code can cause RemotingExceptions when the handler
                                 // runs in another AppDomain; etc.
                                 _server.Log.Exception(e);
-
                                 try { Socket.Close(); } catch { }
                             }
-                        });
-                }
-                else
-                {
-                    receiveMoreHeaderData();
-                }
+                        }
+                    });
             }
 
             private void asyncCallbackTryBlock(IAsyncResult ar, SslStream secureStream)
