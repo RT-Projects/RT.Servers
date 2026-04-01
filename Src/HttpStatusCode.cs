@@ -1,97 +1,96 @@
-﻿
-namespace RT.Servers
+
+namespace RT.Servers;
+
+/// <summary>Contains definitions for all the HTTP status codes defined in HTTP/1.1.</summary>
+public enum HttpStatusCode
 {
-    /// <summary>Contains definitions for all the HTTP status codes defined in HTTP/1.1.</summary>
-    public enum HttpStatusCode
-    {
 #pragma warning disable 1591    // Missing XML comment for publicly visible type or member
 
-        // Informational 1xx
-        _100_Continue = 100,
-        _101_SwitchingProtocols = 101,
+    // Informational 1xx
+    _100_Continue = 100,
+    _101_SwitchingProtocols = 101,
 
-        // Successful 2xx
-        _200_OK = 200,
-        _201_Created = 201,
-        _202_Accepted = 202,
-        _203_NonAuthoritativeInformation = 203,
-        _204_NoContent = 204,
-        _205_ResetContent = 205,
-        _206_PartialContent = 206,
+    // Successful 2xx
+    _200_OK = 200,
+    _201_Created = 201,
+    _202_Accepted = 202,
+    _203_NonAuthoritativeInformation = 203,
+    _204_NoContent = 204,
+    _205_ResetContent = 205,
+    _206_PartialContent = 206,
 
-        // Redirection 3xx
-        _300_MultipleChoices = 300,
-        _301_MovedPermanently = 301,
-        _302_Found = 302,
-        _303_SeeOther = 303,
-        _304_NotModified = 304,
-        _305_UseProxy = 305,
-        _306__Unused = 306,
-        _307_TemporaryRedirect = 307,
+    // Redirection 3xx
+    _300_MultipleChoices = 300,
+    _301_MovedPermanently = 301,
+    _302_Found = 302,
+    _303_SeeOther = 303,
+    _304_NotModified = 304,
+    _305_UseProxy = 305,
+    _306__Unused = 306,
+    _307_TemporaryRedirect = 307,
 
-        // Client Error 4xx
-        _400_BadRequest = 400,
-        _401_Unauthorized = 401,
-        _402_PaymentRequired = 402,
-        _403_Forbidden = 403,
-        _404_NotFound = 404,
-        _405_MethodNotAllowed = 405,
-        _406_NotAcceptable = 406,
-        _407_ProxyAuthenticationRequired = 407,
-        _408_RequestTimeout = 408,
-        _409_Conflict = 409,
-        _410_Gone = 410,
-        _411_LengthRequired = 411,
-        _412_PreconditionFailed = 412,
-        _413_RequestEntityTooLarge = 413,
-        _414_RequestUriTooLong = 414,
-        _415_UnsupportedMediaType = 415,
-        _416_RequestedRangeNotSatisfiable = 416,
-        _417_ExpectationFailed = 417,
+    // Client Error 4xx
+    _400_BadRequest = 400,
+    _401_Unauthorized = 401,
+    _402_PaymentRequired = 402,
+    _403_Forbidden = 403,
+    _404_NotFound = 404,
+    _405_MethodNotAllowed = 405,
+    _406_NotAcceptable = 406,
+    _407_ProxyAuthenticationRequired = 407,
+    _408_RequestTimeout = 408,
+    _409_Conflict = 409,
+    _410_Gone = 410,
+    _411_LengthRequired = 411,
+    _412_PreconditionFailed = 412,
+    _413_RequestEntityTooLarge = 413,
+    _414_RequestUriTooLong = 414,
+    _415_UnsupportedMediaType = 415,
+    _416_RequestedRangeNotSatisfiable = 416,
+    _417_ExpectationFailed = 417,
 
-        // Server Error 5xx
-        _500_InternalServerError = 500,
-        _501_NotImplemented = 501,
-        _502_BadGateway = 502,
-        _503_ServiceUnavailable = 503,
-        _504_GatewayTimeout = 504,
-        _505_HttpVersionNotSupported = 505
+    // Server Error 5xx
+    _500_InternalServerError = 500,
+    _501_NotImplemented = 501,
+    _502_BadGateway = 502,
+    _503_ServiceUnavailable = 503,
+    _504_GatewayTimeout = 504,
+    _505_HttpVersionNotSupported = 505
 
 #pragma warning restore 1591    // Missing XML comment for publicly visible type or member
 
+}
+
+/// <summary>Extension methods for <see cref="HttpStatusCode"/>.</summary>
+public static class HttpStatusCodeExtensions
+{
+    /// <summary>
+    ///     Returns a string representation of the specified HTTP status code.</summary>
+    /// <param name="code">
+    ///     The status code to return a string representation for.</param>
+    /// <returns>
+    ///     A string representation of the specified HTTP status code.</returns>
+    public static string ToText(this HttpStatusCode code)
+    {
+        return HttpInternalObjects.StatusCodeNames.ContainsKey(code)
+            ? HttpInternalObjects.StatusCodeNames[code]
+            : "Unknown status code";
     }
 
-    /// <summary>Extension methods for <see cref="HttpStatusCode"/>.</summary>
-    public static class HttpStatusCodeExtensions
+    /// <summary>
+    ///     Determines whether an HTTP response with the specified <paramref name="statusCode"/> is allowed to have a body
+    ///     (i.e. a non-null content stream).</summary>
+    /// <param name="statusCode">
+    ///     The HTTP status code to examine.</param>
+    /// <returns>
+    ///     A boolean value that indicates whether an HTTP response with the specified <paramref name="statusCode"/> is
+    ///     allowed to have a body.</returns>
+    public static bool MayHaveBody(this HttpStatusCode statusCode)
     {
-        /// <summary>
-        ///     Returns a string representation of the specified HTTP status code.</summary>
-        /// <param name="code">
-        ///     The status code to return a string representation for.</param>
-        /// <returns>
-        ///     A string representation of the specified HTTP status code.</returns>
-        public static string ToText(this HttpStatusCode code)
-        {
-            return HttpInternalObjects.StatusCodeNames.ContainsKey(code)
-                ? HttpInternalObjects.StatusCodeNames[code]
-                : "Unknown status code";
-        }
+        // All 1xx status codes
+        if ((int) statusCode / 100 == 1)
+            return false;
 
-        /// <summary>
-        ///     Determines whether an HTTP response with the specified <paramref name="statusCode"/> is allowed to have a body
-        ///     (i.e. a non-null content stream).</summary>
-        /// <param name="statusCode">
-        ///     The HTTP status code to examine.</param>
-        /// <returns>
-        ///     A boolean value that indicates whether an HTTP response with the specified <paramref name="statusCode"/> is
-        ///     allowed to have a body.</returns>
-        public static bool MayHaveBody(this HttpStatusCode statusCode)
-        {
-            // All 1xx status codes
-            if ((int) statusCode / 100 == 1)
-                return false;
-
-            return statusCode != HttpStatusCode._204_NoContent && statusCode != HttpStatusCode._304_NotModified;
-        }
+        return statusCode != HttpStatusCode._204_NoContent && statusCode != HttpStatusCode._304_NotModified;
     }
 }

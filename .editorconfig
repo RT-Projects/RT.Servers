@@ -93,9 +93,9 @@ csharp_style_expression_bodied_accessors = true
 csharp_style_expression_bodied_constructors = false
 csharp_style_expression_bodied_indexers = true
 csharp_style_expression_bodied_lambdas = true
-csharp_style_expression_bodied_local_functions = false
-csharp_style_expression_bodied_methods = false
-csharp_style_expression_bodied_operators = false
+csharp_style_expression_bodied_local_functions = true
+csharp_style_expression_bodied_methods = true
+csharp_style_expression_bodied_operators = true
 csharp_style_expression_bodied_properties = true
 
 # Pattern matching preferences
@@ -199,13 +199,13 @@ dotnet_naming_rule.types_should_be_pascal_case.severity = suggestion
 dotnet_naming_rule.types_should_be_pascal_case.symbols = types
 dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case
 
-dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = suggestion
-dotnet_naming_rule.non_field_members_should_be_pascal_case.symbols = non_field_members
-dotnet_naming_rule.non_field_members_should_be_pascal_case.style = pascal_case
+dotnet_naming_rule.public_non_field_members_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.public_non_field_members_should_be_pascal_case.symbols = public_non_field_members
+dotnet_naming_rule.public_non_field_members_should_be_pascal_case.style = pascal_case
 
-dotnet_naming_rule.private_method_should_be_camel_case.severity = suggestion
-dotnet_naming_rule.private_method_should_be_camel_case.symbols = private_method
-dotnet_naming_rule.private_method_should_be_camel_case.style = camel_case
+dotnet_naming_rule.private_non_field_members_should_be_camel_case.severity = suggestion
+dotnet_naming_rule.private_non_field_members_should_be_camel_case.symbols = private_non_field_members
+dotnet_naming_rule.private_non_field_members_should_be_camel_case.style = camel_case
 
 dotnet_naming_rule.private_or_internal_field_should_be_begins_with__.severity = suggestion
 dotnet_naming_rule.private_or_internal_field_should_be_begins_with__.symbols = private_or_internal_field
@@ -225,13 +225,13 @@ dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum
 dotnet_naming_symbols.types.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
 dotnet_naming_symbols.types.required_modifiers =
 
-dotnet_naming_symbols.non_field_members.applicable_kinds = property, event, method
-dotnet_naming_symbols.non_field_members.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
-dotnet_naming_symbols.non_field_members.required_modifiers =
+dotnet_naming_symbols.public_non_field_members.applicable_kinds = property, event, method
+dotnet_naming_symbols.public_non_field_members.applicable_accessibilities = public, internal
+dotnet_naming_symbols.public_non_field_members.required_modifiers =
 
-dotnet_naming_symbols.private_method.applicable_kinds = method
-dotnet_naming_symbols.private_method.applicable_accessibilities = private
-dotnet_naming_symbols.private_method.required_modifiers =
+dotnet_naming_symbols.private_non_field_members.applicable_kinds = property, event, method
+dotnet_naming_symbols.private_non_field_members.applicable_accessibilities = private, protected, protected_internal, private_protected
+dotnet_naming_symbols.private_non_field_members.required_modifiers =
 
 dotnet_naming_symbols.private_or_internal_field.applicable_kinds = field
 dotnet_naming_symbols.private_or_internal_field.applicable_accessibilities = internal, private
@@ -325,3 +325,6 @@ dotnet_diagnostic.SYSLIB1045.severity = none
 
 # CA1859: Use concrete types when possible for improved performance
 dotnet_diagnostic.CA1859.severity = none
+
+# IDE0305: Let me use .ToArray()/.ToList()
+dotnet_diagnostic.IDE0305.severity = none
