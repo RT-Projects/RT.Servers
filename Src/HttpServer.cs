@@ -245,56 +245,46 @@ public class HttpServer
 
     private void acceptSocket(IAsyncResult result, string key)
     {
-#if DEBUG
-        // Workaround for bug in .NET 4.0 and 4.5:
-        // https://connect.microsoft.com/VisualStudio/feedback/details/535917
-        new Thread(() =>
-#endif
-        {
-            // Ensure that this callback is really due to a new connection (might be due to listening socket closure)
-            if (!IsListening)
-                return;
+        // Ensure that this callback is really due to a new connection (might be due to listening socket closure)
+        if (!IsListening)
+            return;
 
-            // Get the socket
-            Socket socket = null;
-            try { socket = _listeningSockets[key].Socket.EndAccept(result); }
-            catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
-            catch (ObjectDisposedException) { }
+        // Get the socket
+        Socket socket = null;
+        try { socket = _listeningSockets[key].Socket.EndAccept(result); }
+        catch (SocketException) { } // can happen if the remote party has closed the socket while it was waiting for us to accept
+        catch (ObjectDisposedException) { }
+        catch (NullReferenceException) { if (_listeningSockets[key] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
+
+        // Schedule the next socket accept
+        if (_listeningSockets[key] != null)
+            try { _listeningSockets[key].Socket.BeginAccept(r => acceptSocket(r, key), null); }
             catch (NullReferenceException) { if (_listeningSockets[key] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
 
-            // Schedule the next socket accept
-            if (_listeningSockets[key] != null)
-                try { _listeningSockets[key].Socket.BeginAccept(r => acceptSocket(r, key), null); }
-                catch (NullReferenceException) { if (_listeningSockets[key] != null) throw; } // can happen if StopListening is called at precisely the "wrong" time
+        // Handle this connection
+        if (socket == null)
+            return;
 
-            // Handle this connection
-            if (socket == null)
-                return;
-
-            if (PropagateExceptions)
-                HandleConnection(socket, _listeningSockets[key].Secure);
-            else
+        if (PropagateExceptions)
+            HandleConnection(socket, _listeningSockets[key].Secure);
+        else
+        {
+            try
             {
+                HandleConnection(socket, _listeningSockets[key].Secure);
+            }
+            catch (Exception e)
+            {
+                try { socket.Close(); }
+                catch { }
                 try
                 {
-                    HandleConnection(socket, _listeningSockets[key].Secure);
+                    _log.Error("{0} ({1})".Fmt(e.Message, e.GetType().FullName));
+                    _log.Error(e.StackTrace);
                 }
-                catch (Exception e)
-                {
-                    try { socket.Close(); }
-                    catch { }
-                    try
-                    {
-                        _log.Error("{0} ({1})".Fmt(e.Message, e.GetType().FullName));
-                        _log.Error(e.StackTrace);
-                    }
-                    catch { }
-                }
+                catch { }
             }
         }
-#if DEBUG
-).Start();
-#endif
     }
 
     /// <summary>
@@ -505,6 +495,12 @@ public class HttpServer
                 secureStream.EndAuthenticateAsServer(ar);
             }
             catch (IOException io) when (io.Message == "Authentication failed because the remote party has closed the transport stream.")
+            {
+                // Very common exception that appears to be harmless
+                Socket.Close();
+                return;
+            }
+            catch (AuthenticationException auth) when (auth.Message == "Cannot determine the frame size or a corrupted frame was received.")
             {
                 // Very common exception that appears to be harmless
                 Socket.Close();
