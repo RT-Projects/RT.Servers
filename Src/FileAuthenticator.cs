@@ -25,7 +25,7 @@ public sealed class FileAuthenticator(string usersFilePath, Func<IHttpUrl, strin
     private static object _lock = new();
 
     /// <summary>See base.</summary>
-    protected override bool getUser(ref string username, out string passwordHash, out bool canCreateUsers)
+    protected override bool GetUser(ref string username, out string passwordHash, out bool canCreateUsers)
     {
         passwordHash = null;
         canCreateUsers = false;
@@ -50,7 +50,7 @@ public sealed class FileAuthenticator(string usersFilePath, Func<IHttpUrl, strin
     }
 
     /// <summary>See base.</summary>
-    protected override bool changePassword(string username, string newPasswordHash, Func<string, bool> verifyOldPasswordHash)
+    protected override bool ChangePassword(string username, string newPasswordHash, Func<string, bool> verifyOldPasswordHash)
     {
         lock (_lock)
         {
@@ -70,7 +70,7 @@ public sealed class FileAuthenticator(string usersFilePath, Func<IHttpUrl, strin
     }
 
     /// <summary>See base.</summary>
-    protected override bool createUser(string username, string passwordHash, bool canCreateUsers)
+    protected override bool TryCreateUser(string username, string passwordHash, bool canCreateUsers)
     {
         lock (_lock)
         {

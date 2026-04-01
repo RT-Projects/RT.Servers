@@ -226,11 +226,11 @@ dotnet_naming_symbols.types.applicable_accessibilities = public, internal, priva
 dotnet_naming_symbols.types.required_modifiers =
 
 dotnet_naming_symbols.public_non_field_members.applicable_kinds = property, event, method
-dotnet_naming_symbols.public_non_field_members.applicable_accessibilities = public, internal
+dotnet_naming_symbols.public_non_field_members.applicable_accessibilities = public, internal, protected, protected_internal
 dotnet_naming_symbols.public_non_field_members.required_modifiers =
 
 dotnet_naming_symbols.private_non_field_members.applicable_kinds = property, event, method
-dotnet_naming_symbols.private_non_field_members.applicable_accessibilities = private, protected, protected_internal, private_protected
+dotnet_naming_symbols.private_non_field_members.applicable_accessibilities = private, private_protected
 dotnet_naming_symbols.private_non_field_members.required_modifiers =
 
 dotnet_naming_symbols.private_or_internal_field.applicable_kinds = field

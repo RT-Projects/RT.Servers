@@ -53,7 +53,7 @@ public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, stri
         if (password == null)
             throw new ArgumentNullException("password");
 
-        if (!createUser(username, createHash(password), canCreateUsers))
+        if (!TryCreateUser(username, createHash(password), canCreateUsers))
             throw new InvalidOperationException("The specified user already exists.");
     }
 
@@ -71,7 +71,7 @@ public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, stri
     /// <remarks>
     ///     If the user does not exist, the overridden method must return <c>false</c> and not modify <paramref
     ///     name="username"/>.</remarks>
-    protected abstract bool getUser(ref string username, out string passwordHash, out bool canCreateUsers);
+    protected abstract bool GetUser(ref string username, out string passwordHash, out bool canCreateUsers);
 
     /// <summary>
     ///     When overridden in a derived class, attempts to change a user’s password.</summary>
@@ -85,7 +85,7 @@ public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, stri
     ///     <c>true</c> if the password was successfully changed; <c>false</c> if the specified user does not exist or
     ///     <paramref name="verifyOldPasswordHash"/> returned <c>false</c> indicating that the old password hash turned
     ///     out to be invalid.</returns>
-    protected abstract bool changePassword(string username, string newPasswordHash, Func<string, bool> verifyOldPasswordHash);
+    protected abstract bool ChangePassword(string username, string newPasswordHash, Func<string, bool> verifyOldPasswordHash);
 
     /// <summary>
     ///     When overridden in a derived class, creates a new user.</summary>
@@ -97,7 +97,7 @@ public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, stri
     ///     Specifies whether the new user has the right to create new users.</param>
     /// <returns>
     ///     <c>true</c> if a new user was created; <c>false</c> if <paramref name="username"/> is already taken.</returns>
-    protected abstract bool createUser(string username, string passwordHash, bool canCreateUsers);
+    protected abstract bool TryCreateUser(string username, string passwordHash, bool canCreateUsers);
 
     private HttpResponse logoutHandler(HttpRequest req, Action<string> setUsername)
     {
@@ -117,7 +117,7 @@ public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, stri
         if (username == null || password == null)
             return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo));
 
-        if (getUser(ref username, out var passwordHash, out var canCreateUsers) && verifyHash(password, passwordHash))
+        if (GetUser(ref username, out var passwordHash, out var canCreateUsers) && verifyHash(password, passwordHash))
         {
             // Login successful!
             setUsername(username);
@@ -147,7 +147,7 @@ public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, stri
         if (newpassword2 != newpassword)
             return changePasswordForm(loggedInUser, returnTo, false, true, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
 
-        if (!changePassword(loggedInUser, createHash(newpassword), h => verifyHash(oldpassword, h)))
+        if (!ChangePassword(loggedInUser, createHash(newpassword), h => verifyHash(oldpassword, h)))
             return changePasswordForm(loggedInUser, req.Url["returnto"], true, false, oldpassword, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
 
         return HttpResponse.Redirect(returnTo ?? _defaultReturnTo(req.Url));
@@ -167,14 +167,14 @@ public abstract class Authenticator(Func<IHttpUrl, string> defaultReturnTo, stri
             // if returnTo is null, this removes the query parameter
             return HttpResponse.Redirect(req.Url.WithQuery("returnto", returnTo));
 
-        if (!getUser(ref loggedInUserName, out var passwordHash, out var canCreateUsers) || !canCreateUsers)
+        if (!GetUser(ref loggedInUserName, out var passwordHash, out var canCreateUsers) || !canCreateUsers)
             throw new HttpException(HttpStatusCode._401_Unauthorized);
 
         if (newpassword2 != newpassword)
             // Passwords don’t match.
             return createUserForm(returnTo, false, true, username, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
 
-        if (!createUser(username, createHash(newpassword), false))
+        if (!TryCreateUser(username, createHash(newpassword), false))
             // The user already exists.
             return createUserForm(returnTo, true, false, username, newpassword, newpassword2, req.Url.WithoutQuery("returnto"));
 

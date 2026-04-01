@@ -20,7 +20,7 @@ public abstract class WebSocket : MarshalByRefObject
             throw new InvalidOperationException("You cannot re-use a WebSocket instance for multiple separate HTTP requests. Instead, construct a new WebSocket from within the request handler.");
 
         _serverSideSocket = serverSideSocket;
-        onBeginConnection();
+        OnBeginConnection();
     }
 
     /// <summary>See base.</summary>
@@ -40,19 +40,14 @@ public abstract class WebSocket : MarshalByRefObject
     ///         <item><description>
     ///             All exceptions thrown by your code are swallowed by default. Wrap your override in a try/catch in order to
     ///             handle or log your exceptions.</description></item></list></remarks>
-    protected virtual void onBeginConnection() { }
-
-    internal void OnEndConnection()
-    {
-        onEndConnection();
-    }
+    protected virtual void OnBeginConnection() { }
 
     /// <summary>
     ///     When overridden in a derived class, handles the event when the current WebSocket connection is closed.</summary>
     /// <remarks>
     ///     All exceptions thrown by your code are swallowed by default. Wrap your override in a try/catch in order to handle
     ///     or log your exceptions.</remarks>
-    protected virtual void onEndConnection() { }
+    protected internal virtual void OnEndConnection() { }
 
     /// <summary>
     ///     When overridden in a derived class, handles an incoming text message from the client.</summary>
@@ -61,8 +56,7 @@ public abstract class WebSocket : MarshalByRefObject
     /// <remarks>
     ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to handle
     ///     or log your exceptions.</remarks>
-    protected virtual void onTextMessageReceived(string msg) { }
-    internal void OnTextMessageReceived(string msg) { onTextMessageReceived(msg); }
+    protected internal virtual void OnTextMessageReceived(string msg) { }
 
     /// <summary>
     ///     When overridden in a derived class, handles an incoming binary message from the client.</summary>
@@ -71,8 +65,7 @@ public abstract class WebSocket : MarshalByRefObject
     /// <remarks>
     ///     All exceptions thrown by your code are swallowed by default. Wrap your handler in a try/catch in order to handle
     ///     or log your exceptions.</remarks>
-    protected virtual void onBinaryMessageReceived(byte[] msg) { }
-    internal void OnBinaryMessageReceived(byte[] msg) { onBinaryMessageReceived(msg); }
+    protected internal virtual void OnBinaryMessageReceived(byte[] msg) { }
 
     /// <summary>
     ///     Sends a binary message to the client.</summary>

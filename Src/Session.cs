@@ -56,7 +56,7 @@ public abstract class Session
 
     /// <summary>
     ///     True if a new session was created, or any of the cookie parameters were modified (such as <see
-    ///     cref="cookieExpires"/>).</summary>
+    ///     cref="CookieExpires"/>).</summary>
     [ClassifyIgnore]
     public bool CookieModified { get; set; }
 
@@ -76,7 +76,7 @@ public abstract class Session
     /// <remarks>
     ///     This property should always return the same value, otherwise the behaviour is undefined. The default
     ///     implementation returns <c>this.GetType().Name</c>.</remarks>
-    protected virtual string cookieName => GetType().Name;
+    protected virtual string CookieName => GetType().Name;
 
     /// <summary>
     ///     When overridden in a derived class, gets the applicable cookie Path for the cookie that contains the user’s
@@ -84,7 +84,7 @@ public abstract class Session
     /// <remarks>
     ///     This property should always return the same value, otherwise the behaviour is undefined. The default
     ///     implementation returns <c>"/"</c>.</remarks>
-    protected virtual string cookiePath => "/";
+    protected virtual string CookiePath => "/";
 
     /// <summary>
     ///     When overridden in a derived class, gets the expiry date/time of the cookie that contains the user’s session ID.</summary>
@@ -94,30 +94,30 @@ public abstract class Session
     ///         handler returns.</para>
     ///     <para>
     ///         The default implementation returns <c>DateTime.MaxValue</c>.</para></remarks>
-    protected virtual DateTime cookieExpires => DateTime.MaxValue;
+    protected virtual DateTime CookieExpires => DateTime.MaxValue;
 
     /// <summary>Returns a string representation of this session object.</summary>
     public override string ToString()
     {
-        return "{0} [{1}{2}] ({3})".Fmt(SessionID, cookieName, CookieModified ? " (mod)" : "", Action);
+        return "{0} [{1}{2}] ({3})".Fmt(SessionID, CookieName, CookieModified ? " (mod)" : "", Action);
     }
 
     /// <summary>
     ///     When overridden in a derived class, attempts to retrieve an existing session (identified by <see
     ///     cref="SessionID"/>) from the session store and initialises this instance with the relevant data. If no such
     ///     session as identified by <see cref="SessionID"/> is found in the session store, returns false.</summary>
-    protected abstract bool readSession();
+    protected abstract bool ReadSession();
     /// <summary>
     ///     Initializes a new session whenever an existing one couldn’t be read. Must not save the session; only initialize
     ///     any session variables. The default implementation does nothing, so derived classes don’t need to call it.</summary>
-    protected virtual void newSession() { }
+    protected virtual void NewSession() { }
     /// <summary>When overridden in a derived class, saves this instance to the session store.</summary>
-    protected abstract void saveSession();
+    protected abstract void SaveSession();
     /// <summary>
     ///     When overridden in a derived class, deletes this session (identified by <see cref="SessionID"/>) from the session
-    ///     store. This method is not called if <see cref="readSession"/> returned false, indicating that no session was
+    ///     store. This method is not called if <see cref="ReadSession"/> returned false, indicating that no session was
     ///     available.</summary>
-    protected abstract void deleteSession();
+    protected abstract void DeleteSession();
 
     /// <summary>
     ///     Initialises this session instance from the specified request. Only call this if you are not using <see
@@ -126,13 +126,13 @@ public abstract class Session
     ///     already call it.</summary>
     /// <param name="req">
     ///     Request containing the cookie information from which to initialise the session.</param>
-    protected internal void initializeFromRequest(HttpRequest req)
+    protected internal void InitializeFromRequest(HttpRequest req)
     {
         // Try to read in an existing session
-        if (req.Headers != null && req.Headers.Cookie != null && req.Headers.Cookie.ContainsKey(cookieName))
+        if (req.Headers != null && req.Headers.Cookie != null && req.Headers.Cookie.ContainsKey(CookieName))
         {
-            SessionID = req.Headers.Cookie[cookieName].Value;
-            _hadSession = readSession();
+            SessionID = req.Headers.Cookie[CookieName].Value;
+            _hadSession = ReadSession();
             _hadCookie = true;
         }
 
@@ -140,7 +140,7 @@ public abstract class Session
         if (!_hadSession)
         {
             SessionID = RndCrypto.NextBytes(21).Base64UrlEncode();
-            newSession();
+            NewSession();
             CookieModified = true;
         }
         else
@@ -153,10 +153,10 @@ public abstract class Session
             response.Headers.SetCookie = [];
         response.Headers.SetCookie.Add(new Cookie
         {
-            Name = cookieName,
+            Name = CookieName,
             Value = delete ? "-" : SessionID,
-            Path = cookiePath,
-            Expires = delete ? DateTime.Today - TimeSpan.FromDays(300) : cookieExpires,
+            Path = CookiePath,
+            Expires = delete ? DateTime.Today - TimeSpan.FromDays(300) : CookieExpires,
             HttpOnly = true,
             SameSite = HttpCookieSameSite.Lax
         });
@@ -180,14 +180,14 @@ public abstract class Session
 
             case SessionAction.Save:
                 if (wasModified)
-                    saveSession();
+                    SaveSession();
                 if (CookieModified && (wasModified || _hadSession))
                     saveCookie(response);
                 break;
 
             case SessionAction.Delete:
                 if (_hadSession)
-                    deleteSession();
+                    DeleteSession();
                 if (_hadCookie)
                     saveCookie(response, delete: true);
                 break;
@@ -211,7 +211,7 @@ public abstract class Session
     public static HttpResponse EnableAutomatic<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, ISessionEquatable<TSession>, new()
     {
         var session = new TSession();
-        session.initializeFromRequest(req);
+        session.InitializeFromRequest(req);
         var sessionCopy = session.DeepClone();
         var response = handler(session);
         session.CleanUp(response, wasModified: !sessionCopy.Equals(session));
@@ -238,7 +238,7 @@ public abstract class Session
     public static HttpResponse EnableManual<TSession>(HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, new()
     {
         var session = new TSession();
-        session.initializeFromRequest(req);
+        session.InitializeFromRequest(req);
         var response = handler(session);
         session.CleanUp(response, wasModified: session.SessionModified);
         return response;
@@ -280,8 +280,8 @@ public static class SessionExtensions
     /// <typeparam name="TSession">
     ///     The type of session to be used.</typeparam>
     /// <param name="session">
-    ///     An already-constructed empty session object. The session object will have <see cref="Session.newSession"/> or <see
-    ///     cref="Session.readSession"/> called on it to populate it.</param>
+    ///     An already-constructed empty session object. The session object will have <see cref="Session.NewSession"/> or <see
+    ///     cref="Session.ReadSession"/> called on it to populate it.</param>
     /// <param name="req">
     ///     The HTTP request for which to enable session support.</param>
     /// <param name="handler">
@@ -292,7 +292,7 @@ public static class SessionExtensions
     /// <seealso cref="SessionExtensions.EnableManual{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
     public static HttpResponse EnableAutomatic<TSession>(this TSession session, HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session, ISessionEquatable<TSession>
     {
-        session.initializeFromRequest(req);
+        session.InitializeFromRequest(req);
         var sessionCopy = session.DeepClone();
         var response = handler(session);
         session.CleanUp(response, wasModified: !sessionCopy.Equals(session));
@@ -306,8 +306,8 @@ public static class SessionExtensions
     /// <typeparam name="TSession">
     ///     The type of session to be used.</typeparam>
     /// <param name="session">
-    ///     An already-constructed empty session object. The session object will have <see cref="Session.newSession"/> or <see
-    ///     cref="Session.readSession"/> called on it to populate it.</param>
+    ///     An already-constructed empty session object. The session object will have <see cref="Session.NewSession"/> or <see
+    ///     cref="Session.ReadSession"/> called on it to populate it.</param>
     /// <param name="req">
     ///     The HTTP request for which to enable session support.</param>
     /// <param name="handler">
@@ -318,7 +318,7 @@ public static class SessionExtensions
     /// <seealso cref="SessionExtensions.EnableAutomatic{TSession}(TSession, HttpRequest, Func{TSession, HttpResponse})"/>
     public static HttpResponse EnableManual<TSession>(this TSession session, HttpRequest req, Func<TSession, HttpResponse> handler) where TSession : Session
     {
-        session.initializeFromRequest(req);
+        session.InitializeFromRequest(req);
         var response = handler(session);
         session.CleanUp(response, wasModified: session.SessionModified);
         return response;
@@ -340,12 +340,12 @@ public abstract class FileSession : Session
     ///     Gets the folder in which session data should be stored.</summary>
     /// <remarks>
     ///     The default implementation returns <c>Path.Combine(Path.GetTempPath(), "sessions")</c>.</remarks>
-    protected virtual string sessionPath => Path.Combine(Path.GetTempPath(), "sessions");
+    protected virtual string SessionPath => Path.Combine(Path.GetTempPath(), "sessions");
 
     /// <summary>Retrieves an existing session from the file system and initialises this instance with the relevant data.</summary>
-    protected override sealed bool readSession()
+    protected override sealed bool ReadSession()
     {
-        var file = Path.Combine(sessionPath, SessionID);
+        var file = Path.Combine(SessionPath, SessionID);
         lock (_lock)
         {
             if (!File.Exists(file))
@@ -356,9 +356,9 @@ public abstract class FileSession : Session
     }
 
     /// <summary>Saves this instance to the file system.</summary>
-    protected override sealed void saveSession()
+    protected override sealed void SaveSession()
     {
-        var sessionPath = this.sessionPath;
+        var sessionPath = this.SessionPath;
         // Directory.CreateDirectory() does nothing if the directory already exists.
         Directory.CreateDirectory(sessionPath);
         lock (_lock)
@@ -366,7 +366,7 @@ public abstract class FileSession : Session
     }
 
     /// <summary>Deletes the file containing the data for this session from the file system.</summary>
-    protected override sealed void deleteSession()
+    protected override sealed void DeleteSession()
     {
         var path = Path.Combine(Path.GetTempPath(), "sessions");
         var sessionPath = Path.Combine(path, SessionID);

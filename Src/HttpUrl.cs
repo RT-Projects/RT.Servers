@@ -662,10 +662,10 @@ internal class UrlWithoutQueryAll(IHttpUrl source) : UrlWithNoChanges(source)
 internal abstract class UrlWithQueryRemovals(IHttpUrl source) : UrlWithNoChanges(source)
 {
     private string _queryString = null;
-    protected abstract string getValue(string name);
-    protected abstract IEnumerable<KeyValuePair<string, string>> getQuery();
-    public override IEnumerable<KeyValuePair<string, string>> Query => _source.HasQuery ? getQuery() : [];
-    public override string this[string name] => _source.HasQuery ? getValue(name) : null;
+    protected abstract string GetValue(string name);
+    protected abstract IEnumerable<KeyValuePair<string, string>> GetQuery();
+    public override IEnumerable<KeyValuePair<string, string>> Query => _source.HasQuery ? GetQuery() : [];
+    public override string this[string name] => _source.HasQuery ? GetValue(name) : null;
     public override string QueryString => _source.HasQuery ? (_queryString ??= HttpHelper.MakeQueryString(null, Query)) : "";
     public override bool HasQuery => _source.HasQuery && QueryString.Length > 0;
     public override void AppendQueryString(StringBuilder sb, bool first)
@@ -685,16 +685,16 @@ internal class UrlWithoutQueryMultiple(IHttpUrl source, HashSet<string> names) :
 
     public UrlWithoutQueryMultiple(IHttpUrl source, IEnumerable<string> names) : this(source, [.. names]) { }
 
-    protected override string getValue(string name) => _names.Contains(name) ? null : _source[name];
-    protected override IEnumerable<KeyValuePair<string, string>> getQuery() => _source.Query.Where(kvp => !_names.Contains(kvp.Key));
+    protected override string GetValue(string name) => _names.Contains(name) ? null : _source[name];
+    protected override IEnumerable<KeyValuePair<string, string>> GetQuery() => _source.Query.Where(kvp => !_names.Contains(kvp.Key));
     public override IEnumerable<string> QueryValues(string name) => _names.Contains(name) ? [] : _source.QueryValues(name);
 }
 
 internal class UrlWithQueryWhere(IHttpUrl source, Func<string, bool> nameFilter) : UrlWithQueryRemovals(source)
 {
     private readonly Func<string, bool> _nameFilter = nameFilter ?? throw new ArgumentException();
-    protected override string getValue(string name) => _nameFilter(name) ? _source[name] : null;
-    protected override IEnumerable<KeyValuePair<string, string>> getQuery() => _source.Query.Where(kvp => _nameFilter(kvp.Key));
+    protected override string GetValue(string name) => _nameFilter(name) ? _source[name] : null;
+    protected override IEnumerable<KeyValuePair<string, string>> GetQuery() => _source.Query.Where(kvp => _nameFilter(kvp.Key));
 
     public override IEnumerable<string> QueryValues(string name)
     {
@@ -709,15 +709,15 @@ internal class UrlWithQueryWhereValues(IHttpUrl source, Func<string, string, boo
 {
     private readonly Func<string, string, bool> _nameValueFilter = nameValueFilter ?? throw new ArgumentException();
 
-    protected override string getValue(string name)
+    protected override string GetValue(string name)
     {
-        foreach (var kvp in getQuery())
+        foreach (var kvp in GetQuery())
             if (kvp.Key == name && _nameValueFilter(kvp.Key, kvp.Value))
                 return kvp.Value;
         return null;
     }
 
-    protected override IEnumerable<KeyValuePair<string, string>> getQuery()
+    protected override IEnumerable<KeyValuePair<string, string>> GetQuery()
     {
         return _source.Query.Where(kvp => _nameValueFilter(kvp.Key, kvp.Value));
     }
