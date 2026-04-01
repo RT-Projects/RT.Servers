@@ -421,10 +421,10 @@ public sealed class RequestResponseTests
             yield return kvp.Key + " => { " + kvp.Value.ContentType + ", " + kvp.Value.Filename + ", \"";
             using (var stream = kvp.Value.GetStream())
                 yield return stream.ReadAllText(Encoding.UTF8);
-            var field1 = kvp.Value.GetType().GetField("LocalFilename", BindingFlags.NonPublic | BindingFlags.Instance);
-            yield return "\" (" + (field1 == null ? "null" : field1.GetValue(kvp.Value) == null ? "" : "localfile");
-            var field2 = kvp.Value.GetType().GetField("Data", BindingFlags.NonPublic | BindingFlags.Instance);
-            yield return (field2 == null ? "null" : field2.GetValue(kvp.Value) == null ? "" : "data") + ") }\n";
+            var fldLocalFilename = kvp.Value.GetType().GetField("_localFilename", BindingFlags.NonPublic | BindingFlags.Instance);
+            yield return "\" (" + (fldLocalFilename == null ? "null" : fldLocalFilename.GetValue(kvp.Value) == null ? "" : "localfile");
+            var fldData = kvp.Value.GetType().GetField("_data", BindingFlags.NonPublic | BindingFlags.Instance);
+            yield return (fldData == null ? "null" : fldData.GetValue(kvp.Value) == null ? "" : "data") + ") }\n";
         }
     }
 
