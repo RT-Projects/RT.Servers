@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.1</TargetFrameworks>
     <Configurations>Debug-Nuget;Debug-locallibs;Release</Configurations>
     <LangVersion>latest</LangVersion>
     <DocumentationFile>$(OutputPath)\$(AssemblyName).xml</DocumentationFile>

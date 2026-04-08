@@ -72,9 +72,9 @@ public sealed class AjaxHandler<TApi>
 
                     object result;
                     if (_options == AjaxHandlerOptions.PropagateExceptions)
-                        result = method.InvokeDirect(api, arr);
+                        result = method.Invoke(api, BindingFlags.DoNotWrapExceptions, null, arr, null);
                     else
-                        try { result = method.Invoke(api, arr); }
+                        try { result = method.Invoke(api, BindingFlags.DoNotWrapExceptions, null, arr, null); }
                         catch (Exception e) { throw new AjaxException("Error invoking the AJAX method.", e); }
 
                     if (result is JsonValue value)
@@ -98,8 +98,8 @@ public sealed class AjaxHandler<TApi>
                 inner[ps[0].Name] = (ps[0].ParameterType, new Func<object, TApi, object>((obj, api) =>
                 {
                     if (_options == AjaxHandlerOptions.PropagateExceptions)
-                        return method.InvokeDirect(api, obj);
-                    try { return method.Invoke(api, [obj]); }
+                        return method.Invoke(api, BindingFlags.DoNotWrapExceptions, null, [obj], null);
+                    try { return method.Invoke(api, BindingFlags.DoNotWrapExceptions, null, [obj], null); }
                     catch (Exception e) { throw new AjaxException("Error invoking an AJAX conversion method.", e); }
                 }));
             }
