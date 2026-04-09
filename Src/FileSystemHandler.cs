@@ -160,12 +160,16 @@ public class FileSystemHandler
                 string nextSoFar = soFar + Path.DirectorySeparatorChar + suitablePiece;
                 string curPath = p + nextSoFar;
 
-                if (allowWildcards && !File.Exists(curPath) && !Directory.Exists(curPath) && curPath.Contains('*') && (dirAuth == null || dirAuth(request) == null))
-                    curPath = new DirectoryInfo(p + soFar).GetFileSystemInfos(suitablePiece).Select(fs => fs.FullName).FirstOrDefault() ?? curPath;
+                if (allowWildcards && !File.Exists(curPath) && !Directory.Exists(curPath) && curPath.Contains('*') && (dirAuth == null || dirAuth(request) == null)
+                        && new DirectoryInfo(p + soFar).EnumerateFileSystemInfos(suitablePiece).FirstOrDefault() is { } newPiece)
+                {
+                    nextSoFar = soFar + Path.DirectorySeparatorChar + newPiece.Name;
+                    curPath = newPiece.FullName;
+                }
 
                 if (File.Exists(curPath))
                 {
-                    soFarUrl += "/" + new DirectoryInfo(p + soFar).GetFiles(suitablePiece)[0].Name.UrlEscape();
+                    soFarUrl += "/" + new DirectoryInfo(p + soFar).EnumerateFiles(suitablePiece).First().Name.UrlEscape();
 
                     if (request.Url.Path != soFarUrl)
                         return handleHeaderProcessor(FileSystemResponseType.Redirect, HttpResponse.Redirect(request.Url.WithPath(soFarUrl)));
@@ -175,7 +179,15 @@ public class FileSystemHandler
                 }
                 else if (Directory.Exists(curPath))
                 {
-                    soFarUrl += "/" + new DirectoryInfo(p + soFar).GetDirectories(suitablePiece)[0].Name.UrlEscape();
+                    var examinePiece = suitablePiece;
+                    tryAgain:
+                    var dirs = new DirectoryInfo(p + soFar).GetDirectories(examinePiece);
+                    if (dirs.Length == 0 && examinePiece.EndsWith('.'))
+                    {
+                        examinePiece = examinePiece[..^1];
+                        goto tryAgain;
+                    }
+                    soFarUrl += "/" + dirs[0].Name.UrlEscape();
                     soFar = nextSoFar;
                     processConfig();
                     goto foundOne;
@@ -187,7 +199,7 @@ public class FileSystemHandler
                 return HttpResponse.Create(File.Open(file404, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), file404type, HttpStatusCode._404_NotFound);
             throw new HttpNotFoundException(request.Url.WithPathOnly(soFarUrl + "/" + piece).ToHref());
 
-        foundOne:;
+            foundOne:;
         }
 
         // If this point is reached, it’s a directory.
