@@ -152,7 +152,7 @@ public class FileSystemHandler
             string piece = null;
             try { piece = urlPieces[i].UrlUnescape(); }
             catch (ArgumentException) { throw new HttpException(HttpStatusCode._400_BadRequest, userMessage: "The URL escaping format is not valid."); }
-            if (piece == "..")
+            if (piece == ".." || piece.Contains('/') || piece.Contains('\\'))
                 throw new HttpException(HttpStatusCode._403_Forbidden);
 
             foreach (var suitablePiece in getCandidates(piece))
