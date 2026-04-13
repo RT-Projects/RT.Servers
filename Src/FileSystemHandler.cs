@@ -169,11 +169,17 @@ public class FileSystemHandler
 
                 if (File.Exists(curPath))
                 {
-                    soFarUrl += "/" + new DirectoryInfo(p + soFar).EnumerateFiles(suitablePiece).First().Name.UrlEscape();
-
+                    var examinePiece = suitablePiece;
+                    tryAgain:
+                    var files = new DirectoryInfo(p + soFar).GetFiles(examinePiece);
+                    if (files.Length == 0 && examinePiece.EndsWith('.'))
+                    {
+                        examinePiece = examinePiece[..^1];
+                        goto tryAgain;
+                    }
+                    soFarUrl += "/" + files[0].Name.UrlEscape();
                     if (request.Url.Path != soFarUrl)
                         return handleHeaderProcessor(FileSystemResponseType.Redirect, HttpResponse.Redirect(request.Url.WithPath(soFarUrl)));
-
                     var opts = Options ?? DefaultOptions;
                     return handleHeaderProcessor(FileSystemResponseType.File, HttpResponse.File(curPath, opts.GetMimeType(curPath), opts.MaxAge, request.Headers.IfModifiedSince));
                 }
