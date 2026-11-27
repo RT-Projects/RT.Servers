@@ -7,6 +7,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write # lets the job request the GitHub OIDC token that NuGet trusted publishing exchanges for an API key
 
     steps:
       - name: Checkout
@@ -49,8 +52,14 @@ jobs:
       - name: "dotnet pack: ${{ env.VER_STR }}"
         run: dotnet pack Src\RT.Servers.csproj --configuration Release -p:InformationalVersion="${{env.VER_STR}}" -p:VersionPrefix=${{env.VER_NUM}} -p:VersionSuffix=${{env.VER_SUF}} -p:FileVersion=${{env.VER_NUM}} -p:AssemblyVersion=${{env.VER_NUM}} -o Publish
 
+      - name: NuGet login
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push to NuGet
-        run: dotnet nuget push Publish\*.nupkg -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json
+        run: dotnet nuget push Publish\*.nupkg -k ${{ steps.nuget-login.outputs.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
