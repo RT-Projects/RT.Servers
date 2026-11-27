@@ -86,7 +86,14 @@ public sealed class HttpServerOptions : IClassifyObjectProcessor
     [ClassifyIgnore]
     public Func<string, X509Certificate2> CertificateResolver = null;
 
-    /// <summary>Timeout in milliseconds for idle connections. Set to 0 for no timeout. Default is 10000 (10 seconds).</summary>
+    /// <summary>
+    ///     Timeout in milliseconds for idle connections. Set to 0 for no timeout. Default is 10000 (10 seconds).</summary>
+    /// <remarks>
+    ///     A connection is idle while the server is waiting for the client to send something (the SSL handshake, a
+    ///     request, or the next request on a keep-alive connection) or to accept more of the data being sent to it. Time
+    ///     spent in the request handler does not count. Once a connection has been upgraded to a WebSocket, the server
+    ///     no longer limits how long it waits for the client to send something. The timeout is checked about once a
+    ///     second, so it is not enforced any more precisely than that.</remarks>
     public int IdleTimeout = 10000;
 
     /// <summary>Maximum allowed size for the headers of a request, in bytes. Default is 256 KB.</summary>

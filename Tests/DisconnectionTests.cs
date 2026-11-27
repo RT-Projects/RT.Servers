@@ -109,4 +109,113 @@ public sealed class DisconnectionTests
             instance.StopListening(brutal: true);
         }
     }
+
+    private static void assertClosedByServer(Socket sck)
+    {
+        // If the server hasn’t closed the connection, this throws a SocketException with a different error code because of the ReceiveTimeout
+        try { sck.ReceiveAllBytes(); }
+        catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset) { }
+    }
+
+    [TestMethod]
+    public void TestIdleTimeout()
+    {
+        var instance = new HttpServer(TestHelpers.Port + 38, new HttpServerOptions { IdleTimeout = 1000 })
+        {
+            Handler = new UrlResolver(
+                new UrlMapping(req => HttpResponse.PlainText("bunch of text"), path: "/static")
+            ).Handle
+        };
+        try
+        {
+            instance.StartListening();
+
+            // In each case the server must close the connection by itself once the idle timeout has elapsed. This waits for
+            // things to happen instead of sleeping for a fixed time because the other tests running in parallel can delay the server.
+
+            // A connection on which the client never sends anything
+            using (var cl = new TcpClient())
+            {
+                cl.ReceiveTimeout = 1000; // 1 sec
+                cl.Connect("localhost", TestHelpers.Port + 38);
+                Assert.IsTrue(TestHelpers.WaitUntil(() => instance.Stats.ActiveHandlers == 1, TimeSpan.FromSeconds(10)));
+                Assert.IsTrue(TestHelpers.WaitUntil(() => instance.Stats.ActiveHandlers == 0, TimeSpan.FromSeconds(10)));
+                assertClosedByServer(cl.Client);
+            }
+
+            // A connection on which the client sends an incomplete request and then goes quiet
+            using (var cl = new TcpClient())
+            {
+                cl.ReceiveTimeout = 1000; // 1 sec
+                cl.Connect("localhost", TestHelpers.Port + 38);
+                cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\n".ToUtf8());
+                Assert.IsTrue(TestHelpers.WaitUntil(() => instance.Stats.ActiveHandlers == 1, TimeSpan.FromSeconds(10)));
+                Assert.IsTrue(TestHelpers.WaitUntil(() => instance.Stats.ActiveHandlers == 0, TimeSpan.FromSeconds(10)));
+                assertClosedByServer(cl.Client);
+            }
+
+            // A connection on which the client completes a keep-alive request and then goes quiet
+            using (var cl = new TcpClient())
+            {
+                cl.ReceiveTimeout = 10000; // 10 sec
+                cl.Connect("localhost", TestHelpers.Port + 38);
+                cl.Client.Send("GET /static HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n".ToUtf8());
+                TestHelpers.ReadResponseUntilContent(cl.Client);
+                Assert.IsTrue(TestHelpers.WaitUntil(() => instance.Stats.KeepAliveHandlers == 1, TimeSpan.FromSeconds(10)));
+                Assert.IsTrue(TestHelpers.WaitUntil(() => instance.Stats.KeepAliveHandlers == 0, TimeSpan.FromSeconds(10)));
+                Assert.AreEqual(0, instance.Stats.ActiveHandlers);
+                assertClosedByServer(cl.Client);
+            }
+        }
+        finally
+        {
+            instance.StopListening(brutal: true);
+        }
+    }
+
+    [TestMethod]
+    public void TestIdleTimeoutSlowHandler()
+    {
+        var instance = new HttpServer(TestHelpers.Port + 39, new HttpServerOptions { IdleTimeout = 1000 })
+        {
+            Handler = new UrlResolver(
+                new UrlMapping(req => { Thread.Sleep(3000); return HttpResponse.PlainText("slow text"); }, path: "/slow")
+            ).Handle
+        };
+        try
+        {
+            instance.StartListening();
+
+            // The idle timeout must not cut off a connection whose request handler is merely taking a long time
+            using (var cl = new TcpClient())
+            {
+                cl.ReceiveTimeout = 10000; // 10 sec
+                cl.Connect("localhost", TestHelpers.Port + 39);
+                cl.Client.Send("GET /slow HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".ToUtf8());
+                var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
+                var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
+                var parts = response.Split("\r\n\r\n");
+                Assert.AreEqual(HttpStatusCode._200_OK, code);
+                Assert.AreEqual("slow text", parts[1]);
+            }
+
+            // Same, but the request arrives a while after the connection is opened, so the server is already waiting for it
+            using (var cl = new TcpClient())
+            {
+                cl.ReceiveTimeout = 10000; // 10 sec
+                cl.Connect("localhost", TestHelpers.Port + 39);
+                Thread.Sleep(500);
+                cl.Client.Send("GET /slow HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".ToUtf8());
+                var response = Encoding.UTF8.GetString(cl.Client.ReceiveAllBytes());
+                var code = (HttpStatusCode) int.Parse(response.Substring("HTTP/1.1 ".Length, 3));
+                var parts = response.Split("\r\n\r\n");
+                Assert.AreEqual(HttpStatusCode._200_OK, code);
+                Assert.AreEqual("slow text", parts[1]);
+            }
+        }
+        finally
+        {
+            instance.StopListening(brutal: true);
+        }
+    }
 }

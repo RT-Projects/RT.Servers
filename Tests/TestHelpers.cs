@@ -1,6 +1,8 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [assembly: Parallelize(Scope = ExecutionScope.MethodLevel)]
@@ -22,6 +24,18 @@ static class TestHelpers
                 return ms.ToArray();
             ms.Write(buffer, 0, read);
         }
+    }
+
+    public static bool WaitUntil(Func<bool> condition, TimeSpan timeout)
+    {
+        var start = DateTime.UtcNow;
+        while (!condition())
+        {
+            if (DateTime.UtcNow - start > timeout)
+                return false;
+            Thread.Sleep(50);
+        }
+        return true;
     }
 
     public static void ReadResponseUntilContent(Socket sck)

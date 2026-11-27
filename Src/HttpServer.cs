@@ -101,6 +101,7 @@ public class HttpServer
 
     private readonly Dictionary<string, HttpEndpoint> _listeningSockets = [];
     private readonly HashSet<ConnectionHandler> _activeConnectionHandlers = [];
+    private Timer _idleTimer;
     private HttpServerOptions _opt;
 
     /// <summary>
@@ -299,10 +300,52 @@ public class HttpServer
     public void HandleConnection(Socket incomingConnection, bool secure)
     {
         Stats.AddConnectionReceived();
+        // These two only affect synchronous reads and writes. Asynchronous reads are covered by closeIdleConnections().
         if (_opt.IdleTimeout != 0)
+        {
             incomingConnection.ReceiveTimeout = _opt.IdleTimeout;
+            incomingConnection.SendTimeout = _opt.IdleTimeout;
+        }
+        // Lets the OS eventually notice a remote party that has disappeared without closing the connection, even in cases
+        // where the idle timeout doesn’t apply (e.g. WebSockets)
+        incomingConnection.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
         // The reader will add itself to the active connections, process the current connection, and remove from active connections when done
         new ConnectionHandler(incomingConnection, this, secure);
+    }
+
+    /// <summary>
+    ///     Closes all connections that have been waiting for the client to send something for longer than <see
+    ///     cref="HttpServerOptions.IdleTimeout"/>. Invoked periodically by <see cref="_idleTimer"/>.</summary>
+    private void closeIdleConnections(object _)
+    {
+        ConnectionHandler[] idle;
+        lock (_activeConnectionHandlers)
+        {
+            if (!IsListening && _activeConnectionHandlers.Count == 0)
+            {
+                _idleTimer?.Dispose();
+                _idleTimer = null;
+                return;
+            }
+
+            var timeout = _opt.IdleTimeout;
+            if (timeout <= 0)
+                return;
+            var cutoff = DateTime.UtcNow.Ticks - timeout * TimeSpan.TicksPerMillisecond;
+            idle = _activeConnectionHandlers.Where(conn =>
+            {
+                var since = Interlocked.Read(ref conn.WaitingSince);
+                return since != 0 && since < cutoff;
+            }).ToArray();
+        }
+
+        // Closing the socket causes the outstanding async receive to complete, which then winds down the connection handler as usual.
+        // (Socket.Shutdown() would be more graceful, but on Windows it does not complete the outstanding receive.)
+        foreach (var conn in idle)
+        {
+            Interlocked.Exchange(ref conn.WaitingSince, 0);
+            try { conn.Socket.Close(); } catch { }
+        }
     }
 
     private HttpResponse defaultErrorHandler(Exception exception, Exception exInErrorHandler = null)
@@ -374,6 +417,11 @@ public class HttpServer
         public Socket Socket;
         public bool DisallowKeepAlive = false;
         public bool KeepAliveActive = false;
+        /// <summary>
+        ///     The time (in UTC ticks) at which we started waiting for the client to send something, or 0 if we are not
+        ///     currently waiting (for example, because the request handler is running). Used to enforce <see
+        ///     cref="HttpServerOptions.IdleTimeout"/>.</summary>
+        public long WaitingSince = 0;
 
         private Stream _stream;
         private byte[] _buffer;
@@ -428,12 +476,22 @@ public class HttpServer
             _headersSoFar = "";
 
             lock (server._activeConnectionHandlers)
+            {
                 server._activeConnectionHandlers.Add(this);
+                // This timer stops itself once the server is no longer listening and all connections are gone
+                server._idleTimer ??= new Timer(server.closeIdleConnections, null, 1000, 1000);
+            }
 
             _stream = new NetworkStream(socket, ownsSocket: true);
             if (!_secure)
+            {
                 receiveMoreHeaderData();
-            else if (_server.PropagateExceptions)
+                return;
+            }
+
+            // The idle timeout also applies while waiting for the client to complete the SSL handshake
+            Interlocked.Exchange(ref WaitingSince, DateTime.UtcNow.Ticks);
+            if (_server.PropagateExceptions)
                 beginAuthenticateAsServer(server);
             else
             {
@@ -490,6 +548,7 @@ public class HttpServer
 
         private void asyncCallbackTryBlock(IAsyncResult ar, SslStream secureStream)
         {
+            Interlocked.Exchange(ref WaitingSince, 0);
             try
             {
                 secureStream.EndAuthenticateAsServer(ar);
@@ -532,6 +591,7 @@ public class HttpServer
                 // Couldn’t read synchronously, so begin an async read that waits for the data to arrive
                 try
                 {
+                    Interlocked.Exchange(ref WaitingSince, DateTime.UtcNow.Ticks);
                     Interlocked.Increment(ref _begunReceives);
                     _stream.BeginRead(_buffer, 0, _buffer.Length, moreHeaderDataReceived, null);
                 }
@@ -583,6 +643,7 @@ public class HttpServer
         private void moreHeaderDataReceivedTryBlock(IAsyncResult res)
         {
             KeepAliveActive = false;
+            Interlocked.Exchange(ref WaitingSince, 0);
             Interlocked.Increment(ref _endedReceives);
 
             try
